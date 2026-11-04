@@ -1,5 +1,6 @@
 package com.zapthemes.build;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,12 +44,16 @@ public class JavaConventionsPlugin implements Plugin<Project> {
         project.getTasks().withType(Test.class).configureEach(test -> {
             test.useJUnitPlatform();
             test.jvmArgs(swtJvmArgs);
+            // SWT tests can block on a native event loop; fail the stuck test with its stack trace.
+            test.systemProperty("junit.jupiter.execution.timeout.default", "2 m");
+            test.getTimeout().set(Duration.ofMinutes(10));
         });
 
         JavaToolchainService toolchains = project.getExtensions().getByType(JavaToolchainService.class);
         project.getTasks().withType(JavaExec.class).configureEach(exec -> {
             exec.getJavaLauncher().convention(toolchains.launcherFor(java.getToolchain()));
             exec.jvmArgs(swtJvmArgs);
+            exec.getTimeout().convention(Duration.ofMinutes(10));
         });
     }
 
