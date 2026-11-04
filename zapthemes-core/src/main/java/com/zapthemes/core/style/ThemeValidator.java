@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.gson.JsonElement;
+import com.zapthemes.core.SystemColors;
 import com.zapthemes.core.model.Theme;
 
 /**
@@ -60,9 +61,13 @@ public final class ThemeValidator {
         theme.registries().forEach((name, entries) -> {
             ResolvedStyle registry = new ResolvedStyle(entries, theme.palette());
             for (String key : entries.keySet()) {
+                if (name.equals(SystemColors.REGISTRY) && !SystemColors.isConstant(key)) {
+                    problems.add("registries." + name + "." + key + ": not an SWT system color constant (COLOR_...)");
+                    continue;
+                }
                 try {
                     switch (name) {
-                        case "colors" -> registry.color(key);
+                        case "colors", SystemColors.REGISTRY -> registry.color(key);
                         case "fonts" -> registry.font(key);
                         default -> registry.value(key);
                     }

@@ -55,7 +55,7 @@ public final class ThemeManager {
     private final PlatformThemeSupport platform = PlatformThemeSupport.forCurrentPlatform();
 
     private StyleResolver resolver = new StyleResolver(Theme.EMPTY);
-    private ThemeResources resources;
+    private final ThemeResources resources;
 
     private ThemeManager(Display display) {
         this.display = display;
@@ -125,9 +125,7 @@ public final class ThemeManager {
             return;
         }
         Theme previous = resolver.theme();
-        ThemeResources oldResources = resources;
         resolver = new StyleResolver(theme);
-        resources = new ThemeResources(display);
 
         platform.beforeTheme(display, resolver.platform(), resources);
         Set<Widget> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -136,7 +134,6 @@ public final class ThemeManager {
         }
         platform.afterTheme(display, resolver.platform());
         listeners.forEach(listener -> listener.themeChanged(previous, theme));
-        oldResources.dispose();
     }
 
     /** Re-applies the current theme to {@code widget} only (not its children). */
@@ -157,7 +154,7 @@ public final class ThemeManager {
         return resolver.registry(name);
     }
 
-    /** The resources of the current theme; replaced (and the old ones disposed) on theme change. */
+    /** The colors and fonts of this display's themes (kept for the display's lifetime). */
     public ThemeResources resources() {
         return resources;
     }

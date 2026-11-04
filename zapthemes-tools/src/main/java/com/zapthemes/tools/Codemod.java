@@ -13,6 +13,7 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.Range;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.MethodReferenceExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.TypeExpr;
@@ -38,13 +39,25 @@ public final class Codemod {
     public record Result(String source, List<Change> changes) {
     }
 
+    static final String SYSTEM_COLORS = "com.zapthemes.core.SystemColors";
+
     private final Map<String, String> proxies;
     private final TypeNames typeNames;
+    private final boolean systemColors;
     private final JavaParser parser;
 
     Codemod(Map<String, String> proxies, TypeNames typeNames) {
+        this(proxies, typeNames, false);
+    }
+
+    /**
+     * @param systemColors also rewrite {@code x.getSystemColor(c)} to {@code SystemColors.get(x, c)},
+     *        so code that paints with system colors follows the theme
+     */
+    Codemod(Map<String, String> proxies, TypeNames typeNames, boolean systemColors) {
         this.proxies = proxies;
         this.typeNames = typeNames;
+        this.systemColors = systemColors;
         this.parser = newParser();
     }
 
@@ -68,7 +81,26 @@ public final class Codemod {
                         edits.add(new Edit(range, proxy));
                     });
         }
+        if (systemColors) {
+            int[] lineStarts = lineStarts(source);
+            for (MethodCallExpr call : unit.findAll(MethodCallExpr.class)) {
+                if (call.getNameAsString().equals("getSystemColor") && call.getArguments().size() == 1
+                        && call.getScope().isPresent() && call.getRange().isPresent()) {
+                    String display = text(source, lineStarts, call.getScope().get().getRange().orElseThrow());
+                    String id = text(source, lineStarts, call.getArgument(0).getRange().orElseThrow());
+                    Range range = call.getRange().get();
+                    changes.add(new Change(range.begin.line, "getSystemColor", SYSTEM_COLORS + ".get"));
+                    edits.add(new Edit(range, SYSTEM_COLORS + ".get(" + display + ", " + id + ")"));
+                }
+            }
+        }
         return new Result(apply(source, edits), changes);
+    }
+
+    private static String text(String source, int[] lineStarts, Range range) {
+        int start = lineStarts[range.begin.line - 1] + range.begin.column - 1;
+        int end = lineStarts[range.end.line - 1] + range.end.column;
+        return source.substring(start, end);
     }
 
     /** The types in {@code new T(...)} and {@code T::new} expressions. */

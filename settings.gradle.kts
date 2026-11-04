@@ -20,6 +20,8 @@ include(
     "zapthemes-swt",
     "zapthemes-widgets",
     "zapthemes-jface",
+    "zapthemes-nebula-fork",
+    "zapthemes-nebula",
     "zapthemes-themes",
     "zapthemes-tools",
     "zapthemes-demo",

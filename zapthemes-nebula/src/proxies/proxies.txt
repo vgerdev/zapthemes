@@ -1,0 +1,31 @@
+# Proxy list for zapthemes-nebula (see com.zapthemes.tools.ProxyNames for the format).
+# org.eclipse.nebula.widgets.X -> com.zapthemes.nebula.X, same simple names.
+package org.eclipse.nebula.widgets.badgedlabel
+package org.eclipse.nebula.widgets.calendarcombo
+package org.eclipse.nebula.widgets.carousel
+package org.eclipse.nebula.widgets.cdatetime
+package org.eclipse.nebula.widgets.checktablecombo
+package org.eclipse.nebula.widgets.chips
+package org.eclipse.nebula.widgets.ctreecombo
+package org.eclipse.nebula.widgets.gallery
+package org.eclipse.nebula.widgets.grid
+package org.eclipse.nebula.widgets.opal.breadcrumb
+package org.eclipse.nebula.widgets.opal.checkboxgroup
+package org.eclipse.nebula.widgets.opal.duallist
+package org.eclipse.nebula.widgets.opal.header
+package org.eclipse.nebula.widgets.opal.rangeslider
+package org.eclipse.nebula.widgets.opal.roundedtoolbar
+package org.eclipse.nebula.widgets.opal.starrating
+package org.eclipse.nebula.widgets.opal.switchbutton
+package org.eclipse.nebula.widgets.opal.textassist
+package org.eclipse.nebula.widgets.opal.titledseparator
+package org.eclipse.nebula.widgets.passwordrevealer
+package org.eclipse.nebula.widgets.pgroup
+package org.eclipse.nebula.widgets.progresscircle
+package org.eclipse.nebula.widgets.pshelf
+package org.eclipse.nebula.widgets.segmentedbar
+package org.eclipse.nebula.widgets.splitbutton
+package org.eclipse.nebula.widgets.tablecombo
+package org.eclipse.nebula.widgets.tiles
+
+index com.zapthemes.nebula.NebulaProxies

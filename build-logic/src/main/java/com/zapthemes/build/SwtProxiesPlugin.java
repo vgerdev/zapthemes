@@ -40,7 +40,8 @@ public class SwtProxiesPlugin implements Plugin<Project> {
             task.setGroup("build");
             task.setDescription("Generates theme-aware proxy subclasses for SWT/Nebula widgets.");
             task.getMainClass().set("com.zapthemes.tools.ProxyGenerator");
-            task.classpath(generator);
+            // The module's compile classpath holds the widget libraries to proxy (e.g. the Nebula fork).
+            task.classpath(generator, project.getConfigurations().getByName("compileClasspath"));
             task.getInputs().file(proxyList).withPropertyName("proxyList");
             task.getOutputs().dir(outputDir).withPropertyName("outputDir");
             // The generator empties the output directory itself before writing.

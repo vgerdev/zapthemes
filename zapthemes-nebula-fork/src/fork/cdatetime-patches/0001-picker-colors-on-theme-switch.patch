@@ -1,0 +1,38 @@
+diff --git a/org/eclipse/nebula/widgets/cdatetime/DatePicker.java b/org/eclipse/nebula/widgets/cdatetime/DatePicker.java
+index 94849c0..8ab77cf 100644
+--- a/org/eclipse/nebula/widgets/cdatetime/DatePicker.java
++++ b/org/eclipse/nebula/widgets/cdatetime/DatePicker.java
+@@ -1530,20 +1530,27 @@ class DatePicker extends VPanel {
+         if (cdt.pickerBackgroundColor != null) {
+             picker.setBackground(cdt.pickerBackgroundColor);
+             if (dayPanel != null) dayPanel.setBackground(cdt.pickerBackgroundColor);
+-            if (monthPanel != null) dayPanel.setBackground(cdt.pickerBackgroundColor);
+-            if (yearPanel != null) dayPanel.setBackground(cdt.pickerBackgroundColor);
++            // ZapThemes: upstream set dayPanel three times; update the month and year panels too.
++            if (monthPanel != null) monthPanel.setBackground(cdt.pickerBackgroundColor);
++            if (yearPanel != null) yearPanel.setBackground(cdt.pickerBackgroundColor);
+         }
+         if (cdt.pickerForegroundColor != null) {
+             picker.setForeground(cdt.pickerForegroundColor);
+             if (dayPanel != null) dayPanel.setForeground(cdt.pickerForegroundColor);
+-            if (monthPanel != null) dayPanel.setForeground(cdt.pickerForegroundColor);
+-            if (yearPanel != null) dayPanel.setForeground(cdt.pickerForegroundColor);
++            if (monthPanel != null) monthPanel.setForeground(cdt.pickerForegroundColor);
++            if (yearPanel != null) yearPanel.setForeground(cdt.pickerForegroundColor);
++            // ZapThemes: the weekday labels got the picker foreground only when created.
++            if (dayLabels != null) {
++                for (VLabel dayLabel : dayLabels) {
++                    dayLabel.setForeground(cdt.pickerForegroundColor);
++                }
++            }
+         }
+         if (cdt.pickerFont != null) {
+             picker.setFont(cdt.pickerFont);
+             if (dayPanel != null) dayPanel.setFont(cdt.pickerFont);
+-            if (monthPanel != null) dayPanel.setFont(cdt.pickerFont);
+-            if (yearPanel != null) dayPanel.setFont(cdt.pickerFont);
++            if (monthPanel != null) monthPanel.setFont(cdt.pickerFont);
++            if (yearPanel != null) yearPanel.setFont(cdt.pickerFont);
+         }
+         cdt.getPainter().update(picker);
+         cdt.getPainter().update(body);

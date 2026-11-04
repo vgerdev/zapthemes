@@ -14,7 +14,8 @@
     "onAccent": "#FFFFFF",
     "error": "#F07178",
     "qualifier": "#8C8F94",
-    "stripe": "#303236"
+    "stripe": "#303236",
+    "border": "#4A4D52"
   },
   "defaults": {
     "background": "$bg",
@@ -122,6 +123,136 @@
     "ProgressBar": {
       "background": "$muted",
       "foreground": "$accent"
+    },
+    "Grid": {
+      "background": "$surface",
+      "lineColor": "$border",
+      "cellHeaderSelectionBackground": "$selection"
+    },
+    "GridItem": {
+      "background": "$surface",
+      "foreground": "$fg"
+    },
+    "CDateTime": {
+      "background": "$surface",
+      "pickerBackgroundColor": "$surface",
+      "pickerForegroundColor": "$fg",
+      "pickerTodayColor": "$accent",
+      "pickerActiveDayColor": "$fg",
+      "pickerInactiveDayColor": "$disabled",
+      "buttonHoverBackgroundColor": "$hover",
+      "buttonHoverBorderColor": "$border",
+      "buttonSelectedBackgroundColor": "$accent",
+      "buttonSelectedBorderColor": "$accent"
+    },
+    "Gallery": {
+      "background": "$surface",
+      "groupRenderer.titleBackground": "$muted",
+      "groupRenderer.titleForeground": "$fg",
+      "itemRenderer.selectionBackgroundColor": "$accent",
+      "itemRenderer.selectionForegroundColor": "$onAccent",
+      "itemRenderer.foregroundColor": "$fg",
+      "itemRenderer.backgroundColor": "$surface"
+    },
+    "GalleryItem": {
+      "background": "$surface",
+      "foreground": "$fg"
+    },
+    "TableCombo": {
+      "background": "$surface",
+      "borderColor": "$border",
+      "oddLinesBackgroundColor": "$surface",
+      "evenLinesBackgroundColor": "$stripe",
+      "oddLinesForegroundColor": "$fg",
+      "evenLinesForegroundColor": "$fg"
+    },
+    "CTreeCombo": {
+      "background": "$surface"
+    },
+    "CTreeComboItem": {
+      "background": "$surface",
+      "foreground": "$fg"
+    },
+    "PGroup": {
+      "strategy.borderColor": "$border",
+      "titleBackground": "$surface",
+      "titleBackgroundGradient": "$muted",
+      "foreground": "$fg"
+    },
+    "Header": {
+      "titleColor": "$fg",
+      "gradientStart": "$surface",
+      "gradientEnd": "$bg",
+      "separatorColor": "$border"
+    },
+    "SwitchButton": {
+      "selectedBackgroundColor": "$accent",
+      "selectedForegroundColor": "$onAccent",
+      "unselectedBackgroundColor": "$muted",
+      "unselectedForegroundColor": "$fg",
+      "borderColor": "$border",
+      "buttonBorderColor": "$border",
+      "buttonBackgroundColor1": "$surface",
+      "buttonBackgroundColor2": "$surface",
+      "focusColor": "$accent"
+    },
+    "Chips": {
+      "chipsBackground": "$muted",
+      "borderColor": "$border",
+      "hoverBackground": "$hover",
+      "hoverForeground": "$fg",
+      "hoverBorderColor": "$border",
+      "pushedStateBackground": "$accent",
+      "pushedStateForeground": "$onAccent",
+      "pushedStateBorderColor": "$accent",
+      "closeButtonForeground": "$fg",
+      "closeButtonBackground": "$muted",
+      "closeButtonHoverForeground": "$onAccent",
+      "closeButtonHoverBackground": "$accent"
+    },
+    "BadgedLabel": {
+      "badgeBackground": "$accent",
+      "badgeForeground": "$onAccent",
+      "textColor": "$fg",
+      "backgroundColor": "$muted",
+      "borderColor": "$border"
+    },
+    "Carousel": {
+      "arrowColor": "$fg",
+      "circleBackground": "$muted",
+      "circleForeground": "$accent",
+      "circleHoverColor": "$hover"
+    },
+    "ProgressCircle": {
+      "highlightColor": "$accent",
+      "background": "$bg",
+      "foreground": "$muted"
+    },
+    "RoundedToolbar": {
+      "borderColor": "$border"
+    },
+    "RoundedToolItem": {
+      "textColor": "$fg",
+      "textColorSelected": "$onAccent"
+    },
+    "BreadcrumbItem": {
+      "textColor": "$fg",
+      "textColorSelected": "$accent"
+    },
+    "TextAssist": {
+      "background": "$surface"
+    },
+    "PasswordRevealer": {
+      "background": "$surface"
+    },
+    "Tiles": {
+      "background": "$surface"
+    },
+    "RangeSlider": {
+      "foreground": "$border"
+    },
+    "PShelf": {
+      "renderer.shadeColor": "$muted"
     }
   },
   "classes": {
@@ -180,6 +311,30 @@
       "CONTENT_ASSIST_FOREGROUND_COLOR": "$fg",
       "org.eclipse.ui.workbench.INFORMATION_BACKGROUND": "$surface",
       "org.eclipse.ui.workbench.INFORMATION_FOREGROUND": "$fg"
+    },
+    "systemColors": {
+      "COLOR_WIDGET_BACKGROUND": "$bg",
+      "COLOR_WIDGET_FOREGROUND": "$fg",
+      "COLOR_LIST_BACKGROUND": "$surface",
+      "COLOR_LIST_FOREGROUND": "$fg",
+      "COLOR_LIST_SELECTION": "$accent",
+      "COLOR_LIST_SELECTION_TEXT": "$onAccent",
+      "COLOR_WIDGET_NORMAL_SHADOW": "$border",
+      "COLOR_WIDGET_LIGHT_SHADOW": "$muted",
+      "COLOR_WIDGET_HIGHLIGHT_SHADOW": "$surface",
+      "COLOR_WIDGET_DARK_SHADOW": "$disabled",
+      "COLOR_WIDGET_BORDER": "$border",
+      "COLOR_TITLE_BACKGROUND": "$surface",
+      "COLOR_TITLE_FOREGROUND": "$fg",
+      "COLOR_TITLE_BACKGROUND_GRADIENT": "$muted",
+      "COLOR_TITLE_INACTIVE_BACKGROUND": "$muted",
+      "COLOR_TITLE_INACTIVE_FOREGROUND": "$disabled",
+      "COLOR_TITLE_INACTIVE_BACKGROUND_GRADIENT": "$muted",
+      "COLOR_INFO_BACKGROUND": "$muted",
+      "COLOR_INFO_FOREGROUND": "$fg",
+      "COLOR_TEXT_DISABLED_BACKGROUND": "$muted",
+      "COLOR_WIDGET_DISABLED_FOREGROUND": "$disabled",
+      "COLOR_LINK_FOREGROUND": "$accent"
     }
   }
 }
