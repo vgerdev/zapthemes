@@ -146,4 +146,12 @@ class PropertyStylerTest {
         // A widget may have kept the themed color in a field: it must still paint.
         assertThat(themed.isDisposed()).isFalse();
     }
+
+    @Test
+    void disposingASystemColorLeavesTheDisplaysOwn() {
+        manager.setTheme(PLAIN);
+        SystemColors.get(display, SWT.COLOR_BLACK).dispose();
+        assertThat(display.getSystemColor(SWT.COLOR_BLACK).isDisposed()).isFalse();
+        assertThat(SystemColors.get(display, SWT.COLOR_BLACK).isDisposed()).isFalse();
+    }
 }

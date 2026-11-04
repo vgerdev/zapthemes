@@ -20,9 +20,11 @@ import org.eclipse.swt.widgets.Display;
  *
  * <pre>{@code "registries": { "systemColors": { "COLOR_LIST_SELECTION": "$selection" } }}</pre>
  *
- * Constants the theme does not map return the real system color. A themed color is a new
- * {@link Color} per call (colors hold no OS resource since SWT 3.115): widget code keeps system
- * colors in fields, and some libraries dispose colors they hold, which must not affect others.
+ * Constants the theme does not map return the real system color. Either way a {@link Display} gets
+ * a new {@link Color} per call (colors hold no OS resource since SWT 3.115): widget code keeps
+ * system colors in fields, and some libraries dispose colors they hold, which must not affect
+ * others. That includes the real ones: SWT shares one instance of {@code COLOR_BLACK} and the other
+ * device colors per display, and on GTK disposing it invalidates it for every widget.
  */
 public final class SystemColors {
 
@@ -35,18 +37,20 @@ public final class SystemColors {
     }
 
     /**
-     * The theme's color for system color {@code id}, or {@link Device#getSystemColor(int)}. Only a
-     * {@link Display} is themed (code also asks a GC's device, which may be a printer).
+     * The theme's color for system color {@code id}, or a copy of {@link Device#getSystemColor(int)}.
+     * Only a {@link Display} is themed (code also asks a GC's device, which may be a printer).
      */
     public static Color get(Device device, int id) {
-        String name = NAMES.get(id);
-        if (name != null && device instanceof Display display) {
-            Optional<RGBA> themed = ThemeManager.get(display).registry(REGISTRY).color(name);
-            if (themed.isPresent()) {
-                return new Color(display, themed.get());
-            }
+        if (!(device instanceof Display display)) {
+            return device.getSystemColor(id);
         }
-        return device.getSystemColor(id);
+        String name = NAMES.get(id);
+        Optional<RGBA> themed = name == null ? Optional.empty() : ThemeManager.get(display).registry(REGISTRY).color(name);
+        if (themed.isPresent()) {
+            return new Color(display, themed.get());
+        }
+        Color system = display.getSystemColor(id);
+        return system.isDisposed() ? system : new Color(display, system.getRGBA());
     }
 
     /** Whether {@code name} is an SWT system color constant, e.g. {@code COLOR_LIST_SELECTION}. */
