@@ -2,22 +2,60 @@
   "id": "zap-base",
   "name": "Zap Base",
   "palette": {
-    "font.default": { "height": 9 },
-    "font.strong": { "height": 9, "style": "bold" }
+    "font.default": {
+      "height": 9
+    },
+    "font.strong": {
+      "height": 9,
+      "style": "bold"
+    },
+    "font.header": {
+      "height": 12,
+      "style": "bold"
+    }
   },
   "defaults": {
     "font": "$font.default"
   },
   "controls": {
-    "TableItem": { "inherit": "Table" },
-    "TreeItem": { "inherit": "Tree" },
-    "CCombo": { "inherit": "Combo" },
-    "Spinner": { "inherit": "Text" },
-    "DateTime": { "inherit": "Text" },
-    "List": { "inherit": "Text" },
-    "StyledText": { "inherit": "Text" }
+    "TableItem": {
+      "inherit": "Table"
+    },
+    "TreeItem": {
+      "inherit": "Tree"
+    },
+    "CCombo": {
+      "inherit": "Combo"
+    },
+    "Spinner": {
+      "inherit": "Text"
+    },
+    "DateTime": {
+      "inherit": "Text"
+    },
+    "List": {
+      "inherit": "Text"
+    },
+    "StyledText": {
+      "inherit": "Text"
+    }
   },
   "classes": {
-    "*.strong": { "font": "$font.strong" }
+    "*.strong": {
+      "font": "$font.strong"
+    },
+    "*.title": {
+      "font": "$font.strong"
+    }
+  },
+  "registries": {
+    "fonts": {
+      "org.eclipse.jface.defaultfont": "$font.default",
+      "org.eclipse.jface.dialogfont": "$font.default",
+      "org.eclipse.jface.viewerfont": "$font.default",
+      "org.eclipse.jface.windowfont": "$font.default",
+      "org.eclipse.jface.bannerfont": "$font.strong",
+      "org.eclipse.jface.headerfont": "$font.header"
+    }
   }
 }

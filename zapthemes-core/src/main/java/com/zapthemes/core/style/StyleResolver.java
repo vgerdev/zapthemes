@@ -82,6 +82,14 @@ public final class StyleResolver {
         });
     }
 
+    /**
+     * A {@code registries} block (e.g. {@code "colors"}, {@code "fonts"}) with palette references
+     * resolved on read; empty if the theme has none.
+     */
+    public ResolvedStyle registry(String name) {
+        return new ResolvedStyle(theme.registries().getOrDefault(name, Map.of()), theme.palette());
+    }
+
     private void mergeType(String type, Map<String, JsonElement> into, Set<String> seen) {
         if (!seen.add(type)) {
             throw new IllegalStateException("Cyclic \"inherit\" between control rules: " + seen);

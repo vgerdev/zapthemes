@@ -2,9 +2,23 @@
 gson = "2.15.0"
 javaparser = "3.28.2"
 junit = "6.1.3"
+# JFace 3.40.0 (R4_41) dependencies, as in its published POM
+equinox-common = "3.21.0"
+equinox-bidi = "1.5.400"
+core-commands = "3.13.0"
+eclipse-osgi = "3.24.300"
+pde-annotations = "1.4.100"
+# SVG rasterizer fragment built against SWT 3.135.0 (JFace 3.40 ships SVG icons)
+swt-svg = "3.133.100"
 assertj = "3.27.7"
 
 [libraries]
+equinox-common = { module = "org.eclipse.platform:org.eclipse.equinox.common", version.ref = "equinox-common" }
+equinox-bidi = { module = "org.eclipse.platform:org.eclipse.equinox.bidi", version.ref = "equinox-bidi" }
+core-commands = { module = "org.eclipse.platform:org.eclipse.core.commands", version.ref = "core-commands" }
+eclipse-osgi = { module = "org.eclipse.platform:org.eclipse.osgi", version.ref = "eclipse-osgi" }
+swt-svg = { module = "org.eclipse.platform:org.eclipse.swt.svg", version.ref = "swt-svg" }
+pde-annotations = { module = "org.eclipse.pde:org.eclipse.pde.api.tools.annotations", version.ref = "pde-annotations" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 javaparser-core = { module = "com.github.javaparser:javaparser-core", version.ref = "javaparser" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }

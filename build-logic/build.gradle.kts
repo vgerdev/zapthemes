@@ -16,6 +16,10 @@ gradlePlugin {
             id = "zapthemes.raw-widget-audit"
             implementationClass = "com.zapthemes.build.RawWidgetAuditPlugin"
         }
+        register("fork") {
+            id = "zapthemes.fork"
+            implementationClass = "com.zapthemes.build.ForkPlugin"
+        }
         register("swtProxies") {
             id = "zapthemes.swt-proxies"
             implementationClass = "com.zapthemes.build.SwtProxiesPlugin"

@@ -1,0 +1,26 @@
+diff --git a/org/eclipse/jface/dialogs/TitleAreaDialog.java b/org/eclipse/jface/dialogs/TitleAreaDialog.java
+index 516102e..6896cb3 100644
+--- a/org/eclipse/jface/dialogs/TitleAreaDialog.java
++++ b/org/eclipse/jface/dialogs/TitleAreaDialog.java
+@@ -296,6 +296,12 @@ public class TitleAreaDialog extends TrayDialog {
+ 		leftFillerLabel.setBackground(background);
+ 		bottomFillerLabel = new com.zapthemes.swt.widgets.Label(parent, SWT.CENTER);
+ 		bottomFillerLabel.setBackground(background);
++		// ZapThemes: the theme styles the banner (style class "banner") unless a title area color was set.
++		if (titleAreaRGB == null) {
++			com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.BANNER, parent, titleImageLabel, messageImageLabel, messageLabel,
++					leftFillerLabel, bottomFillerLabel);
++			com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.BANNER + " " + com.zapthemes.jface.JFaceTheming.TITLE, titleLabel);
++		}
+ 		setLayoutsForNormalMessage(verticalSpacing, horizontalSpacing);
+ 		determineTitleImageLargest();
+ 		if (titleImageLargest) {
+@@ -525,6 +531,8 @@ public class TitleAreaDialog extends TrayDialog {
+ 					Text text = new com.zapthemes.swt.widgets.Text(result, SWT.WRAP);
+ 					text.setBackground(parent.getDisplay().getSystemColor(SWT.COLOR_INFO_BACKGROUND));
+ 					text.setForeground(parent.getDisplay().getSystemColor(SWT.COLOR_INFO_FOREGROUND));
++					// ZapThemes: the theme styles the tooltip (style class "info").
++					com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.INFO, result, text);
+ 					text.setText(messageLabel.getText());
+ 					GridData gridData = new GridData();
+ 					gridData.widthHint = messageLabel.getSize().x;

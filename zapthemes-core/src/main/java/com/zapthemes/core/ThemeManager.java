@@ -6,6 +6,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -32,6 +33,8 @@ import com.zapthemes.core.style.ThemeContext;
  *       according to its {@code getData("THEME_CONTROL_TYPE")}.</li>
  *   <li>Widgets created without a proxy are tagged and themed from the {@link SWT#Skin} event,
  *       which SWT sends for every new widget before the next event dispatch.</li>
+ *   <li>{@link ThemeExtension}s found by {@link ServiceLoader} are installed when the manager is
+ *       created, e.g. zapthemes-jface's sync of the JFace color and font registries.</li>
  * </ul>
  *
  * All methods except {@link #setTheme(Theme)} must be called on the display's UI thread.
@@ -62,10 +65,18 @@ public final class ThemeManager {
 
     /** The manager of {@code display}; created on first use. Call on the UI thread. */
     public static ThemeManager get(Display display) {
+        ThemeManager existing = MANAGERS.get(display);
+        if (existing != null) {
+            return existing;
+        }
         if (display.getThread() != Thread.currentThread()) {
             throw new SWTException(SWT.ERROR_THREAD_INVALID_ACCESS);
         }
-        return MANAGERS.computeIfAbsent(display, ThemeManager::new);
+        // Registered before extensions are installed, so an extension may call get() itself.
+        ThemeManager manager = new ThemeManager(display);
+        MANAGERS.put(display, manager);
+        ServiceLoader.load(ThemeExtension.class).forEach(extension -> extension.install(manager));
+        return manager;
     }
 
     /**
@@ -133,6 +144,11 @@ public final class ThemeManager {
 
     public void removeThemeChangeListener(ThemeChangeListener listener) {
         listeners.remove(listener);
+    }
+
+    /** A {@code registries} block of the current theme, e.g. {@code "colors"} or {@code "fonts"}. */
+    public ResolvedStyle registry(String name) {
+        return resolver.registry(name);
     }
 
     /** The resources of the current theme; replaced (and the old ones disposed) on theme change. */

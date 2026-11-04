@@ -1,0 +1,13 @@
+diff --git a/org/eclipse/jface/dialogs/InputDialog.java b/org/eclipse/jface/dialogs/InputDialog.java
+index 677ba40..4027d37 100644
+--- a/org/eclipse/jface/dialogs/InputDialog.java
++++ b/org/eclipse/jface/dialogs/InputDialog.java
+@@ -157,6 +157,8 @@ public class InputDialog extends Dialog {
+ 				| GridData.HORIZONTAL_ALIGN_FILL));
+ 		errorMessageText.setBackground(errorMessageText.getDisplay()
+ 				.getSystemColor(SWT.COLOR_WIDGET_BACKGROUND));
++		// ZapThemes: the theme styles the read-only error text like a label (style class "plain").
++		com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.PLAIN, errorMessageText);
+ 		// Set the error message text
+ 		// See https://bugs.eclipse.org/bugs/show_bug.cgi?id=66292
+ 		setErrorMessage(errorMessage);

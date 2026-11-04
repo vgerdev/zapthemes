@@ -1,0 +1,21 @@
+diff --git a/org/eclipse/jface/preference/PreferenceDialog.java b/org/eclipse/jface/preference/PreferenceDialog.java
+index c2ed251..f93f5b2 100644
+--- a/org/eclipse/jface/preference/PreferenceDialog.java
++++ b/org/eclipse/jface/preference/PreferenceDialog.java
+@@ -362,6 +362,8 @@ public class PreferenceDialog extends TrayDialog implements IPreferencePageConta
+ 		parentLayout.horizontalSpacing = 0;
+ 
+ 		composite.setBackground(parent.getDisplay().getSystemColor(SWT.COLOR_LIST_BACKGROUND));
++		// ZapThemes: the theme styles the page area (style class "pane").
++		com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.PANE, composite);
+ 
+ 		Control treeControl = createTreeAreaContents(composite);
+ 		createSash(composite,treeControl);
+@@ -435,6 +437,7 @@ public class PreferenceDialog extends TrayDialog implements IPreferencePageConta
+ 		final Sash sash = new com.zapthemes.swt.widgets.Sash(composite, SWT.VERTICAL);
+ 		sash.setLayoutData(new GridData(GridData.FILL_VERTICAL));
+ 		sash.setBackground(composite.getDisplay().getSystemColor(SWT.COLOR_LIST_BACKGROUND));
++		com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.PANE, sash);
+ 		// the following listener resizes the tree control based on sash deltas.
+ 		// If necessary, it will also grow/shrink the dialog.
+ 		sash.addListener(SWT.Selection, event -> {
