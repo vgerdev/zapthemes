@@ -60,6 +60,7 @@ class TableOwnerDrawTest {
 
         Image image = print(table);
         ImageData data = image.getImageData();
+        assumePrintWorks(data);
         Rectangle row0 = table.getItem(0).getBounds(0);
         Rectangle row1 = table.getItem(1).getBounds(0);
         Rectangle row2 = table.getItem(2).getBounds(0);
@@ -111,6 +112,22 @@ class TableOwnerDrawTest {
         table.print(gc);
         gc.dispose();
         return image;
+    }
+
+    /**
+     * {@code Control.print} returns a blank (all black) image when the desktop cannot be drawn, e.g. a
+     * locked Windows session; pixel checks are meaningless then.
+     */
+    private static void assumePrintWorks(ImageData data) {
+        for (int y = 0; y < data.height; y += 4) {
+            for (int x = 0; x < data.width; x += 4) {
+                RGB rgb = data.palette.getRGB(data.getPixel(x, y));
+                if (rgb.red != 0 || rgb.green != 0 || rgb.blue != 0) {
+                    return;
+                }
+            }
+        }
+        org.junit.jupiter.api.Assumptions.abort("Control.print returned a blank image (locked desktop?)");
     }
 
     private static RGB pixel(ImageData data, int x, int y) {

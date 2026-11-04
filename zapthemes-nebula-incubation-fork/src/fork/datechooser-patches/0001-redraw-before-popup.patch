@@ -1,0 +1,14 @@
+diff --git a/org/eclipse/nebula/widgets/datechooser/AbstractCombo.java b/org/eclipse/nebula/widgets/datechooser/AbstractCombo.java
+index 54ab670..f2bd710 100644
+--- a/org/eclipse/nebula/widgets/datechooser/AbstractCombo.java
++++ b/org/eclipse/nebula/widgets/datechooser/AbstractCombo.java
+@@ -778,7 +778,8 @@ public abstract class AbstractCombo extends Composite {
+ 		super.redraw();
+ 		text.redraw();
+ 		button.redraw();
+-		if (popup.isVisible())
++		// ZapThemes: the popup is created on first open; redraw() before that threw a NullPointerException.
++		if (popup != null && popup.isVisible())
+ 			popupContent.redraw();
+ 	}
+ 

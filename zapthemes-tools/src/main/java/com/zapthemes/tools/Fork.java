@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -26,7 +27,11 @@ import java.util.stream.Stream;
  * <pre>
  * Fork --source-root third_party/.../src --proxies proxies.txt [--proxies more.txt ...]
  *      --out build/generated/fork --report build/reports/fork.txt [--allow allow.txt] [--patches dir]
- *      [--system-colors]
+ *      [--system-colors] [--exclude glob ...]
+ * </pre>
+ * {@code --exclude} leaves source files out, by glob relative to the source root (e.g. data-binding
+ * helpers: {@code **}{@code /*ObservableValue.java}).
+ * <pre>
  * </pre>
  */
 public final class Fork {
@@ -42,6 +47,7 @@ public final class Fork {
         Path allowList = null;
         Path patches = null;
         boolean systemColors = false;
+        List<Pattern> excludes = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--source-root" -> sourceRoot = Path.of(args[++i]);
@@ -51,6 +57,7 @@ public final class Fork {
                 case "--allow" -> allowList = Path.of(args[++i]);
                 case "--patches" -> patches = Path.of(args[++i]);
                 case "--system-colors" -> systemColors = true;
+                case "--exclude" -> excludes.add(glob(args[++i]));
                 default -> throw new IllegalArgumentException("Unknown argument: " + args[i]);
             }
         }
@@ -81,7 +88,10 @@ public final class Fork {
         int rewritten = 0;
         List<Path> sources;
         try (Stream<Path> walk = Files.walk(sourceRoot)) {
-            sources = walk.filter(f -> f.toString().endsWith(".java")).sorted().toList();
+            Path root = sourceRoot;
+            sources = walk.filter(f -> f.toString().endsWith(".java"))
+                    .filter(f -> excludes.stream().noneMatch(p -> p.matcher(slashed(root.relativize(f))).matches()))
+                    .sorted().toList();
         }
         for (Path source : sources) {
             String relative = sourceRoot.relativize(source).toString().replace('\\', '/');
@@ -147,6 +157,30 @@ public final class Fork {
             lines.add("patched " + patch.getFileName());
         }
         return files.size();
+    }
+
+    /** A glob ({@code **} any directories, {@code *} within a name) over {@code /}-separated paths. */
+    static Pattern glob(String glob) {
+        StringBuilder regex = new StringBuilder();
+        for (int i = 0; i < glob.length(); i++) {
+            char c = glob.charAt(i);
+            if (c == '*' && i + 1 < glob.length() && glob.charAt(i + 1) == '*') {
+                boolean directories = i + 2 < glob.length() && glob.charAt(i + 2) == '/';
+                regex.append(directories ? "(?:.*/)?" : ".*");
+                i += directories ? 2 : 1;
+            } else if (c == '*') {
+                regex.append("[^/]*");
+            } else if (c == '?') {
+                regex.append("[^/]");
+            } else {
+                regex.append(Pattern.quote(String.valueOf(c)));
+            }
+        }
+        return Pattern.compile(regex.toString());
+    }
+
+    private static String slashed(Path relative) {
+        return relative.toString().replace(relative.getFileSystem().getSeparator(), "/");
     }
 
     private static void clean(Path dir) throws IOException {

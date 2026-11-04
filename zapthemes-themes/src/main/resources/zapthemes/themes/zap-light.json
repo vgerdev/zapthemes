@@ -253,6 +253,39 @@
     },
     "PShelf": {
       "renderer.shadeColor": "$muted"
+    },
+    "TimelineComposite": {
+      "background": "$surface",
+      "gridColor": "$border",
+      "overviewSelectionBackgroundColor": "$accent",
+      "cursorColor": "$accent",
+      "selectedCursorColor": "$error"
+    },
+    "CollapsibleButtons": {
+      "background": "$bg",
+      "foreground": "$fg",
+      "borderColor": "$border",
+      "darkResizeColor": "$border",
+      "lightResizeColor": "$muted",
+      "dotDarkColor": "$disabled",
+      "dotLightColor": "$muted",
+      "dotMiddleColor": "$border",
+      "buttonBackgroundColorTop": "$muted",
+      "buttonBackgroundColorMiddle": "$muted",
+      "buttonBackgroundColorBottom": "$muted",
+      "selectedButtonBackgroundColorTop": "$accent",
+      "selectedButtonBackgroundColorMiddle": "$accent",
+      "selectedButtonBackgroundColorBottom": "$accent",
+      "hoverButtonBackgroundColorTop": "$hover",
+      "hoverButtonBackgroundColorMiddle": "$hover",
+      "hoverButtonBackgroundColorBottom": "$hover",
+      "hoverSelectedButtonBackgroundColorTop": "$accent",
+      "hoverSelectedButtonBackgroundColorMiddle": "$accent",
+      "hoverSelectedButtonBackgroundColorBottom": "$accent",
+      "buttonTextColor": "$fg"
+    },
+    "DateChooser": {
+      "background": "$surface"
     }
   },
   "classes": {

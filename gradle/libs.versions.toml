@@ -10,6 +10,9 @@ eclipse-osgi = "3.24.300"
 pde-annotations = "1.4.100"
 # SVG rasterizer fragment built against SWT 3.135.0 (JFace 3.40 ships SVG icons)
 swt-svg = "3.133.100"
+# Nebula Timeline
+emf-ecore = "2.43.0"
+core-jobs = "3.15.900"
 assertj = "3.27.7"
 
 [libraries]
@@ -18,6 +21,8 @@ equinox-bidi = { module = "org.eclipse.platform:org.eclipse.equinox.bidi", versi
 core-commands = { module = "org.eclipse.platform:org.eclipse.core.commands", version.ref = "core-commands" }
 eclipse-osgi = { module = "org.eclipse.platform:org.eclipse.osgi", version.ref = "eclipse-osgi" }
 swt-svg = { module = "org.eclipse.platform:org.eclipse.swt.svg", version.ref = "swt-svg" }
+emf-ecore = { module = "org.eclipse.emf:org.eclipse.emf.ecore", version.ref = "emf-ecore" }
+core-jobs = { module = "org.eclipse.platform:org.eclipse.core.jobs", version.ref = "core-jobs" }
 pde-annotations = { module = "org.eclipse.pde:org.eclipse.pde.api.tools.annotations", version.ref = "pde-annotations" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 javaparser-core = { module = "com.github.javaparser:javaparser-core", version.ref = "javaparser" }

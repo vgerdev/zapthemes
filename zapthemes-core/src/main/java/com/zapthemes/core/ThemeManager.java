@@ -211,9 +211,22 @@ public final class ThemeManager {
 
     private void onSkin(Event event) {
         Widget widget = event.widget;
-        // Proxies were themed in their constructor; only widgets created some other way are left.
-        if (widget != null && !widget.isDisposed() && widget.getData(ThemeKeys.THEME_CONTROL_TYPE) == null) {
-            apply(widget);
+        if (widget == null || widget.getData(ThemeKeys.THEME_CONTROL_TYPE) != null) {
+            return;
         }
+        // SWT may send Skin while the widget's constructor is still running (from a layout it
+        // triggers), so theme it once construction is over. Proxies have tagged themselves by then.
+        display.asyncExec(() -> {
+            if (widget.isDisposed() || widget.getData(ThemeKeys.THEME_CONTROL_TYPE) != null) {
+                return;
+            }
+            try {
+                apply(widget);
+            } catch (RuntimeException e) {
+                if (RETRY_LOGGED.add(widget.getClass())) {
+                    LOG.log(Level.WARNING, "Theming " + widget.getClass().getName() + " from SWT.Skin failed", e);
+                }
+            }
+        });
     }
 }

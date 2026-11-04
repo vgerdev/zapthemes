@@ -142,6 +142,15 @@ class CodemodTest {
     }
 
     @Test
+    void forkExcludeGlobsMatchSlashedRelativePaths() {
+        assertThat(Fork.glob("**/*ObservableValue.java").matcher("org/x/FooObservableValue.java").matches()).isTrue();
+        assertThat(Fork.glob("**/*ObservableValue.java").matcher("FooObservableValue.java").matches()).isTrue();
+        assertThat(Fork.glob("**/forms/*.java").matcher("org/x/forms/Kit.java").matches()).isTrue();
+        assertThat(Fork.glob("**/forms/*.java").matcher("org/x/forms/sub/Kit.java").matches()).isFalse();
+        assertThat(Fork.glob("org/*.java").matcher("org/x/A.java").matches()).isFalse();
+    }
+
+    @Test
     void auditFlagsRawWidgetsUnlessAllowed() {
         String source = """
                 package demo;

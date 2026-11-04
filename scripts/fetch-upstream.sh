@@ -7,6 +7,9 @@ JFACE_REPO=https://github.com/eclipse-platform/eclipse.platform.ui
 JFACE_REF=R4_41
 NEBULA_REPO=https://github.com/eclipse/nebula
 NEBULA_COMMIT=5d0bcbb9c6e3a118685a5ec91c6f5d8eb7833893
+# draw2d (GEF Classic), needed by Nebula Timeline; not on Maven Central.
+DRAW2D_URL=https://download.eclipse.org/tools/gef/classic/release/3.29.0/plugins/org.eclipse.draw2d_3.23.100.202608071137.jar
+DRAW2D_SHA256=b1dc7fd7afc4c0ecc60b1c8fb98406ff612ade1640483dc50dec404eca1581e1
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$root/third_party"
@@ -27,4 +30,20 @@ fetch() { # dir repo ref sparse-patterns...
 fetch "$root/third_party/jface-upstream" "$JFACE_REPO" "$JFACE_REF" \
     '/bundles/org.eclipse.jface/*'
 fetch "$root/third_party/nebula-upstream" "$NEBULA_REPO" "$NEBULA_COMMIT" \
-    '/widgets/*/*/src/' '/widgets/*/*/META-INF/' '/widgets/*/*/*/src/' '/widgets/*/*/*/META-INF/'
+    '/widgets/*/*/src/' '/widgets/*/*/src-gen/' '/widgets/*/*/META-INF/' '/widgets/*/*/*/src/' '/widgets/*/*/*/META-INF/'
+
+sha256() { # portable: GNU coreutils on Linux/Windows, shasum on macOS
+    if command -v sha256sum > /dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
+
+draw2d="$root/third_party/gef/org.eclipse.draw2d.jar"
+if [ ! -f "$draw2d" ] || [ "$(sha256 "$draw2d")" != "$DRAW2D_SHA256" ]; then
+    mkdir -p "$(dirname "$draw2d")"
+    curl -fsSL -o "$draw2d.part" "$DRAW2D_URL"
+    if [ "$(sha256 "$draw2d.part")" != "$DRAW2D_SHA256" ]; then
+        echo "draw2d checksum mismatch: $DRAW2D_URL" >&2
+        exit 1
+    fi
+    mv "$draw2d.part" "$draw2d"
+fi
+echo "draw2d: $DRAW2D_SHA256"

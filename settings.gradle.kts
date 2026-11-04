@@ -22,6 +22,8 @@ include(
     "zapthemes-jface",
     "zapthemes-nebula-fork",
     "zapthemes-nebula",
+    "zapthemes-nebula-incubation-fork",
+    "zapthemes-nebula-incubation",
     "zapthemes-themes",
     "zapthemes-tools",
     "zapthemes-demo",

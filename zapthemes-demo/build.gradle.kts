@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-widgets"))
     implementation(project(":zapthemes-nebula"))
+    implementation(project(":zapthemes-nebula-incubation"))
     implementation(project(":zapthemes-themes"))
 }
 
