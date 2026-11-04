@@ -1,7 +1,9 @@
 .gradle/
-build/
-out/
-bin/
+# Gradle output only (a bare build/ would also match Java packages named .../build/)
+/build/
+/*/build/
+/*/out/
+/*/bin/
 .idea/
 *.iml
 .classpath

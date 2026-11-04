@@ -16,6 +16,8 @@ fetch() { # dir repo ref sparse-patterns...
     if [ ! -d "$dir/.git" ]; then
         git clone --quiet --filter=blob:none --no-checkout "$repo" "$dir"
     fi
+    # Nebula's paths exceed Windows' 260-character limit when the checkout is nested deeply.
+    git -C "$dir" config core.longpaths true
     git -C "$dir" sparse-checkout set --no-cone "$@"
     git -C "$dir" fetch --quiet --depth 1 origin "$ref"
     git -C "$dir" checkout --quiet --detach FETCH_HEAD
