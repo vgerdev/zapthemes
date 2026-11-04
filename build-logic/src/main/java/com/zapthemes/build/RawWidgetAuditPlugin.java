@@ -24,6 +24,8 @@ public class RawWidgetAuditPlugin implements Plugin<Project> {
         project.getPluginManager().apply(SwtPlatformPlugin.class);
 
         Configuration tools = project.getConfigurations().maybeCreate("zapthemesTools");
+        // The tools load SWT classes; the fragment is not published, so it is not transitive.
+        tools.extendsFrom(project.getConfigurations().getByName("swt"));
         tools.setCanBeConsumed(false);
         tools.setCanBeResolved(true);
         project.getDependencies().add(tools.getName(),

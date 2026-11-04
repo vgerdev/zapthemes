@@ -84,8 +84,7 @@ public final class StandaloneDemo {
         this.themes = ThemeManager.get(display);
         ThemeRegistry registry = new ThemeRegistry();
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
-        available.add(registry.resolve("zap-light"));
-        available.add(registry.resolve("zap-dark"));
+        BundledThemes.IDS.forEach(id -> available.add(registry.resolve(id)));
         themes.setTheme(available.getFirst());
     }
 

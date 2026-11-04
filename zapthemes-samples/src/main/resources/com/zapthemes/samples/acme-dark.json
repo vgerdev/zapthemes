@@ -1,0 +1,35 @@
+{
+  "id": "acme-dark",
+  "name": "Acme Dark",
+  "extends": "zap-dark",
+  "palette": {
+    "accent": "#E8590C",
+    "danger": "#C62828",
+    "dangerHover": "#E53935",
+    "onDanger": "#FFFFFF",
+    "font.headline": {
+      "height": 14,
+      "style": "bold"
+    }
+  },
+  "controls": {
+    "Label[WRAP]": {
+      "foreground": "$qualifier"
+    }
+  },
+  "classes": {
+    "Label.headline": {
+      "font": "$font.headline",
+      "foreground": "$accent"
+    },
+    "Button.danger": {
+      "background": "$danger",
+      "foreground": "$onDanger",
+      "states": {
+        "hover": {
+          "background": "$dangerHover"
+        }
+      }
+    }
+  }
+}

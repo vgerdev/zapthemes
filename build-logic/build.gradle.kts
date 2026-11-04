@@ -24,5 +24,13 @@ gradlePlugin {
             id = "zapthemes.swt-proxies"
             implementationClass = "com.zapthemes.build.SwtProxiesPlugin"
         }
+        register("publishing") {
+            id = "zapthemes.publishing"
+            implementationClass = "com.zapthemes.build.PublishingPlugin"
+        }
+        register("centralBundle") {
+            id = "zapthemes.central-bundle"
+            implementationClass = "com.zapthemes.build.CentralBundlePlugin"
+        }
     }
 }

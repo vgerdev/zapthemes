@@ -28,11 +28,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 xvfb
       - name: Build and test (Linux, under Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a ./gradlew build :zapthemes-demo:smokeTest --console=plain
+        run: xvfb-run -a ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest --console=plain
       - name: Build and test
         if: runner.os != 'Linux'
         shell: bash
-        run: ./gradlew build :zapthemes-demo:smokeTest --console=plain
+        run: ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest --console=plain
 
   # FreeBSD: no SWT fragment is published upstream; the build uses the ports SWT jar
   # (x11-toolkits/swt) via -Pswt.localJar. Enable once the ports SWT version matches 3.135.0.

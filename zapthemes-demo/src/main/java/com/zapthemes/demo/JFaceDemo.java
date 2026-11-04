@@ -98,7 +98,7 @@ public final class JFaceDemo extends ApplicationWindow {
         ThemeManager themes = ThemeManager.get(display);
         ThemeRegistry registry = new ThemeRegistry();
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
-        List<Theme> available = List.of(registry.resolve("zap-light"), registry.resolve("zap-dark"));
+        List<Theme> available = BundledThemes.IDS.stream().map(registry::resolve).toList();
         themes.setTheme(available.getFirst());
 
         JFaceDemo demo = new JFaceDemo(themes, available);

@@ -25,9 +25,58 @@ class ThemeValidatorTest {
         ThemeRegistry registry = new ThemeRegistry();
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
 
-        for (String id : new String[] { "zap-light", "zap-dark" }) {
+        for (String id : BundledThemes.IDS) {
             assertThat(ThemeValidator.validate(registry.resolve(id))).as(id).isEmpty();
         }
+    }
+
+    /** WCAG AAA for normal text: every text color against its background reaches 7:1. */
+    @Test
+    void highContrastThemeMeetsWcagAaa() {
+        ThemeRegistry registry = new ThemeRegistry();
+        BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
+        StyleResolver resolver = new StyleResolver(registry.resolve("zap-high-contrast"));
+
+        record Pair(String what, ResolvedStyle style, String foreground, String background) {
+        }
+        ResolvedStyle label = resolver.resolve("Label", SWT.NONE);
+        ResolvedStyle table = resolver.resolve("Table", SWT.NONE);
+        ResolvedStyle tab = resolver.resolve("CTabFolder", SWT.NONE);
+        ResolvedStyle system = resolver.registry(SystemColors.REGISTRY);
+        java.util.List<Pair> pairs = java.util.List.of(
+                new Pair("Label", label, "foreground", "background"),
+                new Pair("Text", resolver.resolve("Text", SWT.NONE), "foreground", "background"),
+                new Pair("Button", resolver.resolve("Button", SWT.PUSH), "foreground", "background"),
+                new Pair("Label.muted", resolver.resolve("Label", SWT.NONE, "muted"), "foreground", "background"),
+                new Pair("Table header", table, "headerForeground", "headerBackground"),
+                new Pair("Table selection", table, "selectionForeground", "selectionBackground"),
+                new Pair("CTabFolder selection", tab, "selectionForeground", "selectionBackground"),
+                new Pair("system list selection", system, "COLOR_LIST_SELECTION_TEXT", "COLOR_LIST_SELECTION"),
+                new Pair("system list", system, "COLOR_LIST_FOREGROUND", "COLOR_LIST_BACKGROUND"),
+                new Pair("system disabled", system, "COLOR_WIDGET_DISABLED_FOREGROUND", "COLOR_WIDGET_BACKGROUND"),
+                new Pair("system link", system, "COLOR_LINK_FOREGROUND", "COLOR_WIDGET_BACKGROUND"));
+        for (Pair pair : pairs) {
+            RGBA fg = pair.style().color(pair.foreground()).orElseThrow();
+            RGBA bg = pair.style().color(pair.background()).orElseThrow();
+            assertThat(contrast(fg, bg)).as(pair.what()).isGreaterThanOrEqualTo(7.0);
+        }
+        RGBA link = resolver.resolve("Link", SWT.NONE).color("linkForeground").orElseThrow();
+        assertThat(contrast(link, label.color("background").orElseThrow())).as("Link").isGreaterThanOrEqualTo(7.0);
+    }
+
+    private static double contrast(RGBA a, RGBA b) {
+        double la = luminance(a);
+        double lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    private static double luminance(RGBA c) {
+        return 0.2126 * linear(c.rgb.red) + 0.7152 * linear(c.rgb.green) + 0.0722 * linear(c.rgb.blue);
+    }
+
+    private static double linear(int channel) {
+        double v = channel / 255.0;
+        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
     }
 
     @Test

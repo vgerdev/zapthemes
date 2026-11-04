@@ -1,0 +1,97 @@
+{
+  "id": "zap-high-contrast",
+  "name": "Zap High Contrast",
+  "extends": "zap-dark",
+  "palette": {
+    "bg": "#000000",
+    "surface": "#000000",
+    "fg": "#FFFFFF",
+    "muted": "#1F1F1F",
+    "hover": "#3A3A3A",
+    "disabled": "#A6A6A6",
+    "selection": "#0037DA",
+    "accent": "#FFFF00",
+    "onAccent": "#000000",
+    "error": "#FF8080",
+    "qualifier": "#C8C8C8",
+    "stripe": "#141414",
+    "border": "#FFFFFF",
+    "link": "#00FFFF",
+    "line": "#8A8A8A"
+  },
+  "controls": {
+    "Table": {
+      "gridLineColor": "$line"
+    },
+    "Link": {
+      "linkForeground": "$link"
+    },
+    "Button[PUSH]": {
+      "borderColor": "$border"
+    },
+    "CTabFolder": {
+      "selectionForeground": "$accent",
+      "selectionBarThickness": 3
+    },
+    "FlatButton": {
+      "borderColor": "$border",
+      "states": {
+        "focused": {
+          "borderColor": "$accent"
+        }
+      }
+    },
+    "FlatButton[CHECK]": {
+      "borderColor": "$border"
+    },
+    "FlatButton[RADIO]": {
+      "borderColor": "$border"
+    },
+    "FlatGroup": {
+      "borderColor": "$border"
+    },
+    "ProgressBar": {
+      "foreground": "$accent"
+    },
+    "FlatProgressBar": {
+      "background": "$muted",
+      "barColor": "$accent"
+    },
+    "CDateTime": {
+      "buttonSelectedBackgroundColor": "$selection",
+      "buttonSelectedBorderColor": "$accent"
+    },
+    "SwitchButton": {
+      "selectedBackgroundColor": "$selection",
+      "selectedForegroundColor": "$fg",
+      "unselectedBackgroundColor": "$muted"
+    },
+    "TimelineComposite": {
+      "selectedCursorColor": "$link"
+    }
+  },
+  "classes": {
+    "Label.muted": {
+      "foreground": "$qualifier"
+    }
+  },
+  "platform": {
+    "win32": {
+      "menuBarBorderColor": "$border",
+      "tableHeaderLineColor": "$line"
+    }
+  },
+  "registries": {
+    "colors": {
+      "HYPERLINK_COLOR": "$link",
+      "ACTIVE_HYPERLINK_COLOR": "$accent"
+    },
+    "systemColors": {
+      "COLOR_LIST_SELECTION": "$selection",
+      "COLOR_LIST_SELECTION_TEXT": "$fg",
+      "COLOR_WIDGET_LIGHT_SHADOW": "$border",
+      "COLOR_WIDGET_DARK_SHADOW": "$border",
+      "COLOR_LINK_FOREGROUND": "$link"
+    }
+  }
+}

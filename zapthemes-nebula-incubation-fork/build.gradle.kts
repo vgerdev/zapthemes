@@ -1,4 +1,5 @@
 plugins {
+    id("zapthemes.publishing")
     id("zapthemes.fork")
 }
 
@@ -29,7 +30,7 @@ dependencies {
     api(project(":zapthemes-jface"))
     api(libs.equinox.common)
     // Timeline: draw2d from the GEF Classic update site (scripts/fetch-upstream.sh), EMF from Maven Central.
-    api(files(rootProject.layout.projectDirectory.file("third_party/gef/org.eclipse.draw2d.jar")))
+    api(project(":zapthemes-draw2d"))
     api(libs.emf.ecore)
     implementation(libs.core.jobs)
 }
