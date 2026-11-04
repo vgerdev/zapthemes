@@ -118,6 +118,9 @@ class NebulaIncubationProxyContractTest {
                 args[i] = create(proxyFor(types[i]), shell);
             } else if (types[i] == org.eclipse.nebula.widgets.pagination.PageableController.class) {
                 args[i] = new org.eclipse.nebula.widgets.pagination.PageableController(10);
+            } else if (types[i] == org.eclipse.nebula.widgets.collapsiblebuttons.ISettings.class) {
+                // CustomButton paints with its settings; CollapsibleButtons always passes its own.
+                args[i] = new org.eclipse.nebula.widgets.collapsiblebuttons.DefaultSettings();
             } else {
                 args[i] = null;
             }
@@ -144,6 +147,8 @@ class NebulaIncubationProxyContractTest {
     private static void prepare(Widget widget) {
         if (widget instanceof org.eclipse.nebula.widgets.compositetable.day.DayEditor editor) {
             editor.setTimeBreakdown(7, 2);
+            // Until it has a start date it has no event layout, and a focused cell dereferences it (GTK focuses one).
+            editor.setStartDate(new java.util.Date());
         }
     }
 
