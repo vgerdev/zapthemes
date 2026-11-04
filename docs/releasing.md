@@ -20,10 +20,8 @@ published.
 
 ## One-time setup
 
-1. **Namespace.** Verify the `com.zapthemes` namespace in the Portal: it needs a DNS TXT record
-   on `zapthemes.com`. Without that domain, change `group` in `gradle.properties` to a namespace
-   you can verify, such as `io.github.vgerdev`, and update the coordinates in
-   [theme-authoring.md](theme-authoring.md).
+1. **Namespace.** The group is `com.zapthemes` (decided 2026-11-04). Add it under Namespaces in
+   the Portal and verify it with the DNS TXT record the Portal shows, on `zapthemes.com`.
 2. **Token.** Create a Portal user token (Account → Generate User Token).
 3. **Signing key.** Create a signing key and publish its public half to a keyserver:
    `gpg --quick-gen-key "Your Name <you@example.com>" rsa4096 sign 2y`, then

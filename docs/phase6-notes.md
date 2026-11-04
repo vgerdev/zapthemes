@@ -88,10 +88,13 @@ Four small programs, each with a `run<Name>` task and a `--smoke` mode. CI runs
   `gpg --verify` passed.
 - **Guards:** the snapshot and unsigned-artifact checks fail as intended.
 
-The upload itself has not been run: it needs a Portal token and the verified namespace.
+The upload itself has not been run: it needs a Portal token and the verified `com.zapthemes` namespace.
 
-## Open decisions
+## Decisions
 
-- **Namespace:** `com.zapthemes` needs DNS verification of `zapthemes.com` in the Portal.
-  Otherwise use `io.github.vgerdev`; see [releasing.md](releasing.md).
+- **Namespace:** the group stays `com.zapthemes`. Before the first release, verify it in the Central
+  Portal with a DNS TXT record on `zapthemes.com` ([releasing.md](releasing.md)).
+
+## Open
+
 - **FreeBSD:** the CI job is still commented out until the ports SWT matches 3.135.0.
