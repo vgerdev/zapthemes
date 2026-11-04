@@ -13,7 +13,8 @@
     "accent": "#3574F0",
     "onAccent": "#FFFFFF",
     "error": "#F07178",
-    "qualifier": "#8C8F94"
+    "qualifier": "#8C8F94",
+    "stripe": "#303236"
   },
   "defaults": {
     "background": "$bg",
@@ -34,7 +35,16 @@
     "Table": {
       "background": "$surface",
       "headerBackground": "$muted",
-      "headerForeground": "$fg"
+      "headerForeground": "$fg",
+      "selectionBackground": "$selection",
+      "selectionForeground": "$fg",
+      "alternateRowBackground": "$stripe",
+      "gridLineColor": "$muted",
+      "states": {
+        "hover": {
+          "background": "$hover"
+        }
+      }
     },
     "Tree": {
       "inherit": "Table"
@@ -62,7 +72,56 @@
     },
     "CTabFolder": {
       "selectionBackground": "$surface",
-      "selectionForeground": "$accent"
+      "selectionForeground": "$accent",
+      "selectionBarThickness": 2,
+      "highlight": true
+    },
+    "FlatButton": {
+      "background": "$muted",
+      "foreground": "$fg",
+      "borderColor": "$disabled",
+      "accentColor": "$accent",
+      "arc": 6,
+      "states": {
+        "hover": {
+          "background": "$hover"
+        },
+        "pressed": {
+          "background": "$accent",
+          "foreground": "$onAccent"
+        },
+        "disabled": {
+          "foreground": "$disabled",
+          "borderColor": "$muted"
+        },
+        "focused": {
+          "borderColor": "$accent"
+        }
+      }
+    },
+    "FlatButton[CHECK]": {
+      "background": "$bg",
+      "borderColor": "$disabled",
+      "boxBackground": "$surface"
+    },
+    "FlatButton[RADIO]": {
+      "background": "$bg",
+      "borderColor": "$disabled",
+      "boxBackground": "$surface"
+    },
+    "FlatGroup": {
+      "borderColor": "$muted",
+      "titleForeground": "$fg",
+      "titleFont": "$font.strong"
+    },
+    "FlatProgressBar": {
+      "background": "$muted",
+      "barColor": "$accent",
+      "errorColor": "$error"
+    },
+    "ProgressBar": {
+      "background": "$muted",
+      "foreground": "$accent"
     }
   },
   "classes": {
@@ -86,11 +145,27 @@
     },
     "Text.plain": {
       "background": "$bg"
+    },
+    "FlatButton.primary": {
+      "background": "$accent",
+      "foreground": "$onAccent",
+      "borderColor": "$accent"
     }
   },
   "platform": {
+    "*": {
+      "darkThemePreferred": true
+    },
     "win32": {
-      "darkScrollbars": true
+      "darkScrollbars": true,
+      "darkCombos": true,
+      "darkTextIcons": true,
+      "progressBarColors": true,
+      "menuBarBackground": "$bg",
+      "menuBarForeground": "$fg",
+      "menuBarBorderColor": "$muted",
+      "tableHeaderLineColor": "$muted",
+      "disabledLabelForeground": "$disabled"
     }
   },
   "registries": {

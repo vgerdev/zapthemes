@@ -20,8 +20,10 @@ import org.eclipse.swt.widgets.Widget;
  * constructor calls {@code super(...)} and then {@code ThemeManager.applyOnCreate(this, "<Name>")}.
  *
  * <pre>
- * ProxyGenerator --list proxies.txt --out build/generated/sources/proxies/java
+ * ProxyGenerator --list proxies.txt --out build/generated/sources/proxies/java [--skip-existing src/main/java]
  * </pre>
+ * A proxy that already has a hand-written source under {@code --skip-existing} is not generated
+ * (it is still listed in the index class).
  */
 public final class ProxyGenerator {
 
@@ -31,10 +33,12 @@ public final class ProxyGenerator {
     public static void main(String[] args) throws Exception {
         Path list = null;
         Path out = null;
+        Path handWritten = null;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--list" -> list = Path.of(args[++i]);
                 case "--out" -> out = Path.of(args[++i]);
+                case "--skip-existing" -> handWritten = Path.of(args[++i]);
                 default -> throw new IllegalArgumentException("Unknown argument: " + args[i]);
             }
         }
@@ -48,8 +52,11 @@ public final class ProxyGenerator {
         for (String name : names) {
             Class<?> original = Class.forName(name, false, loader);
             String proxy = ProxyNames.proxyOf(name);
-            write(out, proxy, generate(original, proxy));
             proxies.add(proxy);
+            if (handWritten != null && Files.exists(handWritten.resolve(proxy.replace('.', '/') + ".java"))) {
+                continue;
+            }
+            write(out, proxy, generate(original, proxy));
         }
         var index = ProxyNames.indexClass(list);
         if (index.isPresent()) {

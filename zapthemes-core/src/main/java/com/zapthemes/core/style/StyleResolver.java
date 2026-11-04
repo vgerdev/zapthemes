@@ -32,6 +32,7 @@ public final class StyleResolver {
     private final Theme theme;
     private final Map<String, List<StyleBitRule>> bitRules = new HashMap<>();
     private final Map<CacheKey, ResolvedStyle> cache = new HashMap<>();
+    private ResolvedStyle platform;
 
     public StyleResolver(Theme theme) {
         this.theme = theme;
@@ -80,6 +81,19 @@ public final class StyleResolver {
             props.remove(INHERIT);
             return new ResolvedStyle(props, theme.palette());
         });
+    }
+
+    /**
+     * The platform settings: {@code platform["*"]} overlaid with {@code platform[<SWT.getPlatform()>]},
+     * palette references resolved on read.
+     */
+    public ResolvedStyle platform() {
+        if (platform == null) {
+            Map<String, JsonElement> settings = new LinkedHashMap<>(theme.platformSettings("*"));
+            settings.putAll(theme.platformSettings(SWT.getPlatform()));
+            platform = new ResolvedStyle(settings, theme.palette());
+        }
+        return platform;
     }
 
     /**

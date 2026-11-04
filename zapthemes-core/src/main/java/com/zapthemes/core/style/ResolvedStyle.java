@@ -83,6 +83,10 @@ public final class ResolvedStyle {
         });
     }
 
+    public Optional<Boolean> bool(String key) {
+        return value(key).map(JsonElement::getAsBoolean);
+    }
+
     public Optional<Integer> integer(String key) {
         return value(key).map(JsonElement::getAsInt);
     }

@@ -17,7 +17,8 @@ import org.gradle.api.tasks.TaskProvider;
  *
  * <p>The generator ({@code com.zapthemes.tools.ProxyGenerator}) lives in {@code :zapthemes-tools}
  * and reads the widget classes reflectively from the SWT / Nebula classpath, so the proxies always
- * mirror the exact constructors of the pinned upstream release.
+ * mirror the exact constructors of the pinned upstream release. A proxy written by hand in
+ * {@code src/main/java} (same class name) replaces the generated one.
  */
 public class SwtProxiesPlugin implements Plugin<Project> {
 
@@ -43,8 +44,11 @@ public class SwtProxiesPlugin implements Plugin<Project> {
             task.getInputs().file(proxyList).withPropertyName("proxyList");
             task.getOutputs().dir(outputDir).withPropertyName("outputDir");
             // The generator empties the output directory itself before writing.
+            java.io.File handWritten = project.file("src/main/java");
+            task.getInputs().files(project.fileTree(handWritten)).withPropertyName("handWritten");
             task.args("--list", proxyList.getAsFile().getAbsolutePath(),
-                    "--out", outputDir.get().getAsFile().getAbsolutePath());
+                    "--out", outputDir.get().getAsFile().getAbsolutePath(),
+                    "--skip-existing", handWritten.getAbsolutePath());
         });
 
         JavaPluginExtension java = project.getExtensions().getByType(JavaPluginExtension.class);
