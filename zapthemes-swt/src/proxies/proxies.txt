@@ -1,0 +1,12 @@
+# Widget classes to generate proxies for (Phase 0 spike: 10 classes).
+# Each proxy keeps the simple name and moves org.eclipse.swt.* -> com.zapthemes.swt.*
+org.eclipse.swt.widgets.Shell
+org.eclipse.swt.widgets.Composite
+org.eclipse.swt.widgets.Group
+org.eclipse.swt.widgets.Label
+org.eclipse.swt.widgets.Button
+org.eclipse.swt.widgets.Text
+org.eclipse.swt.widgets.Combo
+org.eclipse.swt.widgets.Table
+org.eclipse.swt.widgets.TableItem
+org.eclipse.swt.custom.CTabFolder

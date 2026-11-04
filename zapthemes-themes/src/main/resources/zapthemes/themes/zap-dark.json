@@ -1,0 +1,21 @@
+{
+  "id": "zap-dark",
+  "name": "Zap Dark",
+  "extends": "zap-base",
+  "palette": {
+    "bg": "#1E1F22",
+    "surface": "#2B2D30",
+    "fg": "#DFE1E5",
+    "muted": "#393B40",
+    "accent": "#3574F0"
+  },
+  "defaults": { "background": "$bg", "foreground": "$fg" },
+  "controls": {
+    "Text":       { "background": "$surface" },
+    "Combo":      { "background": "$surface" },
+    "Table":      { "background": "$surface", "headerBackground": "$muted", "headerForeground": "$fg" },
+    "Button[PUSH]": { "background": "$muted" },
+    "CTabFolder": { "selectionBackground": "$surface", "selectionForeground": "$accent" }
+  },
+  "platform": { "win32": { "darkScrollbars": true } }
+}

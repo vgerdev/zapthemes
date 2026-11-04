@@ -1,0 +1,20 @@
+{
+  "id": "zap-light",
+  "name": "Zap Light",
+  "extends": "zap-base",
+  "palette": {
+    "bg": "#F7F8FA",
+    "surface": "#FFFFFF",
+    "fg": "#1F2328",
+    "muted": "#EBECF0",
+    "accent": "#3574F0"
+  },
+  "defaults": { "background": "$bg", "foreground": "$fg" },
+  "controls": {
+    "Text":       { "background": "$surface" },
+    "Combo":      { "background": "$surface" },
+    "Table":      { "background": "$surface", "headerBackground": "$muted", "headerForeground": "$fg" },
+    "Button[PUSH]": { "background": "$muted" },
+    "CTabFolder": { "selectionBackground": "$surface", "selectionForeground": "$accent" }
+  }
+}

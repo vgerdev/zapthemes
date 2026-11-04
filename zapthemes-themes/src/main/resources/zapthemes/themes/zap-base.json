@@ -1,0 +1,13 @@
+{
+  "id": "zap-base",
+  "name": "Zap Base",
+  "palette": {
+    "font.default": { "height": 9 }
+  },
+  "defaults": {
+    "font": "$font.default"
+  },
+  "controls": {
+    "TableItem": { "inherit": "Table" }
+  }
+}
