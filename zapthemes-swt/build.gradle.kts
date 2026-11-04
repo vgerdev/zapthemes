@@ -1,5 +1,6 @@
 plugins {
     id("zapthemes.swt-proxies")
+    id("zapthemes.raw-widget-audit")
 }
 
 description = "Generated theme-aware proxy subclasses of the SWT widgets."

@@ -55,16 +55,33 @@ public final class Audit {
         return violations;
     }
 
+    /**
+     * {@code Audit [--list] --source-root <dir> [--source-root <dir> ...]}: prints a count per widget
+     * class (and, with {@code --list}, every violation as {@code file:line}); exits 1 if any.
+     */
     public static void main(String[] args) throws Exception {
-        if (args.length != 2 || !args[0].equals("--source-root")) {
-            throw new IllegalArgumentException("Usage: Audit --source-root <dir>");
+        List<Path> roots = new ArrayList<>();
+        boolean list = false;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--source-root" -> roots.add(Path.of(args[++i]));
+                case "--list" -> list = true;
+                default -> throw new IllegalArgumentException("Unknown argument: " + args[i]);
+            }
         }
-        Path root = Path.of(args[1]);
-        Audit audit = new Audit(WidgetCatalog.swtWidgets(), TypeNames.index(root));
+        if (roots.isEmpty()) {
+            throw new IllegalArgumentException("Usage: Audit [--list] --source-root <dir> [--source-root <dir> ...]");
+        }
         List<Violation> violations = new ArrayList<>();
-        try (Stream<Path> files = Files.walk(root)) {
-            for (Path file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
-                violations.addAll(audit.scan(Files.readString(file), root.relativize(file).toString()));
+        for (Path root : roots) {
+            if (!Files.isDirectory(root)) {
+                continue;
+            }
+            Audit audit = new Audit(WidgetCatalog.themeableWidgets(), TypeNames.index(root));
+            try (Stream<Path> files = Files.walk(root)) {
+                for (Path file : files.filter(f -> f.toString().endsWith(".java")).sorted().toList()) {
+                    violations.addAll(audit.scan(Files.readString(file), root.relativize(file).toString()));
+                }
             }
         }
         Map<String, Integer> byClass = new TreeMap<>();
@@ -73,8 +90,12 @@ public final class Audit {
             byClass.merge(v.widgetClass(), 1, Integer::sum);
             byFile.merge(v.file(), 1, Integer::sum);
         });
+        if (list) {
+            violations.forEach(v -> System.out.printf("%s:%d: new %s (use the com.zapthemes proxy, or mark the line %s)%n",
+                    v.file(), v.line(), v.widgetClass(), ALLOW_MARKER));
+        }
         byClass.forEach((type, count) -> System.out.printf("%4d  %s%n", count, type));
-        System.out.printf("%d raw widget creations in %d files under %s%n", violations.size(), byFile.size(), root);
+        System.out.printf("%d raw widget creations in %d files%n", violations.size(), byFile.size());
         if (!violations.isEmpty()) {
             System.exit(1);
         }

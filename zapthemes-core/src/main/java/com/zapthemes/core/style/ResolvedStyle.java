@@ -1,7 +1,9 @@
 package com.zapthemes.core.style;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.eclipse.swt.graphics.RGBA;
 
@@ -25,8 +27,41 @@ public final class ResolvedStyle {
         this.palette = palette;
     }
 
+    /** Key of the per-state overrides: {@code "states": { "hover": { ... }, "disabled": { ... } }}. */
+    public static final String STATES = "states";
+
     public boolean has(String key) {
         return props.containsKey(key);
+    }
+
+    /** The property keys, including {@value #STATES}. */
+    public Set<String> keys() {
+        return props.keySet();
+    }
+
+    /** The names of the states this style defines overrides for. */
+    public Set<String> states() {
+        JsonElement states = props.get(STATES);
+        return states != null && states.isJsonObject() ? states.getAsJsonObject().keySet() : Set.of();
+    }
+
+    /**
+     * This style with the overrides of {@code state} (e.g. {@code "hover"}) applied, or this style if
+     * it has none. Used by owner-draw renderers.
+     */
+    public ResolvedStyle state(String state) {
+        JsonElement states = props.get(STATES);
+        if (states == null || !states.isJsonObject() || !states.getAsJsonObject().has(state)) {
+            return this;
+        }
+        JsonElement overrides = states.getAsJsonObject().get(state);
+        if (!overrides.isJsonObject()) {
+            throw new IllegalArgumentException("State \"" + state + "\" must be an object, got: " + overrides);
+        }
+        Map<String, JsonElement> merged = new LinkedHashMap<>(props);
+        merged.remove(STATES);
+        overrides.getAsJsonObject().entrySet().forEach(e -> merged.put(e.getKey(), e.getValue()));
+        return new ResolvedStyle(merged, palette);
     }
 
     /** {@code "#RRGGBB"} or {@code "#RRGGBBAA"}, directly or via a palette reference. */

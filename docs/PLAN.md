@@ -349,13 +349,13 @@ Renderers read the theme's `states` block (hover, pressed, focused, disabled, se
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0. Spikes** ✅ (see [phase0-findings.md](phase0-findings.md)) | Gradle 9.1 / JDK 25 skeleton; SWT resolution for all platforms including FreeBSD; proxy generator on 10 classes; codemod + audit on 3 JFace files; check the Nebula source paths; check the platform dark-mode keys | A themed Shell runs on every CI platform; each risk has a decision |
-| **1. Core + SWT proxies** | Theme model / GSON / schema, ThemeRegistry, ThemeResources, ThemeManager (create-time apply, tree scan, Skin net), all SWT proxies + stylers, light/dark themes | Contract tests pass; a standalone `Display`/`Shell` sample switches themes |
+| **1. Core + SWT proxies** ✅ (see [phase1-notes.md](phase1-notes.md)) | Theme model / GSON / schema, ThemeRegistry, ThemeResources, ThemeManager (create-time apply, tree scan, Skin net), all SWT proxies + stylers, light/dark themes | Contract tests pass; a standalone `Display`/`Shell` sample switches themes |
 | **2. JFace fork** | Import, codemod, manual review list, audit clean, JFace registry sync, capability conflict | ApplicationWindow demo themes menus, toolbars, dialogs, wizards and viewers |
 | **3. Owner-draw and replacements** | Table/Tree owner-draw, CTabFolder renderer, FlatButton / FlatCombo / FlatGroup / FlatProgressBar, platform hooks | Native vs canvas comparison in the demo on all platforms; limitations documented |
 | **4. Nebula released** | Fork + codemod, proxies, stylers, themed renderers, GridTableViewer path | Every listed widget is themed and switches theme live in the demo |
-| **5. Nebula incubation** | Same for the incubation list | Same as Phase 4 |
+| **5. Nebula incubation** | Same for the incubation list; Timeline gets draw2d from the GEF Classic p2 update site and EMF ecore from Maven Central | Same as Phase 4 |
 | **6. Release** | High-contrast theme, theme authoring guide, Javadoc, signed Maven publishing, samples | 1.0 |
-| **7. Optional** | NatTable (bridge to NatTable `ThemeConfiguration`), Nebula Visualization, `jface.text` / `jface.databinding` forks | — |
+| **7. Optional** | NatTable (bridge to NatTable `ThemeConfiguration`), Nebula Visualization, `jface.text` fork, data binding for all controls (`jface.databinding` + the Nebula `*ObservableValue` classes left out in Phases 4–5) | — |
 
 ## 11. Risks
 

@@ -15,7 +15,10 @@ import com.google.gson.annotations.SerializedName;
  *   "id": "zap-dark", "name": "Zap Dark", "extends": "zap-base",
  *   "palette":  { "bg": "#1E1F22", "font.default": { "name": "Segoe UI", "height": 9 } },
  *   "defaults": { "background": "$bg" },
- *   "controls": { "Button": { "background": "#2B2D30" }, "Button[CHECK]": { ... } }
+ *   "controls": { "Button": { "background": "#2B2D30", "states": { "hover": { ... } } },
+ *                 "Button[CHECK]": { ... } },
+ *   "classes":  { "Button.primary": { ... }, "*.danger": { ... } },
+ *   "platform": { "win32": { "darkScrollbars": true } }
  * }
  * }</pre>
  *
@@ -28,36 +31,52 @@ public record Theme(
         @SerializedName("extends") String parent,
         Map<String, JsonElement> palette,
         Map<String, JsonElement> defaults,
-        Map<String, Map<String, JsonElement>> controls) {
+        Map<String, Map<String, JsonElement>> controls,
+        Map<String, Map<String, JsonElement>> classes,
+        Map<String, Map<String, JsonElement>> platform) {
 
     /** A theme with no rules: every control keeps its platform look. */
-    public static final Theme EMPTY = new Theme("empty", "No theme", null, null, null, null);
+    public static final Theme EMPTY = new Theme("empty", "No theme", null, null, null, null, null, null);
 
     public Theme {
         palette = frozen(palette);
         defaults = frozen(defaults);
-        Map<String, Map<String, JsonElement>> rules = new LinkedHashMap<>();
-        if (controls != null) {
-            controls.forEach((type, props) -> rules.put(type, frozen(props)));
-        }
-        controls = Collections.unmodifiableMap(rules);
+        controls = frozenRules(controls);
+        classes = frozenRules(classes);
+        platform = frozenRules(platform);
+    }
+
+    /** Settings for one SWT windowing system ({@code "win32"}, {@code "gtk"}, {@code "cocoa"}). */
+    public Map<String, JsonElement> platformSettings(String ws) {
+        return platform.getOrDefault(ws, Map.of());
     }
 
     /** Returns this theme layered on top of {@code base}: every value here wins. */
     public Theme over(Theme base) {
-        Map<String, Map<String, JsonElement>> rules = new LinkedHashMap<>(base.controls);
-        controls.forEach((type, props) -> {
-            Map<String, JsonElement> merged = new LinkedHashMap<>(rules.getOrDefault(type, Map.of()));
-            merged.putAll(props);
-            rules.put(type, merged);
-        });
-        return new Theme(id, name, base.parent, merge(base.palette, palette), merge(base.defaults, defaults), rules);
+        return new Theme(id, name, base.parent, merge(base.palette, palette), merge(base.defaults, defaults),
+                mergeRules(base.controls, controls), mergeRules(base.classes, classes),
+                mergeRules(base.platform, platform));
+    }
+
+    private static Map<String, Map<String, JsonElement>> mergeRules(
+            Map<String, Map<String, JsonElement>> base, Map<String, Map<String, JsonElement>> top) {
+        Map<String, Map<String, JsonElement>> rules = new LinkedHashMap<>(base);
+        top.forEach((key, props) -> rules.put(key, merge(rules.getOrDefault(key, Map.of()), props)));
+        return rules;
     }
 
     private static Map<String, JsonElement> merge(Map<String, JsonElement> base, Map<String, JsonElement> top) {
         Map<String, JsonElement> merged = new LinkedHashMap<>(base);
         merged.putAll(top);
         return merged;
+    }
+
+    private static Map<String, Map<String, JsonElement>> frozenRules(Map<String, Map<String, JsonElement>> rules) {
+        Map<String, Map<String, JsonElement>> copy = new LinkedHashMap<>();
+        if (rules != null) {
+            rules.forEach((key, props) -> copy.put(key, frozen(props)));
+        }
+        return Collections.unmodifiableMap(copy);
     }
 
     private static Map<String, JsonElement> frozen(Map<String, JsonElement> map) {

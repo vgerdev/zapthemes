@@ -1,5 +1,6 @@
 plugins {
     id("zapthemes.swt-platform")
+    id("zapthemes.raw-widget-audit")
     application
 }
 
@@ -11,7 +12,7 @@ dependencies {
 }
 
 application {
-    mainClass = "com.zapthemes.demo.SpikeDemo"
+    mainClass = "com.zapthemes.demo.StandaloneDemo"
 }
 
 // Opens the demo, switches themes, checks every control and exits. Used in CI.

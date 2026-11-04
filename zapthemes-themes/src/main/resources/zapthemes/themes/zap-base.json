@@ -2,12 +2,22 @@
   "id": "zap-base",
   "name": "Zap Base",
   "palette": {
-    "font.default": { "height": 9 }
+    "font.default": { "height": 9 },
+    "font.strong": { "height": 9, "style": "bold" }
   },
   "defaults": {
     "font": "$font.default"
   },
   "controls": {
-    "TableItem": { "inherit": "Table" }
+    "TableItem": { "inherit": "Table" },
+    "TreeItem": { "inherit": "Tree" },
+    "CCombo": { "inherit": "Combo" },
+    "Spinner": { "inherit": "Text" },
+    "DateTime": { "inherit": "Text" },
+    "List": { "inherit": "Text" },
+    "StyledText": { "inherit": "Text" }
+  },
+  "classes": {
+    "*.strong": { "font": "$font.strong" }
   }
 }

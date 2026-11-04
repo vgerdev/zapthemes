@@ -1,12 +1,11 @@
-# Widget classes to generate proxies for (Phase 0 spike: 10 classes).
-# Each proxy keeps the simple name and moves org.eclipse.swt.* -> com.zapthemes.swt.*
-org.eclipse.swt.widgets.Shell
-org.eclipse.swt.widgets.Composite
-org.eclipse.swt.widgets.Group
-org.eclipse.swt.widgets.Label
-org.eclipse.swt.widgets.Button
-org.eclipse.swt.widgets.Text
-org.eclipse.swt.widgets.Combo
-org.eclipse.swt.widgets.Table
-org.eclipse.swt.widgets.TableItem
-org.eclipse.swt.custom.CTabFolder
+# Proxy list for zapthemes-swt (see com.zapthemes.tools.ProxyNames for the format).
+# Every themeable, concrete, non-deprecated widget of these packages gets a proxy
+# (org.eclipse.swt.X -> com.zapthemes.swt.X, same simple name). Non-themeable widgets
+# (DnD, Caret, IME, Tracker, Tray, TaskBar...) are listed in WidgetCatalog.NOT_THEMEABLE.
+# Windows-only OLE widgets come with the platform source sets in Phase 3.
+package org.eclipse.swt.widgets
+package org.eclipse.swt.custom
+package org.eclipse.swt.browser
+package org.eclipse.swt.opengl
+
+index com.zapthemes.swt.SwtProxies

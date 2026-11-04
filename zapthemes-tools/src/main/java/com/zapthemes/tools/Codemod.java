@@ -142,7 +142,7 @@ public final class Codemod {
             throw new IllegalStateException("Source root not found (run scripts/fetch-upstream.sh): " + sourceRoot);
         }
         Codemod codemod = new Codemod(ProxyNames.mapping(proxyList), TypeNames.index(sourceRoot));
-        Audit audit = new Audit(WidgetCatalog.swtWidgets(), TypeNames.index(sourceRoot));
+        Audit audit = new Audit(WidgetCatalog.themeableWidgets(), TypeNames.index(sourceRoot));
         for (String file : files) {
             Result result = codemod.rewrite(Files.readString(sourceRoot.resolve(file)));
             Path target = out.resolve(file);

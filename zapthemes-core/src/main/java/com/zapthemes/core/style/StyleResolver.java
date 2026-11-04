@@ -16,10 +16,14 @@ import com.zapthemes.core.model.Theme;
 
 /**
  * Merges a theme's rules for one widget, later steps winning:
- * {@code defaults} → {@code controls[type]} (after its {@code "inherit"} chain) →
- * {@code controls[type[BIT|BIT]]} for every style-bit rule whose bits are all set.
- *
- * <p>Results are cached per (type, style bits), so re-theming large UIs stays cheap.
+ * <ol>
+ *   <li>{@code defaults}</li>
+ *   <li>{@code controls[type]}, after its {@code "inherit"} chain</li>
+ *   <li>{@code controls[type[BIT|BIT]]} for every style-bit rule whose bits are all set</li>
+ *   <li>{@code classes[*.cls]} then {@code classes[type.cls]} for each class in the widget's
+ *       {@code THEME_CLASS} (whitespace-separated, in order)</li>
+ * </ol>
+ * Results are cached per (type, style bits, classes), so re-theming large UIs stays cheap.
  */
 public final class StyleResolver {
 
@@ -46,6 +50,11 @@ public final class StyleResolver {
     }
 
     public ResolvedStyle resolve(String type, int style) {
+        return resolve(type, style, null);
+    }
+
+    /** @param themeClasses the widget's {@code THEME_CLASS} value, or {@code null} */
+    public ResolvedStyle resolve(String type, int style, String themeClasses) {
         List<StyleBitRule> rules = bitRules.getOrDefault(type, List.of());
         int relevantBits = 0;
         for (StyleBitRule rule : rules) {
@@ -53,12 +62,19 @@ public final class StyleResolver {
                 relevantBits |= rule.bits;
             }
         }
-        return cache.computeIfAbsent(new CacheKey(type, relevantBits), key -> {
+        String classes = themeClasses == null ? "" : themeClasses.strip();
+        return cache.computeIfAbsent(new CacheKey(type, relevantBits, classes), key -> {
             Map<String, JsonElement> props = new LinkedHashMap<>(theme.defaults());
             mergeType(type, props, new LinkedHashSet<>());
             for (StyleBitRule rule : rules) {
                 if ((key.bits & rule.bits) == rule.bits) {
                     props.putAll(rule.props);
+                }
+            }
+            if (!classes.isEmpty()) {
+                for (String cls : classes.split("\\s+")) {
+                    props.putAll(theme.classes().getOrDefault("*." + cls, Map.of()));
+                    props.putAll(theme.classes().getOrDefault(type + "." + cls, Map.of()));
                 }
             }
             props.remove(INHERIT);
@@ -82,7 +98,7 @@ public final class StyleResolver {
     }
 
     /** Parses {@code "CHECK"} or {@code "CHECK|FLAT"} into SWT style bits. */
-    private static int parseBits(String key, String names) {
+    static int parseBits(String key, String names) {
         int bits = 0;
         for (String name : names.split("\\|")) {
             try {
@@ -98,6 +114,6 @@ public final class StyleResolver {
     private record StyleBitRule(int bits, Map<String, JsonElement> props) {
     }
 
-    private record CacheKey(String type, int bits) {
+    private record CacheKey(String type, int bits, String classes) {
     }
 }

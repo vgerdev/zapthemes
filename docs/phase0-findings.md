@@ -85,12 +85,18 @@ says otherwise.
 - **FreeBSD:** the ports SWT version can lag behind 3.135.0. Proxies are generated from whichever
   SWT is on the classpath, so an older jar changes the API surface.
 
-## Decisions needed
+## Decisions (2026-11-04)
 
-1. **Timeline:** fetch draw2d from the GEF Classic p2 update site (adds a p2 fetch step), postpone
-   Timeline to the optional phase, or theme Timeline only through the `SWT.Skin` safety net
-   without forking it.
-2. **FreeBSD:** is the ports SWT jar acceptable, or should we build SWT's GTK natives for FreeBSD
-   ourselves?
-3. **Databinding helper classes** in FormattedText, DateChooser and RadioGroup: use the official
-   databinding jars, or leave the classes out?
+1. **Timeline:** fetch draw2d from the **GEF Classic p2 update site** and fork and theme Timeline
+   like the other widgets. EMF ecore comes from Maven Central. The fetch step is added in Phase 5.
+2. **FreeBSD:** two supported routes, both unverified (no FreeBSD machine yet):
+   - **Native:** a FreeBSD JDK plus the ports SWT jar (`x11-toolkits/swt`) via `-Pswt.localJar`.
+   - **Linux compatibility layer:** run a *Linux* JDK 25 under FreeBSD's Linux compatibility layer,
+     with Linux GTK3 installed in `/compat/linux`, and use the Linux SWT
+     (`-Pswt.platform=gtk.linux.x86_64`). This needs no build changes, because SWT's JNI libraries
+     are Linux ELF and load into a Linux JVM. The trade-offs: the app runs as a Linux process, the
+     GTK3 packages for the compatibility layer are thinner, and aarch64 support there is less
+     mature.
+3. **Data binding:** left out for now. The `*ObservableValue` classes in FormattedText,
+   DateChooser and RadioGroup are excluded from the forks. Data binding for all controls will be
+   revisited as a later phase.

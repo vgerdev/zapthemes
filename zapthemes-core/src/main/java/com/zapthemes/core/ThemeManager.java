@@ -18,6 +18,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Widget;
 
 import com.zapthemes.core.model.Theme;
+import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.StyleResolver;
 import com.zapthemes.core.style.StylerRegistry;
 import com.zapthemes.core.style.ThemeContext;
@@ -156,10 +157,27 @@ public final class ThemeManager {
         shell.layout(true, true);
     }
 
+    /**
+     * Sets the widget's style classes ({@code THEME_CLASS}, whitespace-separated, e.g.
+     * {@code "primary large"}) and re-applies the theme to it.
+     */
+    public void setThemeClass(Widget widget, String themeClasses) {
+        widget.setData(ThemeKeys.THEME_CLASS, themeClasses);
+        apply(widget);
+    }
+
+    /**
+     * The current theme's resolved style for {@code widget} (its type, style bits and classes), e.g.
+     * for custom painting code. Tags the widget with its inferred type if it has none.
+     */
+    public ResolvedStyle styleOf(Widget widget) {
+        String classes = widget.getData(ThemeKeys.THEME_CLASS) instanceof String c ? c : null;
+        return resolver.resolve(typeOf(widget), widget.getStyle(), classes);
+    }
+
     void apply(Widget widget) {
-        String type = typeOf(widget);
-        var style = resolver.resolve(type, widget.getStyle());
-        stylers.get(type).apply(widget, style, new ThemeContext(resources));
+        ResolvedStyle style = styleOf(widget);
+        stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
     }
 
     private String typeOf(Widget widget) {
