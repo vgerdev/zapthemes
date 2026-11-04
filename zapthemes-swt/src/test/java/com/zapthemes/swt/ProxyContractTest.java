@@ -159,9 +159,9 @@ class ProxyContractTest {
         try {
             return (Widget) constructor.newInstance(args);
         } catch (InvocationTargetException e) {
-            if (e.getCause() instanceof SWTError error) {
-                // e.g. Browser without a web engine, GLCanvas without OpenGL on a CI machine.
-                Assumptions.abort(proxy.getSimpleName() + " unavailable here: " + error.getMessage());
+            // e.g. Browser without a web engine, GLCanvas without an OpenGL library on a CI machine.
+            if (e.getCause() instanceof SWTError || e.getCause() instanceof UnsatisfiedLinkError) {
+                Assumptions.abort(proxy.getSimpleName() + " unavailable here: " + e.getCause());
             }
             throw e;
         }
