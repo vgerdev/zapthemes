@@ -29,4 +29,5 @@ include(
     "zapthemes-tools",
     "zapthemes-demo",
     "zapthemes-samples",
+    "zapthemes-examples",
 )

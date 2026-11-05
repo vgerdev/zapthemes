@@ -17,15 +17,18 @@ Releasing: [docs/releasing.md](docs/releasing.md).
 Requires JDK 25 (the Gradle 9.1.0 wrapper is included).
 
 ```bash
-scripts/fetch-upstream.sh       # pristine JFace/Nebula sources into third_party/
+scripts/fetch-upstream.sh       # pristine JFace/Nebula/SWT-example sources into third_party/
 ./gradlew build                 # compile, generate proxies, run tests
 ./gradlew :zapthemes-demo:run             # JFace ApplicationWindow demo (forked JFace)
 ./gradlew :zapthemes-demo:runStandalone   # plain Display/Shell SWT demo
 ./gradlew :zapthemes-demo:runNebula       # Nebula released + incubation widgets demo
 ./gradlew :zapthemes-samples:runHello     # the samples: runHello, runCustomTheme, runCustomWidget, runJFace
+./gradlew :zapthemes-examples:runExamples # Eclipse's SWT ControlExample and JFace snippets, on ZapThemes
 ./gradlew publishToMavenLocal             # try the library from your own app
 ```
 
-Themes: `zap-light`, `zap-dark` and `zap-high-contrast` (WCAG AAA text contrast).
+Themes: `zap-light`, `zap-dark` and `zap-high-contrast` (WCAG AAA text contrast). An application
+that never calls `setTheme` can pick one at launch: `-Dzapthemes.theme=zap-dark` (or `auto`, or a
+theme file). See [docs/examples.md](docs/examples.md) for existing SWT/JFace code on ZapThemes.
 
 Other platforms: `-Pswt.platform=gtk.linux.aarch64` etc. FreeBSD needs `-Pswt.localJar=<swt.jar>`.
