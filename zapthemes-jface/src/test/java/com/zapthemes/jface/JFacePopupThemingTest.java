@@ -171,10 +171,10 @@ class JFacePopupThemingTest {
         // On focus the manager makes the selected row's cell the focus cell.
         viewer.getTable().setFocus();
         dispatch();
-        assertThat(focus.getFocusCell()).as("focus cell").isNotNull();
-        // Like upstream, the focus cell shows only while the table has focus; under Xvfb no window
-        // manager activates the shell.
+        // Like upstream, the focus cell exists and shows only once the table has focus; under Xvfb no
+        // window manager activates the shell, and a CI desktop may not hand it focus in time.
         Assumptions.assumeTrue(viewer.getTable().isFocusControl(), "the table has no keyboard focus");
+        assertThat(focus.getFocusCell()).as("focus cell").isNotNull();
 
         var row = viewer.getTable().getItem(1).getBounds(0);
         ImageData data = print(viewer.getTable());
