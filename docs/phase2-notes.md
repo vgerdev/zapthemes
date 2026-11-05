@@ -77,10 +77,13 @@ Screenshots are in `docs/images/jface-*.png`:
   has a menu bar, because `setMenuBar` sends a Resize before the window opens. The official jar
   does the same (136×88 window in the same test). `JFaceDemo` works around it in
   `initializeBounds`.
-- **Not yet reviewed:** other places where JFace sets colors explicitly. Most are in viewers and
-  label providers, where they are intended (per-element colors), but some may need a style class
-  like the dialogs above: `PopupDialog`, `DefaultToolTip`, `ControlDecoration` hovers,
-  `StatusLine`, `IconAndMessageDialog` and `FocusCellOwnerDrawHighlighter`.
+- **Reviewed after Phase 6:** the other places where JFace sets colors explicitly. Patches
+  0004–0007 give `DefaultToolTip` and `ControlDecoration` hovers the `info` class, `PopupDialog`
+  `popup`, the status line's error message `error`, and let the theme paint the
+  `FocusCellOwnerDrawHighlighter` focus cell (`focusCellBackground`); `JFacePopupThemingTest`
+  covers them, including theme switches. `IconAndMessageDialog` only copies the label background
+  onto its icon, which has no visible effect on the alpha SVG icons, so it is unchanged. Viewer
+  and label-provider colors stay per element, as intended.
 - **Native gaps that remain (Phase 3):** table/tree grid lines, check/radio boxes, combo arrows,
   and the menu bar and title bar.
 - **JFace's own Composite subclasses** (`StatusLine`, `ProgressIndicator`, `ProgressMonitorPart`)

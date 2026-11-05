@@ -12,6 +12,10 @@ upstream code that hard-codes colors, so the area gets a style class the theme c
 | `0001-title-area-banner.patch` | TitleAreaDialog / WizardDialog banner → `banner` (title label also `title`); clipped-message tooltip → `info` |
 | `0002-input-dialog-error-text.patch` | InputDialog read-only error text → `plain` |
 | `0003-preference-dialog-pane.patch` | PreferenceDialog page area and sash → `pane` |
+| `0004-tooltips-and-hovers.patch` | DefaultToolTip (unless its colors were set) and ControlDecoration hovers → `info` |
+| `0005-popup-dialog.patch` | PopupDialog (unless a subclass chose its colors) → `popup`, its info text also `muted` |
+| `0006-status-line-error.patch` | StatusLine message → `error` while it shows an error |
+| `0007-focus-cell.patch` | FocusCellOwnerDrawHighlighter registers its focus cell, so the theme's `focusCellBackground` paints it |
 
 ## Adding or refreshing a patch
 

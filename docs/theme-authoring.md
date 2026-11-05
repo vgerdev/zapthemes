@@ -143,7 +143,7 @@ is the most complete reference.
 | `palette` | Named values referenced from anywhere as `"$name"`. Colors are `#RRGGBB` or `#RRGGBBAA`. Fonts are `{ "name": "Segoe UI", "height": 9, "style": "bold\|italic" }`; a missing name or height keeps the system font's. An entry may reference another. |
 | `defaults` | Properties for every widget, applied first |
 | `controls` | Rules by control type. Keys: `Type` (`"Button"`, `"Grid"`, `"FlatButton"`), or `Type[BIT\|BIT]` (`"Button[CHECK]"`, `"Text[MULTI\|WRAP]"`), which applies when the widget has all of those SWT style bits. `"inherit": "Other"` starts a rule from another type's rule. |
-| `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any |
+| `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any. The JFace fork sets `banner`, `title`, `info` (tooltips and hovers), `popup` (`PopupDialog`; its info text also `muted`), `error` (status line errors), `plain` and `pane`: give them rules, as the bundled themes do |
 | `states` (inside a rule) | Overrides while a widget is `hover`, `pressed`, `selected`, `focused` or `disabled` |
 | `platform` | What the OS draws itself: `*` for all platforms, then `win32`, `gtk` or `cocoa` |
 | `registries` | Named resources of other toolkits: JFace `colors` and `fonts`, and `systemColors`, which replaces `Display.getSystemColor` constants inside the Nebula forks |
@@ -162,7 +162,7 @@ For one widget, properties merge in this order, later steps winning:
 | Widgets | Properties |
 |---|---|
 | Every control and item | `background`, `foreground`, `font`; composites also take `backgroundMode` (`none`, `default`, `force`) |
-| Table, Tree | `headerBackground`, `headerForeground`. Owner-drawn: `selectionBackground`, `selectionForeground`, `alternateRowBackground` (Table), `gridLineColor`, `states.hover.background` |
+| Table, Tree | `headerBackground`, `headerForeground`. Owner-drawn: `selectionBackground`, `selectionForeground`, `alternateRowBackground` (Table), `gridLineColor`, `states.hover.background`, and `focusCellBackground` / `focusCellForeground` for the focus cell of JFace's `FocusCellOwnerDrawHighlighter` |
 | CTabFolder | `selectionBackground`, `selectionForeground`, `selectionBarThickness`, `highlight`, `tabHeight` |
 | StyledText | `selectionBackground`, `selectionForeground`, `marginColor` |
 | Link | `linkForeground` |

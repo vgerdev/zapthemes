@@ -1,0 +1,28 @@
+diff --git a/org/eclipse/jface/window/DefaultToolTip.java b/org/eclipse/jface/window/DefaultToolTip.java
+index 2bd86f6..273e41a 100644
+--- a/org/eclipse/jface/window/DefaultToolTip.java
++++ b/org/eclipse/jface/window/DefaultToolTip.java
+@@ -117,6 +117,10 @@ public class DefaultToolTip extends ToolTip {
+ 		if (bgImage != null) {
+ 			label.setBackgroundImage(image);
+ 		}
++		// ZapThemes: the theme styles the tooltip (style class "info") unless its colors were set.
++		if (foregroundColor == null && backgroundColor == null) {
++			com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.INFO, parent, label);
++		}
+ 
+ 		if (font != null) {
+ 			label.setFont(font);
+diff --git a/org/eclipse/jface/fieldassist/ControlDecoration.java b/org/eclipse/jface/fieldassist/ControlDecoration.java
+index d78e273..3726f39 100644
+--- a/org/eclipse/jface/fieldassist/ControlDecoration.java
++++ b/org/eclipse/jface/fieldassist/ControlDecoration.java
+@@ -274,6 +274,8 @@ public class ControlDecoration {
+ 					.getSystemColor(SWT.COLOR_INFO_BACKGROUND));
+ 			hoverShell.setForeground(display
+ 					.getSystemColor(SWT.COLOR_INFO_FOREGROUND));
++			// ZapThemes: the theme styles the hover (style class "info").
++			com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.INFO, hoverShell);
+ 			hoverShell.addPaintListener(pe -> {
+ 				pe.gc.drawText(text, hm, hm);
+ 				if (!MAC) {

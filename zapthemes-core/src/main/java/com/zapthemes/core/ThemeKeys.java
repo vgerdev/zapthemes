@@ -12,6 +12,19 @@ public final class ThemeKeys {
     /** Optional style class of a widget, e.g. {@code "primary"}; selects {@code classes} rules. */
     public static final String THEME_CLASS = "THEME_CLASS";
 
+    /**
+     * Optional {@link FocusCell} of a Table or Tree, e.g. set by JFace's focus-cell highlighter. A
+     * themed selection paints that cell in the theme's {@code focusCellBackground} and
+     * {@code focusCellForeground}.
+     */
+    public static final String FOCUS_CELL = "zapthemes.focusCell";
+
+    /** Which cell of a Table or Tree has the keyboard focus; see {@link #FOCUS_CELL}. */
+    @FunctionalInterface
+    public interface FocusCell {
+        boolean isFocusCell(org.eclipse.swt.widgets.Item item, int column);
+    }
+
     private ThemeKeys() {
     }
 }

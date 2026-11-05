@@ -1,0 +1,18 @@
+diff --git a/org/eclipse/jface/dialogs/PopupDialog.java b/org/eclipse/jface/dialogs/PopupDialog.java
+index 1789021..6946718 100644
+--- a/org/eclipse/jface/dialogs/PopupDialog.java
++++ b/org/eclipse/jface/dialogs/PopupDialog.java
+@@ -1362,6 +1362,13 @@ public class PopupDialog extends Window {
+ 			color = getDefaultBackground();
+ 		}
+ 		applyBackgroundColor(color, composite, getBackgroundColorExclusions());
++		// ZapThemes: the theme styles the popup (style class "popup", the info text also "muted")
++		// unless a subclass chose its colors.
++		if (getForeground() == getDefaultForeground() && getBackground() == getDefaultBackground()) {
++			com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.POPUP, getShell());
++			com.zapthemes.jface.JFaceTheming.classedTree(com.zapthemes.jface.JFaceTheming.POPUP, composite, getBackgroundColorExclusions());
++			com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.POPUP + " " + com.zapthemes.jface.JFaceTheming.MUTED, infoLabel);
++		}
+ 	}
+ 
+ 	/**

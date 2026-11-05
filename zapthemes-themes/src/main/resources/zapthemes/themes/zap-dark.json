@@ -39,6 +39,8 @@
       "headerForeground": "$fg",
       "selectionBackground": "$selection",
       "selectionForeground": "$fg",
+      "focusCellBackground": "$accent",
+      "focusCellForeground": "$onAccent",
       "alternateRowBackground": "$stripe",
       "gridLineColor": "$muted",
       "states": {
@@ -303,6 +305,13 @@
     "*.info": {
       "background": "$muted",
       "foreground": "$fg"
+    },
+    "*.popup": {
+      "background": "$surface",
+      "foreground": "$fg"
+    },
+    "*.error": {
+      "foreground": "$error"
     },
     "*.pane": {
       "background": "$surface"
