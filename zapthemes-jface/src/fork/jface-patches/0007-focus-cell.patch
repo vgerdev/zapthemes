@@ -1,0 +1,14 @@
+diff --git a/org/eclipse/jface/viewers/FocusCellOwnerDrawHighlighter.java b/org/eclipse/jface/viewers/FocusCellOwnerDrawHighlighter.java
+index 58438a7..27283c3 100644
+--- a/org/eclipse/jface/viewers/FocusCellOwnerDrawHighlighter.java
++++ b/org/eclipse/jface/viewers/FocusCellOwnerDrawHighlighter.java
+@@ -118,6 +118,9 @@ public class FocusCellOwnerDrawHighlighter extends FocusCellHighlighter {
+ 	}
+ 
+ 	private void hookListener(final ColumnViewer viewer) {
++		// ZapThemes: a themed selection is painted before this highlighter sees it, so the theme
++		// paints the focus cell too (focusCellBackground).
++		com.zapthemes.jface.JFaceTheming.focusCell(viewer.getControl(), this::getFocusCell);
+ 
+ 		Listener listener = event -> {
+ 			if ((event.detail & SWT.SELECTED) > 0) {

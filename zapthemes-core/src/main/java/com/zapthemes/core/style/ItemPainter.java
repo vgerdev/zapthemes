@@ -6,18 +6,23 @@ import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Item;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TreeColumn;
 
+import com.zapthemes.core.ThemeKeys;
 import com.zapthemes.core.ThemeManager;
 
 /**
  * Owner-draw for Table and Tree rows, driven by the theme on every paint:
  * <ul>
  *   <li>{@code selectionBackground} / {@code selectionForeground}: selected rows</li>
+ *   <li>{@code focusCellBackground} / {@code focusCellForeground}: the focus cell of a selected row,
+ *       while the control has focus and has a {@link ThemeKeys#FOCUS_CELL} (JFace's
+ *       {@code FocusCellOwnerDrawHighlighter} sets one)</li>
  *   <li>{@code states.hover.background}: the row under the mouse</li>
  *   <li>{@code alternateRowBackground}: every second row, as the item background (Table only;
  *       Tree rows have no stable index)</li>
@@ -65,8 +70,12 @@ final class ItemPainter {
         Color fill = null;
         Color text = null;
         if ((event.detail & SWT.SELECTED) != 0 && style.has("selectionBackground")) {
-            fill = context.color(style, "selectionBackground");
-            text = context.color(style, "selectionForeground");
+            boolean focusCell = style.has("focusCellBackground") && control.isFocusControl()
+                    && control.getData(ThemeKeys.FOCUS_CELL) instanceof ThemeKeys.FocusCell cells
+                    && event.item instanceof Item item && cells.isFocusCell(item, event.index);
+            String prefix = focusCell ? "focusCell" : "selection";
+            fill = context.color(style, prefix + "Background");
+            text = context.color(style, prefix + "Foreground");
             event.detail &= ~(SWT.SELECTED | SWT.HOT);
         } else if ((event.detail & SWT.HOT) != 0 && style.states().contains("hover")) {
             fill = context.color(style.state("hover"), "background");

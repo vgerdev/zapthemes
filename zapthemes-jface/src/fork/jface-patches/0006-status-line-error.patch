@@ -1,0 +1,24 @@
+diff --git a/org/eclipse/jface/action/StatusLine.java b/org/eclipse/jface/action/StatusLine.java
+index 4692bee..d4440df 100644
+--- a/org/eclipse/jface/action/StatusLine.java
++++ b/org/eclipse/jface/action/StatusLine.java
+@@ -697,15 +697,19 @@ import org.eclipse.swt.widgets.ToolItem;
+ 			Display display = fMessageLabel.getDisplay();
+ 			if ((fErrorText != null && !fErrorText.isEmpty()) || fErrorImage != null) {
+ 				fMessageLabel.setForeground(JFaceColors.getErrorText(display));
++				// ZapThemes: the theme styles the error (style class "error"), also after a theme switch.
++				com.zapthemes.jface.JFaceTheming.classed(com.zapthemes.jface.JFaceTheming.ERROR, fMessageLabel);
+ 				fMessageLabel.setText(fErrorText);
+ 				fMessageLabel.setImage(fErrorImage);
+ 			} else if (fTaskName != null && !fTaskName.isEmpty()) {
++				com.zapthemes.jface.JFaceTheming.unclassed(fMessageLabel);
+ 				fMessageLabel.setForeground(getForeground());
+ 				fMessageLabel.setText(fTaskName == null ? "" : fTaskName); //$NON-NLS-1$
+ 				fMessageLabel.setImage(null);
+ 			} else {
+ 				fMessageLabel.setForeground(getForeground());
+ 				fMessageLabel.setText(fMessageText == null ? "" : fMessageText); //$NON-NLS-1$
++				com.zapthemes.jface.JFaceTheming.unclassed(fMessageLabel);
+ 				fMessageLabel.setImage(fMessageImage);
+ 			}
+ 			if (copyMenuItem != null && !copyMenuItem.isDisposed()) {
