@@ -47,6 +47,9 @@ its own with its own `Display`, so the browser starts it in a new JVM in the cur
     longer exists;
   - `Snippet035TableCursorCellHighlighter` (GTK only) paints its cell cursor before a cell is
     selected and reads `getSelectedCells()[0]`.
+  One more is skipped because it does not fit in memory reliably:
+  `Snippet047VirtualBigTreeViewer` builds a random model of up to 20,000 × 20,000 nodes, which often
+  exceeds the default heap of a CI machine. It runs from the snippets browser.
 
 On Windows the snippet PNGs come out blank (`Control.print` from those short-lived processes); the
 tag checks still run there.

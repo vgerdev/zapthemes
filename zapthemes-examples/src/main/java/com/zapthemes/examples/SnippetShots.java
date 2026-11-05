@@ -20,12 +20,13 @@ public final class SnippetShots {
 
     private static final long TIMEOUT = 30;
 
-    /** Snippets that fail without a theme too, and why. */
+    /** Snippets that fail without a theme too, or cannot run reliably here, and why. */
     private static final Map<String, String> BROKEN_UPSTREAM = brokenUpstream();
 
     private static Map<String, String> brokenUpstream() {
         Map<String, String> broken = new java.util.HashMap<>();
         broken.put("Snippet060DialogWithURLImageButtons", "its OK image, http://www.eclipse.org/home/images/enterprise.gif, no longer exists");
+        broken.put("Snippet047VirtualBigTreeViewer", "its random model has up to 20,000 x 20,000 nodes, often more than a CI machine's default heap");
         if (org.eclipse.swt.SWT.getPlatform().equals("gtk")) {
             broken.put("Snippet035TableCursorCellHighlighter", "on GTK its TableCursor paints before a cell is selected and reads getSelectedCells()[0]");
         }
