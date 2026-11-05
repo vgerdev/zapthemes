@@ -79,7 +79,10 @@ public final class ThemeManager {
         // Registered before extensions are installed, so an extension may call get() itself.
         ThemeManager manager = new ThemeManager(display);
         MANAGERS.put(display, manager);
-        ServiceLoader.load(ThemeExtension.class).forEach(extension -> extension.install(manager));
+        List<ThemeExtension> extensions = ServiceLoader.load(ThemeExtension.class).stream().map(ServiceLoader.Provider::get).toList();
+        extensions.forEach(extension -> extension.install(manager));
+        extensions.stream().map(extension -> extension.initialTheme(display)).filter(Objects::nonNull).findFirst()
+                .ifPresent(manager::setTheme);
         return manager;
     }
 
