@@ -19,6 +19,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Widget;
 
 import com.zapthemes.core.ThemeKeys;
+import com.zapthemes.core.ThemeChangeListener;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.ThemeRegistry;
 import com.zapthemes.core.model.Theme;
@@ -155,6 +156,10 @@ public final class StandaloneDemo {
         available.forEach(theme -> picker.add(theme.name()));
         picker.select(0);
         picker.addListener(SWT.Selection, e -> themes.setTheme(available.get(picker.getSelectionIndex())));
+        // Follow switches made elsewhere (the button, screenshots).
+        ThemeChangeListener follow = (previous, current) -> picker.select(available.indexOf(current));
+        themes.addThemeChangeListener(follow);
+        picker.addDisposeListener(e -> themes.removeThemeChangeListener(follow));
         Button toggle = new Button(bar, SWT.PUSH);
         toggle.setText("Switch theme");
         themes.setThemeClass(toggle, "primary");
