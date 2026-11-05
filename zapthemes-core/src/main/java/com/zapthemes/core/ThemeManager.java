@@ -19,6 +19,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Widget;
 
 import com.zapthemes.core.model.Theme;
+import com.zapthemes.core.platform.PlatformThemeSupport;
 import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.StyleResolver;
 import com.zapthemes.core.style.StylerRegistry;
@@ -33,6 +34,8 @@ import com.zapthemes.core.style.ThemeContext;
  *       according to its {@code getData("THEME_CONTROL_TYPE")}.</li>
  *   <li>Widgets created without a proxy are tagged and themed from the {@link SWT#Skin} event,
  *       which SWT sends for every new widget before the next event dispatch.</li>
+ *   <li>The theme's {@code platform} settings (title bars, scrollbars, Windows menu bar) are applied
+ *       through {@link PlatformThemeSupport}.</li>
  *   <li>{@link ThemeExtension}s found by {@link ServiceLoader} are installed when the manager is
  *       created, e.g. zapthemes-jface's sync of the JFace color and font registries.</li>
  * </ul>
@@ -49,6 +52,7 @@ public final class ThemeManager {
     private final StylerRegistry stylers = StylerRegistry.withDefaults();
     private final ControlTypeResolver typeResolver = new ControlTypeResolver();
     private final List<ThemeChangeListener> listeners = new CopyOnWriteArrayList<>();
+    private final PlatformThemeSupport platform = PlatformThemeSupport.forCurrentPlatform();
 
     private StyleResolver resolver = new StyleResolver(Theme.EMPTY);
     private ThemeResources resources;
@@ -125,10 +129,12 @@ public final class ThemeManager {
         resolver = new StyleResolver(theme);
         resources = new ThemeResources(display);
 
+        platform.beforeTheme(display, resolver.platform(), resources);
         Set<Widget> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Shell shell : display.getShells()) {
             reapplyTree(shell, visited);
         }
+        platform.afterTheme(display, resolver.platform());
         listeners.forEach(listener -> listener.themeChanged(previous, theme));
         oldResources.dispose();
     }
@@ -194,6 +200,7 @@ public final class ThemeManager {
     void apply(Widget widget) {
         ResolvedStyle style = styleOf(widget);
         stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
+        platform.apply(widget, resolver.platform());
     }
 
     private String typeOf(Widget widget) {

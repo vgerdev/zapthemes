@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.google.gson.JsonElement;
 import com.zapthemes.core.model.Theme;
@@ -49,6 +50,12 @@ public final class ThemeValidator {
                 problems.add("classes." + key + ": class rules are written Type.class or *.class");
             }
             checkProps("classes." + key, props, theme, problems);
+        });
+        theme.platform().forEach((ws, settings) -> {
+            if (!Set.of("*", "win32", "gtk", "cocoa").contains(ws)) {
+                problems.add("platform." + ws + ": unknown platform (use *, win32, gtk or cocoa)");
+            }
+            checkProps("platform." + ws, settings, theme, problems);
         });
         theme.registries().forEach((name, entries) -> {
             ResolvedStyle registry = new ResolvedStyle(entries, theme.palette());

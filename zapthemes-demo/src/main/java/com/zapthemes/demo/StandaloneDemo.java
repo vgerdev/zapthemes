@@ -58,6 +58,9 @@ import com.zapthemes.swt.widgets.Tree;
 import com.zapthemes.swt.widgets.TreeColumn;
 import com.zapthemes.swt.widgets.TreeItem;
 import com.zapthemes.themes.BundledThemes;
+import com.zapthemes.widgets.FlatButton;
+import com.zapthemes.widgets.FlatGroup;
+import com.zapthemes.widgets.FlatProgressBar;
 
 /**
  * A standalone {@link Display}/{@link Shell} app (no JFace) built only from ZapThemes proxies, with
@@ -74,6 +77,7 @@ public final class StandaloneDemo {
     private final ThemeManager themes;
     private final List<Theme> available = new ArrayList<>();
     private Shell shell;
+    private CTabFolder tabs;
 
     private StandaloneDemo(Display display) {
         this.display = display;
@@ -118,12 +122,13 @@ public final class StandaloneDemo {
         createMenuBar();
         createThemeBar(shell);
 
-        CTabFolder tabs = new CTabFolder(shell, SWT.BORDER);
+        tabs = new CTabFolder(shell, SWT.BORDER);
         tabs.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         tab(tabs, "Basics", this::createBasics);
         tab(tabs, "Lists && Tables", this::createLists);
         tab(tabs, "Text", this::createText);
         tab(tabs, "Containers", this::createContainers);
+        tab(tabs, "Native vs Canvas", this::createComparison);
         tabs.setSelection(0);
 
         shell.setSize(820, 600);
@@ -259,6 +264,46 @@ public final class StandaloneDemo {
         return text;
     }
 
+    /** Native controls that ignore colors on some platforms next to their canvas replacements. */
+    private Control createComparison(CTabFolder parent) {
+        Composite page = new Composite(parent, SWT.NONE);
+        page.setLayout(new GridLayout(2, true));
+
+        Group nativeGroup = new Group(page, SWT.NONE);
+        nativeGroup.setText("Native (Group, Button, ProgressBar)");
+        nativeGroup.setLayout(new GridLayout(1, false));
+        nativeGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        new Button(nativeGroup, SWT.PUSH).setText("Push");
+        new Button(nativeGroup, SWT.TOGGLE).setText("Toggle");
+        Button check = new Button(nativeGroup, SWT.CHECK);
+        check.setText("Check");
+        check.setSelection(true);
+        new Button(nativeGroup, SWT.RADIO).setText("Radio one");
+        new Button(nativeGroup, SWT.RADIO).setText("Radio two");
+        ProgressBar progress = new ProgressBar(nativeGroup, SWT.HORIZONTAL);
+        progress.setSelection(60);
+        progress.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+
+        FlatGroup flatGroup = new FlatGroup(page, SWT.NONE);
+        flatGroup.setText("Canvas (FlatGroup, FlatButton, FlatProgressBar)");
+        flatGroup.setLayout(new GridLayout(1, false));
+        flatGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        new FlatButton(flatGroup, SWT.PUSH).setText("Push");
+        FlatButton primary = new FlatButton(flatGroup, SWT.PUSH);
+        primary.setText("&Primary");
+        themes.setThemeClass(primary, "primary");
+        new FlatButton(flatGroup, SWT.TOGGLE).setText("Toggle");
+        FlatButton flatCheck = new FlatButton(flatGroup, SWT.CHECK);
+        flatCheck.setText("Check");
+        flatCheck.setSelection(true);
+        new FlatButton(flatGroup, SWT.RADIO).setText("Radio one");
+        new FlatButton(flatGroup, SWT.RADIO).setText("Radio two");
+        FlatProgressBar flatProgress = new FlatProgressBar(flatGroup, SWT.NONE);
+        flatProgress.setSelection(60);
+        flatProgress.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        return page;
+    }
+
     private Control createContainers(CTabFolder parent) {
         Composite page = new Composite(parent, SWT.NONE);
         page.setLayout(new GridLayout(2, true));
@@ -333,27 +378,36 @@ public final class StandaloneDemo {
         shell.forceActive();
         for (Theme theme : available) {
             themes.setTheme(theme);
-            for (int i = 0; i < 20; i++) {
-                while (display.readAndDispatch()) {
-                    // Paint before capturing.
-                }
-                display.timerExec(25, () -> { });
-                display.sleep();
+            for (int tab = 0; tab < tabs.getItemCount(); tab++) {
+                tabs.setSelection(tab);
+                settle();
+                // Control.print renders the window itself, so it works without access to the screen.
+                Rectangle bounds = shell.getClientArea();
+                Image image = new Image(display, bounds.width, bounds.height);
+                GC gc = new GC(image);
+                shell.print(gc);
+                gc.dispose();
+                ImageLoader loader = new ImageLoader();
+                loader.data = new ImageData[] { image.getImageData() };
+                String name = tabs.getItem(tab).getText().replace("&&", "and").replaceAll("[^A-Za-z]+", "-").toLowerCase();
+                String file = dir.resolve(theme.id() + "-" + name + ".png").toString();
+                loader.save(file, SWT.IMAGE_PNG);
+                image.dispose();
+                System.out.println("Saved " + file);
             }
-            // Control.print renders the window itself, so it works without access to the screen.
-            Rectangle bounds = shell.getClientArea();
-            Image image = new Image(display, bounds.width, bounds.height);
-            GC gc = new GC(image);
-            shell.print(gc);
-            gc.dispose();
-            ImageLoader loader = new ImageLoader();
-            loader.data = new ImageData[] { image.getImageData() };
-            String file = dir.resolve(theme.id() + ".png").toString();
-            loader.save(file, SWT.IMAGE_PNG);
-            image.dispose();
-            System.out.println("Saved " + file);
         }
+        tabs.setSelection(0);
         themes.setTheme(available.getFirst());
+    }
+
+    private void settle() {
+        for (int i = 0; i < 20; i++) {
+            while (display.readAndDispatch()) {
+                // Paint before capturing.
+            }
+            display.timerExec(25, () -> { });
+            display.sleep();
+        }
     }
 
     private int smokeTest() {

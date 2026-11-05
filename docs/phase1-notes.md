@@ -47,9 +47,12 @@ yet.
 | `ThemeModelTest`, `ThemeValidatorTest` | 12 |
 | `CodemodTest`, `ProxyGeneratorTest` | 10 |
 
-## What Windows shows (`docs/images/zap-dark.png`)
+## What Windows showed at the end of Phase 1
 
-![Dark theme on Windows](images/zap-dark.png)
+The screenshot is regenerated on every run, so it shows the current state: Phase 3 has since
+closed several of the gaps listed below (see [phase3-notes.md](phase3-notes.md)).
+
+![Dark theme on Windows](images/zap-dark-basics.png)
 
 Themed correctly: shell, composites, labels, links, push/toggle buttons (including the `primary`
 class), Text, Spinner, Combo text, tabs and the tab selection color.

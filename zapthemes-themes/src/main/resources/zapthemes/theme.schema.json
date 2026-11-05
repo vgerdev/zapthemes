@@ -39,6 +39,7 @@
       "type": "object",
       "description": "Global settings per SWT windowing system.",
       "properties": {
+        "*": { "type": "object", "description": "Settings for every platform, e.g. darkThemePreferred." },
         "win32": { "type": "object" },
         "gtk": { "type": "object" },
         "cocoa": { "type": "object" }

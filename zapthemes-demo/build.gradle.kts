@@ -9,6 +9,7 @@ description = "Demo application."
 dependencies {
     implementation(project(":zapthemes-swt"))
     implementation(project(":zapthemes-jface"))
+    implementation(project(":zapthemes-widgets"))
     implementation(project(":zapthemes-themes"))
 }
 

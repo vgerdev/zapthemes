@@ -18,6 +18,7 @@ rootProject.name = "zapthemes"
 include(
     "zapthemes-core",
     "zapthemes-swt",
+    "zapthemes-widgets",
     "zapthemes-jface",
     "zapthemes-themes",
     "zapthemes-tools",
