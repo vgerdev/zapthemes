@@ -143,11 +143,11 @@ class FlatWidgetsTest {
         shell.open();
         shell.layout();
 
-        assertThat(centerPixel(button)).isEqualTo(DARK_MUTED);
-        assertThat(centerPixel(progress)).isEqualTo(ACCENT);
+        assertThat(fillPixel(button)).isEqualTo(DARK_MUTED);
+        assertThat(fillPixel(progress)).isEqualTo(ACCENT);
 
         manager.setTheme(light);
-        assertThat(centerPixel(button)).isEqualTo(LIGHT_MUTED);
+        assertThat(fillPixel(button)).isEqualTo(LIGHT_MUTED);
     }
 
     @Test
@@ -178,14 +178,15 @@ class FlatWidgetsTest {
         assertThat(bar.getMinimum()).isZero();
     }
 
-    private static RGB centerPixel(Control control) {
+    /** A pixel of the control's fill, left of any centered text, whose antialiasing varies by platform. */
+    private static RGB fillPixel(Control control) {
         var size = control.getSize();
         Image image = new Image(display, size.x, size.y);
         GC gc = new GC(image);
         control.print(gc);
         gc.dispose();
         ImageData data = image.getImageData();
-        RGB rgb = data.palette.getRGB(data.getPixel(size.x / 2, size.y / 2));
+        RGB rgb = data.palette.getRGB(data.getPixel(size.x / 8, size.y / 2));
         image.dispose();
         return rgb;
     }
