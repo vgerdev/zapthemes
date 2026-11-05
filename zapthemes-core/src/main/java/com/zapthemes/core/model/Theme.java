@@ -18,11 +18,15 @@ import com.google.gson.annotations.SerializedName;
  *   "controls": { "Button": { "background": "#2B2D30", "states": { "hover": { ... } } },
  *                 "Button[CHECK]": { ... } },
  *   "classes":  { "Button.primary": { ... }, "*.danger": { ... } },
- *   "platform": { "win32": { "darkScrollbars": true } }
+ *   "platform": { "win32": { "darkScrollbars": true } },
+ *   "registries": { "colors": { "HYPERLINK_COLOR": "$accent" }, "fonts": { "org.eclipse.jface.dialogfont": "$font.default" } }
  * }
  * }</pre>
  *
- * Property values are kept as raw {@link JsonElement}s so stylers can define their own keys;
+ * {@code registries} holds named resources for toolkits that keep their own registries (JFace's
+ * {@code ColorRegistry} and {@code FontRegistry}); an extension such as zapthemes-jface applies them.
+ *
+ * <p>Property values are kept as raw {@link JsonElement}s so stylers can define their own keys;
  * {@link com.zapthemes.core.style.ResolvedStyle} interprets them.
  */
 public record Theme(
@@ -33,10 +37,11 @@ public record Theme(
         Map<String, JsonElement> defaults,
         Map<String, Map<String, JsonElement>> controls,
         Map<String, Map<String, JsonElement>> classes,
-        Map<String, Map<String, JsonElement>> platform) {
+        Map<String, Map<String, JsonElement>> platform,
+        Map<String, Map<String, JsonElement>> registries) {
 
     /** A theme with no rules: every control keeps its platform look. */
-    public static final Theme EMPTY = new Theme("empty", "No theme", null, null, null, null, null, null);
+    public static final Theme EMPTY = new Theme("empty", "No theme", null, null, null, null, null, null, null);
 
     public Theme {
         palette = frozen(palette);
@@ -44,6 +49,7 @@ public record Theme(
         controls = frozenRules(controls);
         classes = frozenRules(classes);
         platform = frozenRules(platform);
+        registries = frozenRules(registries);
     }
 
     /** Settings for one SWT windowing system ({@code "win32"}, {@code "gtk"}, {@code "cocoa"}). */
@@ -55,7 +61,7 @@ public record Theme(
     public Theme over(Theme base) {
         return new Theme(id, name, base.parent, merge(base.palette, palette), merge(base.defaults, defaults),
                 mergeRules(base.controls, controls), mergeRules(base.classes, classes),
-                mergeRules(base.platform, platform));
+                mergeRules(base.platform, platform), mergeRules(base.registries, registries));
     }
 
     private static Map<String, Map<String, JsonElement>> mergeRules(

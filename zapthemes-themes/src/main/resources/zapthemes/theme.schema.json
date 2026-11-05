@@ -27,6 +27,14 @@
       "propertyNames": { "pattern": "^(\*|[A-Za-z_][A-Za-z0-9_]*)\.[A-Za-z0-9_-]+$" },
       "additionalProperties": { "$ref": "#/$defs/rule" }
     },
+    "registries": {
+      "type": "object",
+      "description": "Named resources for toolkit registries, keyed by their symbolic names (JFace ColorRegistry / FontRegistry).",
+      "properties": {
+        "colors": { "type": "object", "additionalProperties": { "anyOf": [{ "$ref": "#/$defs/color" }, { "$ref": "#/$defs/reference" }] } },
+        "fonts": { "type": "object", "additionalProperties": { "anyOf": [{ "$ref": "#/$defs/font" }, { "$ref": "#/$defs/reference" }] } }
+      }
+    },
     "platform": {
       "type": "object",
       "description": "Global settings per SWT windowing system.",

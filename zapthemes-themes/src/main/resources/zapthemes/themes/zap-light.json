@@ -11,30 +11,100 @@
     "disabled": "#8C8F94",
     "selection": "#CFDEFC",
     "accent": "#3574F0",
-    "onAccent": "#FFFFFF"
+    "onAccent": "#FFFFFF",
+    "error": "#C62828",
+    "qualifier": "#6A737D"
   },
-  "defaults": { "background": "$bg", "foreground": "$fg" },
+  "defaults": {
+    "background": "$bg",
+    "foreground": "$fg"
+  },
   "controls": {
-    "Text":         { "background": "$surface" },
-    "Combo":        { "background": "$surface" },
-    "StyledText":   { "selectionBackground": "$selection", "selectionForeground": "$fg", "marginColor": "$surface" },
-    "Table":        { "background": "$surface", "headerBackground": "$muted", "headerForeground": "$fg" },
-    "Tree":         { "inherit": "Table" },
-    "Link":         { "linkForeground": "$accent" },
+    "Text": {
+      "background": "$surface"
+    },
+    "Combo": {
+      "background": "$surface"
+    },
+    "StyledText": {
+      "selectionBackground": "$selection",
+      "selectionForeground": "$fg",
+      "marginColor": "$surface"
+    },
+    "Table": {
+      "background": "$surface",
+      "headerBackground": "$muted",
+      "headerForeground": "$fg"
+    },
+    "Tree": {
+      "inherit": "Table"
+    },
+    "Link": {
+      "linkForeground": "$accent"
+    },
     "Button[PUSH]": {
       "background": "$muted",
       "states": {
-        "hover":    { "background": "$hover" },
-        "pressed":  { "background": "$accent", "foreground": "$onAccent" },
-        "disabled": { "foreground": "$disabled" },
-        "focused":  { "borderColor": "$accent" }
+        "hover": {
+          "background": "$hover"
+        },
+        "pressed": {
+          "background": "$accent",
+          "foreground": "$onAccent"
+        },
+        "disabled": {
+          "foreground": "$disabled"
+        },
+        "focused": {
+          "borderColor": "$accent"
+        }
       }
     },
-    "CTabFolder":   { "selectionBackground": "$surface", "selectionForeground": "$accent" }
+    "CTabFolder": {
+      "selectionBackground": "$surface",
+      "selectionForeground": "$accent"
+    }
   },
   "classes": {
-    "Button.primary": { "background": "$accent", "foreground": "$onAccent" },
-    "Label.muted":    { "foreground": "$disabled" }
+    "Button.primary": {
+      "background": "$accent",
+      "foreground": "$onAccent"
+    },
+    "Label.muted": {
+      "foreground": "$disabled"
+    },
+    "*.banner": {
+      "background": "$surface",
+      "foreground": "$fg"
+    },
+    "*.info": {
+      "background": "$muted",
+      "foreground": "$fg"
+    },
+    "*.pane": {
+      "background": "$surface"
+    },
+    "Text.plain": {
+      "background": "$bg"
+    }
   },
-  "platform": { "win32": { "darkScrollbars": false } }
+  "platform": {
+    "win32": {
+      "darkScrollbars": false
+    }
+  },
+  "registries": {
+    "colors": {
+      "ERROR_COLOR": "$error",
+      "HYPERLINK_COLOR": "$accent",
+      "ACTIVE_HYPERLINK_COLOR": "$accent",
+      "QUALIFIER_COLOR": "$qualifier",
+      "DECORATIONS_COLOR": "$qualifier",
+      "COUNTER_COLOR": "$accent",
+      "CONTENT_ASSIST_BACKGROUND_COLOR": "$surface",
+      "CONTENT_ASSIST_FOREGROUND_COLOR": "$fg",
+      "org.eclipse.ui.workbench.INFORMATION_BACKGROUND": "$surface",
+      "org.eclipse.ui.workbench.INFORMATION_FOREGROUND": "$fg"
+    }
+  }
 }

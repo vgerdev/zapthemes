@@ -1,0 +1,402 @@
+package com.zapthemes.demo;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+
+import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.Separator;
+import org.eclipse.jface.action.StatusLineManager;
+import org.eclipse.jface.action.ToolBarManager;
+import org.eclipse.jface.dialogs.InputDialog;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.TitleAreaDialog;
+import org.eclipse.jface.layout.GridDataFactory;
+import org.eclipse.jface.layout.GridLayoutFactory;
+import org.eclipse.jface.preference.BooleanFieldEditor;
+import org.eclipse.jface.preference.FieldEditorPreferencePage;
+import org.eclipse.jface.preference.PreferenceDialog;
+import org.eclipse.jface.preference.PreferenceManager;
+import org.eclipse.jface.preference.PreferenceNode;
+import org.eclipse.jface.preference.PreferenceStore;
+import org.eclipse.jface.preference.RadioGroupFieldEditor;
+import org.eclipse.jface.preference.StringFieldEditor;
+import org.eclipse.jface.viewers.ArrayContentProvider;
+import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.ITreeContentProvider;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.jface.viewers.TableViewerColumn;
+import org.eclipse.jface.viewers.TreeViewer;
+import org.eclipse.jface.widgets.WidgetFactory;
+import org.eclipse.jface.window.ApplicationWindow;
+import org.eclipse.jface.window.Window;
+import org.eclipse.jface.wizard.Wizard;
+import org.eclipse.jface.wizard.WizardDialog;
+import org.eclipse.jface.wizard.WizardPage;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.ImageData;
+import org.eclipse.swt.graphics.ImageLoader;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
+
+import com.zapthemes.core.ThemeKeys;
+import com.zapthemes.core.ThemeManager;
+import com.zapthemes.core.ThemeRegistry;
+import com.zapthemes.core.model.Theme;
+import com.zapthemes.swt.custom.SashForm;
+import com.zapthemes.themes.BundledThemes;
+
+/**
+ * A JFace {@link ApplicationWindow} on the ZapThemes JFace fork: menu bar, tool bar, status line,
+ * table and tree viewers, and the common JFace dialogs, with live theme switching. The app code is
+ * plain JFace; its widgets are proxies because the fork creates them.
+ *
+ * <p>{@code --smoke} opens every dialog, checks that each control is tagged and has the theme's
+ * background in the light and dark themes, and exits non-zero on failure.
+ * {@code --screenshots <dir>} saves the window and the dialogs as PNG.
+ */
+public final class JFaceDemo extends ApplicationWindow {
+
+    private record Row(String widget, String created) {
+    }
+
+    private static final List<Row> ROWS = List.of(
+            new Row("Shell", "Window.createShell"),
+            new Row("Menu / MenuItem", "MenuManager"),
+            new Row("ToolBar / ToolItem", "ToolBarManager"),
+            new Row("Button", "WidgetFactory.button"),
+            new Row("Table / TableItem", "TableViewer"),
+            new Row("Tree / TreeItem", "TreeViewer"));
+
+    private final ThemeManager themes;
+    private final List<Theme> available;
+    private int current;
+
+    private JFaceDemo(ThemeManager themes, List<Theme> available) {
+        super(null);
+        this.themes = themes;
+        this.available = available;
+        addMenuBar();
+        addToolBar(SWT.FLAT | SWT.RIGHT);
+        addStatusLine();
+    }
+
+    public static void main(String[] args) throws Exception {
+        List<String> options = List.of(args);
+        Display display = new Display();
+        ThemeManager themes = ThemeManager.get(display);
+        ThemeRegistry registry = new ThemeRegistry();
+        BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
+        List<Theme> available = List.of(registry.resolve("zap-light"), registry.resolve("zap-dark"));
+        themes.setTheme(available.getFirst());
+
+        JFaceDemo demo = new JFaceDemo(themes, available);
+        int shots = options.indexOf("--screenshots");
+        if (options.contains("--smoke") || shots >= 0) {
+            demo.setBlockOnOpen(false);
+            demo.open();
+            int exit = demo.verify(shots >= 0 ? Path.of(options.get(shots + 1)) : null);
+            demo.close();
+            display.dispose();
+            System.exit(exit);
+        }
+        demo.setBlockOnOpen(true);
+        demo.open();
+        display.dispose();
+    }
+
+    @Override
+    protected void configureShell(Shell shell) {
+        super.configureShell(shell);
+        shell.setText("ZapThemes — JFace ApplicationWindow demo");
+    }
+
+    @Override
+    protected Point getInitialSize() {
+        return new Point(900, 600);
+    }
+
+    @Override
+    protected void initializeBounds() {
+        // Upstream JFace quirk on Windows (official jar too): setMenuBar sends WM_SIZE before the
+        // window opens, so Window thinks the app sized the shell and skips getInitialSize().
+        resizeHasOccurred = false;
+        super.initializeBounds();
+    }
+
+    // ---------------------------------------------------------------- actions
+
+    private final Action switchTheme = action("Switch &theme", this::nextTheme);
+
+    private void nextTheme() {
+        current = (current + 1) % available.size();
+        themes.setTheme(available.get(current));
+        setStatus("Theme: " + available.get(current).name());
+    }
+
+    private final Map<String, Supplier<Window>> dialogs = new LinkedHashMap<>();
+    {
+        dialogs.put("Message", () -> new MessageDialog(getShell(), "Message", null,
+                "MessageDialog uses the theme too.", MessageDialog.INFORMATION, 0, "OK", "Cancel"));
+        dialogs.put("Input", () -> new InputDialog(getShell(), "Input", "Your name:", "ZapThemes", null));
+        dialogs.put("TitleArea", () -> new DemoTitleAreaDialog(getShell()));
+        dialogs.put("Wizard", () -> new WizardDialog(getShell(), new DemoWizard()));
+        dialogs.put("Preferences", () -> preferenceDialog(getShell()));
+    }
+
+    private static Action action(String text, Runnable run) {
+        return new Action(text) {
+            @Override
+            public void run() {
+                run.run();
+            }
+        };
+    }
+
+    @Override
+    protected MenuManager createMenuManager() {
+        MenuManager bar = new MenuManager();
+        MenuManager file = new MenuManager("&File");
+        file.add(switchTheme);
+        file.add(new Separator());
+        file.add(action("E&xit", this::close));
+        MenuManager open = new MenuManager("&Dialogs");
+        dialogs.forEach((name, dialog) -> open.add(action(name + "...", () -> dialog.get().open())));
+        bar.add(file);
+        bar.add(open);
+        return bar;
+    }
+
+    @Override
+    protected ToolBarManager createToolBarManager(int style) {
+        ToolBarManager toolBar = new ToolBarManager(style);
+        toolBar.add(switchTheme);
+        toolBar.add(new Separator());
+        dialogs.forEach((name, dialog) -> toolBar.add(action(name, () -> dialog.get().open())));
+        return toolBar;
+    }
+
+    @Override
+    protected StatusLineManager createStatusLineManager() {
+        StatusLineManager status = super.createStatusLineManager();
+        status.setMessage("Every widget here was created by JFace; the fork made them ZapThemes proxies.");
+        return status;
+    }
+
+    // ---------------------------------------------------------------- contents
+
+    @Override
+    protected Control createContents(Composite parent) {
+        SashForm sash = new SashForm(parent, SWT.HORIZONTAL);
+
+        TableViewer table = new TableViewer(sash, SWT.BORDER | SWT.FULL_SELECTION);
+        table.getTable().setHeaderVisible(true);
+        table.getTable().setLinesVisible(true);
+        column(table, "Widget", 160, Row::widget);
+        column(table, "Created by", 200, Row::created);
+        table.setContentProvider(ArrayContentProvider.getInstance());
+        table.setInput(ROWS);
+
+        TreeViewer tree = new TreeViewer(sash, SWT.BORDER);
+        tree.setContentProvider(new ITreeContentProvider() {
+            @Override
+            public Object[] getElements(Object input) {
+                return new Object[] { "org.eclipse.jface" };
+            }
+
+            @Override
+            public Object[] getChildren(Object parent) {
+                return parent.equals("org.eclipse.jface")
+                        ? new Object[] { "action", "dialogs", "viewers", "window", "wizard" } : new Object[0];
+            }
+
+            @Override
+            public Object getParent(Object element) {
+                return null;
+            }
+
+            @Override
+            public boolean hasChildren(Object element) {
+                return getChildren(element).length > 0;
+            }
+        });
+        tree.setLabelProvider(new LabelProvider());
+        tree.setInput("root");
+        tree.expandAll();
+        sash.setWeights(3, 2);
+        return sash;
+    }
+
+    private interface Text {
+        String of(Row row);
+    }
+
+    private static void column(TableViewer viewer, String title, int width, Text text) {
+        TableViewerColumn column = new TableViewerColumn(viewer, SWT.NONE);
+        column.getColumn().setText(title);
+        column.getColumn().setWidth(width);
+        column.setLabelProvider(new ColumnLabelProvider() {
+            @Override
+            public String getText(Object element) {
+                return text.of((Row) element);
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- dialogs
+
+    private static final class DemoTitleAreaDialog extends TitleAreaDialog {
+        DemoTitleAreaDialog(Shell parent) {
+            super(parent);
+        }
+
+        @Override
+        protected Control createDialogArea(Composite parent) {
+            Composite area = (Composite) super.createDialogArea(parent);
+            setTitle("TitleAreaDialog");
+            setMessage("The banner, message and fields follow the theme.");
+            Composite body = WidgetFactory.composite(SWT.NONE).layout(GridLayoutFactory.swtDefaults().numColumns(2).create())
+                    .layoutData(GridDataFactory.fillDefaults().grab(true, true).create()).create(area);
+            WidgetFactory.label(SWT.NONE).text("Project:").create(body);
+            WidgetFactory.text(SWT.BORDER).text("zapthemes").layoutData(GridDataFactory.fillDefaults().grab(true, false).create()).create(body);
+            return area;
+        }
+    }
+
+    private static final class DemoWizard extends Wizard {
+        DemoWizard() {
+            setWindowTitle("Wizard");
+        }
+
+        @Override
+        public void addPages() {
+            addPage(new WizardPage("first", "First page", null) {
+                @Override
+                public void createControl(Composite parent) {
+                    Composite page = WidgetFactory.composite(SWT.NONE).layout(GridLayoutFactory.swtDefaults().create()).create(parent);
+                    WidgetFactory.label(SWT.NONE).text("WizardDialog pages, buttons and progress area are themed.").create(page);
+                    WidgetFactory.button(SWT.CHECK).text("Remember me").create(page);
+                    setControl(page);
+                }
+            });
+            addPage(new WizardPage("second", "Second page", null) {
+                @Override
+                public void createControl(Composite parent) {
+                    setControl(WidgetFactory.text(SWT.BORDER | SWT.MULTI).text("Second page").create(parent));
+                }
+            });
+        }
+
+        @Override
+        public boolean performFinish() {
+            return true;
+        }
+    }
+
+    private static PreferenceDialog preferenceDialog(Shell parent) {
+        PreferenceStore store = new PreferenceStore();
+        store.setDefault("name", "ZapThemes");
+        store.setDefault("theme", "light");
+        PreferenceManager manager = new PreferenceManager();
+        manager.addToRoot(new PreferenceNode("general", new FieldEditorPreferencePage("General", FieldEditorPreferencePage.GRID) {
+            @Override
+            protected void createFieldEditors() {
+                addField(new StringFieldEditor("name", "Name:", getFieldEditorParent()));
+                addField(new BooleanFieldEditor("live", "Live theme reload", getFieldEditorParent()));
+                addField(new RadioGroupFieldEditor("theme", "Theme", 1,
+                        new String[][] { { "Light", "light" }, { "Dark", "dark" } }, getFieldEditorParent(), true));
+            }
+        }));
+        PreferenceDialog dialog = new PreferenceDialog(parent, manager);
+        dialog.setPreferenceStore(store);
+        return dialog;
+    }
+
+    // ---------------------------------------------------------------- smoke test
+
+    /** Checks the window and every dialog in every theme; returns the process exit code. */
+    private int verify(Path screenshots) throws Exception {
+        List<String> problems = new ArrayList<>();
+        int checked = 0;
+        for (int i = 0; i < available.size(); i++) {
+            Theme theme = available.get(i);
+            current = i;
+            themes.setTheme(theme);
+            dispatch();
+            checked += check("window", getShell(), problems);
+            screenshot(getShell(), screenshots, "jface-window-" + theme.id());
+            for (var entry : dialogs.entrySet()) {
+                Window dialog = entry.getValue().get();
+                dialog.setBlockOnOpen(false);
+                dialog.open();
+                dispatch();
+                checked += check(entry.getKey(), dialog.getShell(), problems);
+                screenshot(dialog.getShell(), screenshots, "jface-" + entry.getKey().toLowerCase() + "-" + theme.id());
+                dialog.close();
+            }
+        }
+        if (problems.isEmpty()) {
+            System.out.println("SMOKE OK: " + checked + " controls in the window and " + dialogs.size()
+                    + " dialogs tagged and themed, in " + available.size() + " themes");
+            return 0;
+        }
+        problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));
+        return 1;
+    }
+
+    private int check(String where, Control control, List<String> problems) {
+        int count = 1;
+        if (control.getData(ThemeKeys.THEME_CONTROL_TYPE) == null) {
+            problems.add(where + ": " + control + " has no " + ThemeKeys.THEME_CONTROL_TYPE);
+        }
+        themes.styleOf(control).color("background").ifPresent(expected -> {
+            if (!control.getBackground().getRGB().equals(expected.rgb)) {
+                problems.add(where + ": " + control.getClass().getName() + " background "
+                        + control.getBackground().getRGB() + ", theme says " + expected.rgb);
+            }
+        });
+        if (control instanceof Composite composite) {
+            for (Control child : composite.getChildren()) {
+                count += check(where, child, problems);
+            }
+        }
+        return count;
+    }
+
+    private static void dispatch() {
+        Display display = Display.getCurrent();
+        for (int i = 0; i < 10; i++) {
+            while (display.readAndDispatch()) {
+                // Run pending Skin, layout and paint events.
+            }
+        }
+    }
+
+    /** Saves {@code shell}'s client area via {@link Control#print}, which needs no screen access. */
+    private static void screenshot(Shell shell, Path dir, String name) throws Exception {
+        if (dir == null) {
+            return;
+        }
+        Files.createDirectories(dir);
+        var area = shell.getClientArea();
+        Image image = new Image(shell.getDisplay(), area.width, area.height);
+        GC gc = new GC(image);
+        shell.print(gc);
+        gc.dispose();
+        ImageLoader loader = new ImageLoader();
+        loader.data = new ImageData[] { image.getImageData() };
+        loader.save(dir.resolve(name + ".png").toString(), SWT.IMAGE_PNG);
+        image.dispose();
+    }
+}

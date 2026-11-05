@@ -50,6 +50,20 @@ public final class ThemeValidator {
             }
             checkProps("classes." + key, props, theme, problems);
         });
+        theme.registries().forEach((name, entries) -> {
+            ResolvedStyle registry = new ResolvedStyle(entries, theme.palette());
+            for (String key : entries.keySet()) {
+                try {
+                    switch (name) {
+                        case "colors" -> registry.color(key);
+                        case "fonts" -> registry.font(key);
+                        default -> registry.value(key);
+                    }
+                } catch (RuntimeException e) {
+                    problems.add("registries." + name + "." + key + ": " + e.getMessage());
+                }
+            }
+        });
         StyleResolver resolver = new StyleResolver(Theme.EMPTY);
         try {
             resolver = new StyleResolver(theme);
