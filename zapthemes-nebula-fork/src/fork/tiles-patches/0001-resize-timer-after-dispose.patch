@@ -1,0 +1,16 @@
+diff --git a/org/eclipse/nebula/widgets/tiles/ResizeListener.java b/org/eclipse/nebula/widgets/tiles/ResizeListener.java
+index 3847f35..c88a07b 100644
+--- a/org/eclipse/nebula/widgets/tiles/ResizeListener.java
++++ b/org/eclipse/nebula/widgets/tiles/ResizeListener.java
+@@ -55,6 +55,11 @@ abstract class ResizeListener extends ControlAdapter implements Runnable {
+ 	 */
+ 	@Override
+ 	public void run() {
++		// ZapThemes: the timer can fire after the tiles are disposed, e.g. while the display is
++		// disposed with a resize still pending.
++		if (tiles.isDisposed()) {
++			return;
++		}
+ 		if (timestamp + OFFSET < System.currentTimeMillis()) {
+ 			tiles.getDisplay().timerExec(-1, this);
+ 			controlResized();
