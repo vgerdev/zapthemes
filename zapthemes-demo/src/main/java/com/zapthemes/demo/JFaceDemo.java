@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import org.eclipse.jface.action.Action;
@@ -15,7 +16,10 @@ import org.eclipse.jface.action.StatusLineManager;
 import org.eclipse.jface.action.ToolBarManager;
 import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.PopupDialog;
 import org.eclipse.jface.dialogs.TitleAreaDialog;
+import org.eclipse.jface.fieldassist.ControlDecoration;
+import org.eclipse.jface.fieldassist.FieldDecorationRegistry;
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.layout.GridLayoutFactory;
 import org.eclipse.jface.preference.BooleanFieldEditor;
@@ -28,13 +32,17 @@ import org.eclipse.jface.preference.RadioGroupFieldEditor;
 import org.eclipse.jface.preference.StringFieldEditor;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.FocusCellOwnerDrawHighlighter;
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
+import org.eclipse.jface.viewers.TableViewerFocusCellManager;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.widgets.WidgetFactory;
 import org.eclipse.jface.window.ApplicationWindow;
+import org.eclipse.jface.window.DefaultToolTip;
+import org.eclipse.jface.window.ToolTip;
 import org.eclipse.jface.window.Window;
 import org.eclipse.jface.wizard.Wizard;
 import org.eclipse.jface.wizard.WizardDialog;
@@ -62,9 +70,10 @@ import com.zapthemes.themes.BundledThemes;
  * table and tree viewers, and the common JFace dialogs, with live theme switching. The app code is
  * plain JFace; its widgets are proxies because the fork creates them.
  *
- * <p>{@code --smoke} opens every dialog, checks that each control is tagged and has the theme's
- * background in the light and dark themes, and exits non-zero on failure.
- * {@code --screenshots <dir>} saves the window and the dialogs as PNG.
+ * <p>{@code --smoke} opens every dialog, a tooltip and a field-decoration hover, checks that each
+ * control is tagged and has the theme's background in every bundled theme, and exits non-zero on
+ * failure. {@code --screenshots <dir>} saves the window (focus cell and a status-line error shown),
+ * the dialogs and the hovers as PNG.
  */
 public final class JFaceDemo extends ApplicationWindow {
 
@@ -82,6 +91,7 @@ public final class JFaceDemo extends ApplicationWindow {
     private final ThemeManager themes;
     private final List<Theme> available;
     private int current;
+    private TableViewer table;
 
     private JFaceDemo(ThemeManager themes, List<Theme> available) {
         super(null);
@@ -153,6 +163,7 @@ public final class JFaceDemo extends ApplicationWindow {
         dialogs.put("TitleArea", () -> new DemoTitleAreaDialog(getShell()));
         dialogs.put("Wizard", () -> new WizardDialog(getShell(), new DemoWizard()));
         dialogs.put("Preferences", () -> preferenceDialog(getShell()));
+        dialogs.put("Popup", () -> new DemoPopup(getShell()));
     }
 
     private static Action action(String text, Runnable run) {
@@ -187,26 +198,23 @@ public final class JFaceDemo extends ApplicationWindow {
         return toolBar;
     }
 
-    @Override
-    protected StatusLineManager createStatusLineManager() {
-        StatusLineManager status = super.createStatusLineManager();
-        status.setMessage("Every widget here was created by JFace; the fork made them ZapThemes proxies.");
-        return status;
-    }
-
     // ---------------------------------------------------------------- contents
 
     @Override
     protected Control createContents(Composite parent) {
         SashForm sash = new SashForm(parent, SWT.HORIZONTAL);
 
-        TableViewer table = new TableViewer(sash, SWT.BORDER | SWT.FULL_SELECTION);
+        table = new TableViewer(sash, SWT.BORDER | SWT.FULL_SELECTION);
         table.getTable().setHeaderVisible(true);
         table.getTable().setLinesVisible(true);
         column(table, "Widget", 160, Row::widget);
         column(table, "Created by", 200, Row::created);
         table.setContentProvider(ArrayContentProvider.getInstance());
         table.setInput(ROWS);
+        // The status line exists by now (StatusLineManager drops messages set before that).
+        setStatus("Every widget here was created by JFace; the fork made them ZapThemes proxies.");
+        // Arrow keys move a focus cell; the theme paints it (focusCellBackground).
+        new TableViewerFocusCellManager(table, new FocusCellOwnerDrawHighlighter(table));
 
         TreeViewer tree = new TreeViewer(sash, SWT.BORDER);
         tree.setContentProvider(new ITreeContentProvider() {
@@ -255,6 +263,24 @@ public final class JFaceDemo extends ApplicationWindow {
     }
 
     // ---------------------------------------------------------------- dialogs
+
+    /** An info popup (no focus), as hovers and quick views use. */
+    private static final class DemoPopup extends PopupDialog {
+        DemoPopup(Shell parent) {
+            super(parent, PopupDialog.INFOPOPUP_SHELLSTYLE, false, false, false, false, false, "PopupDialog",
+                    "Info text in the theme's muted color");
+        }
+
+        @Override
+        protected Control createDialogArea(Composite parent) {
+            return WidgetFactory.label(SWT.WRAP).text("PopupDialog content uses the theme's popup colors.").create(parent);
+        }
+
+        @Override
+        protected Point getDefaultSize() {
+            return new Point(360, 140);
+        }
+    }
 
     private static final class DemoTitleAreaDialog extends TitleAreaDialog {
         DemoTitleAreaDialog(Shell parent) {
@@ -333,9 +359,14 @@ public final class JFaceDemo extends ApplicationWindow {
             Theme theme = available.get(i);
             current = i;
             themes.setTheme(theme);
+            table.getTable().setSelection(1);
+            table.getTable().setFocus();
+            getStatusLineManager().setErrorMessage("StatusLine errors use the theme's error color.");
             dispatch();
             checked += check("window", getShell(), problems);
             screenshot(getShell(), screenshots, "jface-window-" + theme.id());
+            getStatusLineManager().setErrorMessage(null);
+            checked += hovers(theme, screenshots, problems);
             for (var entry : dialogs.entrySet()) {
                 Window dialog = entry.getValue().get();
                 dialog.setBlockOnOpen(false);
@@ -353,6 +384,41 @@ public final class JFaceDemo extends ApplicationWindow {
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));
         return 1;
+    }
+
+    /**
+     * A DefaultToolTip and a ControlDecoration hover on the table, checked like the dialogs. Only the
+     * tooltip is saved: Control.print cannot capture the hover, a shaped shell that paints its text.
+     */
+    private int hovers(Theme theme, Path screenshots, List<String> problems) throws Exception {
+        Control anchor = table.getControl();
+        DefaultToolTip tip = new DefaultToolTip(anchor, ToolTip.RECREATE, true);
+        tip.setText("DefaultToolTip uses the theme's info colors.");
+        // Captured right away: without a real mouse over the anchor, hovers close on the next events.
+        Shell tipShell = opened(() -> tip.show(new Point(20, 40)));
+        int checked = check("ToolTip", tipShell, problems);
+        screenshot(tipShell, screenshots, "jface-tooltip-" + theme.id());
+        tip.hide();
+
+        ControlDecoration decoration = new ControlDecoration(anchor, SWT.TOP | SWT.LEFT);
+        decoration.setImage(FieldDecorationRegistry.getDefault().getFieldDecoration(FieldDecorationRegistry.DEC_ERROR).getImage());
+        Shell hover = opened(() -> decoration.showHoverText("ControlDecoration hovers too."));
+        checked += check("Decoration", hover, problems);
+        decoration.dispose();
+        return checked;
+    }
+
+    /** The shell {@code open} creates. */
+    private static Shell opened(Runnable open) {
+        Display display = Display.getCurrent();
+        Set<Shell> before = Set.of(display.getShells());
+        open.run();
+        for (Shell shell : display.getShells()) {
+            if (!before.contains(shell)) {
+                return shell;
+            }
+        }
+        throw new IllegalStateException("nothing opened");
     }
 
     private int check(String where, Control control, List<String> problems) {
