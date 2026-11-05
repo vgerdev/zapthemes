@@ -31,6 +31,8 @@ final class ItemPainter {
 
     static final String INSTALLED = "zapthemes.itemPainter";
 
+    private static final boolean GTK = "gtk".equals(SWT.getPlatform());
+
     private ItemPainter() {
     }
 
@@ -141,17 +143,21 @@ final class ItemPainter {
             topRow = tree.getTopItem() != null ? tree.getTopItem().getBounds() : null;
             columnEdges = edges(tree.getColumnOrder(), null, tree.getColumns(), scrollX(tree));
         }
-        // Rows continue below the last item, like native grid lines.
-        int top = topRow != null ? topRow.y : header;
+        // Item bounds are client coordinates and the GC draws in widget coordinates. They differ on
+        // GTK, whose client area starts above the header (y = -header) and whose cell bounds start a
+        // pixel below the row.
+        int rowTop = topRow == null ? header : topRow.y - area.y - (GTK ? 1 : 0);
+        int bottom = area.height;
         GC gc = event.gc;
         gc.setForeground(color);
-        for (int y = top + itemHeight - 1; y < area.y + area.height; y += itemHeight) {
+        // Rows continue below the last item, like native grid lines.
+        for (int y = rowTop + itemHeight - 1; y < bottom; y += itemHeight) {
             if (y >= header) {
                 gc.drawLine(area.x, y, area.x + area.width, y);
             }
         }
         for (int x : columnEdges) {
-            gc.drawLine(x, header, x, area.y + area.height);
+            gc.drawLine(x, header, x, bottom);
         }
     }
 

@@ -3,6 +3,8 @@ package com.zapthemes.swt;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.GC;
@@ -14,6 +16,8 @@ import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Display;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.zapthemes.core.ThemeJson;
 import com.zapthemes.core.ThemeManager;
@@ -68,8 +72,33 @@ class TableOwnerDrawTest {
         assertThat(pixel(data, row0.x + row0.width / 2, row0.y + 2)).as("selected row").isEqualTo(SELECTION);
         assertThat(pixel(data, row1.x + row1.width / 2, row1.y + 2)).as("striped row").isEqualTo(STRIPE);
         assertThat(pixel(data, row2.x + row2.width / 2, row2.y + 2)).as("plain row").isEqualTo(BACKGROUND);
-        // Lines are painted at the bottom of each item-height row (cell bounds may be a pixel shorter).
-        assertThat(pixel(data, row2.x + row2.width / 2, row2.y + table.getItemHeight() - 1)).as("grid line").isEqualTo(GRID);
+        image.dispose();
+    }
+
+    @ParameterizedTest(name = "header visible: {0}")
+    @ValueSource(booleans = { false, true })
+    void gridLinesSeparateRows(boolean header) {
+        ThemeManager.get(display).setTheme(THEME);
+        Table table = table(header, false);
+
+        Image image = print(table);
+        ImageData data = image.getImageData();
+        assumePrintWorks(data);
+        Rectangle row0 = table.getItem(0).getBounds(0);
+        int x = row0.x + row0.width / 2;
+        List<Integer> lines = new ArrayList<>();
+        for (int y = (header ? table.getHeaderHeight() : 0) + 1; y < data.height - 1 && lines.size() < 3; y++) {
+            if (pixel(data, x, y).equals(GRID)) {
+                lines.add(y);
+            }
+        }
+
+        // Selected, striped, plain and striped rows: each of the first three lines lies between two
+        // differently filled rows. On GTK they used to land mid-row, offset by the header height.
+        assertThat(lines).hasSize(3);
+        for (int y : lines) {
+            assertThat(pixel(data, x, y - 1)).as("rows around the line at y=" + y).isNotEqualTo(pixel(data, x, y + 1));
+        }
         image.dispose();
     }
 
@@ -88,13 +117,19 @@ class TableOwnerDrawTest {
     }
 
     private Table table() {
+        return table(false, true);
+    }
+
+    private Table table(boolean header, boolean text) {
         Shell shell = new Shell(display);
         shell.setLayout(new FillLayout());
         Table table = new Table(shell, SWT.FULL_SELECTION);
         table.setLinesVisible(true);
+        table.setHeaderVisible(header);
         new TableColumn(table, SWT.NONE).setWidth(150);
-        for (String text : new String[] { "zero", "one", "two", "three" }) {
-            new TableItem(table, SWT.NONE).setText(text);
+        for (String label : new String[] { "zero", "one", "two", "three" }) {
+            // Without text, a pixel column shows only row fills and lines.
+            new TableItem(table, SWT.NONE).setText(text ? label : "");
         }
         table.select(0);
         shell.setSize(300, 200);
