@@ -463,7 +463,19 @@ public final class JFaceDemo extends ApplicationWindow {
             return;
         }
         Files.createDirectories(screenCaptures);
-        shell.update();
+        // The window server shows new drawing only once the event loop has run.
+        Display display = shell.getDisplay();
+        long end = System.currentTimeMillis() + 300;
+        while (System.currentTimeMillis() < end) {
+            if (!display.readAndDispatch()) {
+                display.timerExec(20, () -> { });
+                display.sleep();
+            }
+        }
+        if (shell.isDisposed() || !shell.isVisible()) {
+            System.out.println("Not captured, " + name + " closed while the screen updated");
+            return;
+        }
         String file = screenCaptures.resolve(name + ".png").toString();
         int exit = new ProcessBuilder("screencapture", "-x", file).inheritIO().start().waitFor();
         if (exit != 0) {
