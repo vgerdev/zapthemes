@@ -3,13 +3,18 @@ package com.zapthemes.tools;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Modifier;
+import java.net.JarURLConnection;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.jar.JarFile;
+import java.util.stream.Stream;
 
 import org.eclipse.swt.widgets.Widget;
 
@@ -71,22 +76,62 @@ public final class WidgetCatalog {
 
     /**
      * The widgets of {@code packageName} that get a proxy: themeable, public, concrete, non-final,
-     * not deprecated, and with at least one public constructor.
+     * not deprecated, and with at least one public constructor. Works for SWT and for any library on
+     * the classpath (Nebula), found through the class loader.
      */
     public static SortedSet<String> proxiable(String packageName) {
         SortedSet<String> widgets = new TreeSet<>();
-        for (String className : themeableWidgets()) {
-            if (!className.substring(0, className.lastIndexOf('.')).equals(packageName)) {
+        for (String className : classesIn(packageName)) {
+            if (NOT_THEMEABLE.contains(className)) {
                 continue;
             }
             Class<?> type = load(className);
+            if (type == null || !Widget.class.isAssignableFrom(type)) {
+                continue;
+            }
             int modifiers = type.getModifiers();
-            if (!Modifier.isAbstract(modifiers) && !Modifier.isFinal(modifiers)
+            if (Modifier.isPublic(modifiers) && !Modifier.isAbstract(modifiers) && !Modifier.isFinal(modifiers)
                     && !type.isAnnotationPresent(Deprecated.class) && type.getConstructors().length > 0) {
                 widgets.add(className);
             }
         }
         return Collections.unmodifiableSortedSet(widgets);
+    }
+
+    /** The top-level class names of {@code packageName} (not sub-packages) in jars and directories. */
+    static SortedSet<String> classesIn(String packageName) {
+        String path = packageName.replace('.', '/');
+        SortedSet<String> classes = new TreeSet<>();
+        try {
+            Enumeration<URL> roots = WidgetCatalog.class.getClassLoader().getResources(path);
+            while (roots.hasMoreElements()) {
+                URL root = roots.nextElement();
+                if (root.getProtocol().equals("jar")) {
+                    JarURLConnection connection = (JarURLConnection) root.openConnection();
+                    connection.setUseCaches(false);
+                    try (JarFile jar = connection.getJarFile()) {
+                        jar.stream().map(entry -> entry.getName())
+                                .filter(name -> name.startsWith(path + "/") && name.indexOf('/', path.length() + 1) < 0)
+                                .forEach(name -> addClass(classes, packageName, name.substring(path.length() + 1)));
+                    }
+                } else if (root.getProtocol().equals("file")) {
+                    try (Stream<Path> files = Files.list(Path.of(root.toURI()))) {
+                        files.forEach(file -> addClass(classes, packageName, file.getFileName().toString()));
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException(e);
+        }
+        return classes;
+    }
+
+    private static void addClass(SortedSet<String> classes, String packageName, String fileName) {
+        if (fileName.endsWith(".class") && !fileName.contains("$")) {
+            classes.add(packageName + "." + fileName.substring(0, fileName.length() - ".class".length()));
+        }
     }
 
     private static Class<?> load(String className) {

@@ -2,13 +2,20 @@ package com.zapthemes.tools;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.swt.widgets.Display;
@@ -113,7 +120,11 @@ public final class ProxyGenerator {
         src.append(" * {@code THEME_CONTROL_TYPE = \"").append(simpleName)
                 .append("\"} and applies the current theme on creation.\n");
         src.append(" */\n");
-        src.append("public class ").append(simpleName).append(" extends ").append(original.getName()).append(" {\n");
+        String typeParameters = typeParameters(original);
+        String typeArguments = typeParameters.isEmpty() ? ""
+                : Stream.of(original.getTypeParameters()).map(TypeVariable::getName).collect(Collectors.joining(", ", "<", ">"));
+        src.append("public class ").append(simpleName).append(typeParameters)
+                .append(" extends ").append(original.getCanonicalName()).append(typeArguments).append(" {\n");
 
         List<Constructor<?>> constructors = new ArrayList<>(Arrays.asList(original.getConstructors()));
         constructors.sort(Comparator.<Constructor<?>>comparingInt(Constructor::getParameterCount)
@@ -122,16 +133,19 @@ public final class ProxyGenerator {
             appendConstructor(src, original, simpleName, constructor);
         }
 
-        src.append("\n    @Override\n");
-        src.append("    protected void checkSubclass() {\n");
-        src.append("        // SWT rejects subclasses by default; a proxy only adds theming.\n");
-        src.append("    }\n");
+        if (!checkSubclassIsFinal(original)) {
+            src.append("\n    @Override\n");
+            src.append("    protected void checkSubclass() {\n");
+            src.append("        // SWT rejects subclasses by default; a proxy only adds theming.\n");
+            src.append("    }\n");
+        }
         src.append("}\n");
         return src.toString();
     }
 
     private static void appendConstructor(StringBuilder src, Class<?> original, String simpleName, Constructor<?> constructor) {
         Class<?>[] types = constructor.getParameterTypes();
+        Type[] genericTypes = constructor.getGenericParameterTypes();
         List<String> names = parameterNames(types);
         String typeList = Stream.of(types).map(Class::getCanonicalName).reduce((a, b) -> a + ", " + b).orElse("");
 
@@ -149,12 +163,65 @@ public final class ProxyGenerator {
             if (i > 0) {
                 src.append(", ");
             }
-            src.append(types[i].getCanonicalName()).append(' ').append(names.get(i));
+            Type type = genericTypes.length == types.length ? genericTypes[i] : types[i];
+            String name = typeName(type);
+            if (constructor.isVarArgs() && i == types.length - 1) {
+                name = name.substring(0, name.length() - 2) + "...";
+            }
+            src.append(name).append(' ').append(names.get(i));
         }
-        src.append(") {\n");
+        src.append(")");
+        Type[] exceptions = constructor.getGenericExceptionTypes();
+        if (exceptions.length > 0) {
+            src.append(" throws ").append(Stream.of(exceptions).map(ProxyGenerator::typeName).collect(Collectors.joining(", ")));
+        }
+        src.append(" {\n");
         src.append("        super(").append(String.join(", ", names)).append(");\n");
         src.append("        com.zapthemes.core.ThemeManager.applyOnCreate(this, \"").append(simpleName).append("\");\n");
         src.append("    }\n");
+    }
+
+    /** {@code <T extends Foo>} for generic widgets such as Nebula's {@code Tiles<T>}; empty otherwise. */
+    static String typeParameters(Class<?> type) {
+        TypeVariable<?>[] variables = type.getTypeParameters();
+        if (variables.length == 0) {
+            return "";
+        }
+        return Stream.of(variables).map(variable -> {
+            List<String> bounds = Stream.of(variable.getBounds())
+                    .filter(bound -> bound != Object.class)
+                    .map(ProxyGenerator::typeName)
+                    .toList();
+            return bounds.isEmpty() ? variable.getName() : variable.getName() + " extends " + String.join(" & ", bounds);
+        }).collect(Collectors.joining(", ", "<", ">"));
+    }
+
+    /** Java source spelling of a (possibly generic) type. */
+    static String typeName(Type type) {
+        return switch (type) {
+            case Class<?> c -> c.getCanonicalName();
+            case ParameterizedType p -> typeName(p.getRawType())
+                    + Stream.of(p.getActualTypeArguments()).map(ProxyGenerator::typeName).collect(Collectors.joining(", ", "<", ">"));
+            case GenericArrayType a -> typeName(a.getGenericComponentType()) + "[]";
+            case WildcardType w -> w.getLowerBounds().length > 0 ? "? super " + typeName(w.getLowerBounds()[0])
+                    : w.getUpperBounds().length > 0 && w.getUpperBounds()[0] != Object.class ? "? extends " + typeName(w.getUpperBounds()[0])
+                    : "?";
+            case TypeVariable<?> v -> v.getName();
+            default -> type.getTypeName();
+        };
+    }
+
+    /** A widget library may forbid overriding {@code checkSubclass}; then the proxy must not. */
+    static boolean checkSubclassIsFinal(Class<?> type) {
+        for (Class<?> k = type; k != null && k != Widget.class; k = k.getSuperclass()) {
+            try {
+                Method method = k.getDeclaredMethod("checkSubclass");
+                return Modifier.isFinal(method.getModifiers());
+            } catch (NoSuchMethodException e) {
+                // Not declared here; look further up.
+            }
+        }
+        return false;
     }
 
     /** Readable names, as SWT is not compiled with {@code -parameters}. */

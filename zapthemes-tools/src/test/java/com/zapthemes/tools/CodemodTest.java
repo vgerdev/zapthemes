@@ -118,6 +118,30 @@ class CodemodTest {
     }
 
     @Test
+    void rewritesSystemColorsWhenAsked() {
+        String source = """
+                package demo;
+
+                import org.eclipse.swt.SWT;
+
+                class Painter {
+                    void paint(org.eclipse.swt.graphics.GC gc, org.eclipse.swt.widgets.Control control) {
+                        gc.setBackground(control.getDisplay().getSystemColor(SWT.COLOR_LIST_SELECTION));
+                        gc.setForeground(gc.getDevice().getSystemColor(SWT.COLOR_BLACK));
+                    }
+                }
+                """;
+
+        assertThat(codemod.rewrite(source).changes()).isEmpty();
+        Codemod.Result result = new Codemod(PROXIES, TypeNames.empty(), true).rewrite(source);
+
+        assertThat(result.changes()).hasSize(2);
+        assertThat(result.source())
+                .contains("gc.setBackground(com.zapthemes.core.SystemColors.get(control.getDisplay(), SWT.COLOR_LIST_SELECTION));")
+                .contains("gc.setForeground(com.zapthemes.core.SystemColors.get(gc.getDevice(), SWT.COLOR_BLACK));");
+    }
+
+    @Test
     void auditFlagsRawWidgetsUnlessAllowed() {
         String source = """
                 package demo;

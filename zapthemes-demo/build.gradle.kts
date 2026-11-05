@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":zapthemes-swt"))
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-widgets"))
+    implementation(project(":zapthemes-nebula"))
     implementation(project(":zapthemes-themes"))
 }
 
@@ -40,8 +41,23 @@ val smokeJFace = tasks.register<JavaExec>("smokeTestJFace") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeNebula = tasks.register<JavaExec>("smokeTestNebula") {
+    group = "verification"
+    description = "Smoke-tests the Nebula demo."
+    mainClass = "com.zapthemes.demo.NebulaDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
 tasks.register("smokeTest") {
     group = "verification"
     description = "Runs every demo smoke test."
-    dependsOn(smokeStandalone, smokeJFace)
+    dependsOn(smokeStandalone, smokeJFace, smokeNebula)
+}
+
+// The Nebula widgets demo.
+tasks.register<JavaExec>("runNebula") {
+    group = "application"
+    description = "Runs the Nebula widgets demo."
+    mainClass = "com.zapthemes.demo.NebulaDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
 }

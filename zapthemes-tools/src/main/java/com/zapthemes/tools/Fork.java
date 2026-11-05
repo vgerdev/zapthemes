@@ -14,7 +14,8 @@ import java.util.stream.Stream;
  * Generates a fork from pristine upstream sources:
  * <ol>
  *   <li>every {@code .java} file under the source root is copied with the {@link Codemod} applied
- *       and line endings normalized to LF;</li>
+ *       (with {@code --system-colors}, system colors are themed too) and line endings normalized to
+ *       LF;</li>
  *   <li>the {@code *.patch} files of the patches directory are applied in name order with
  *       {@code git apply} (unified diffs against the codemodded output, paths {@code a/<relative>});</li>
  *   <li>the result is {@link Audit audited}: fails if a themeable widget is still created without
@@ -25,6 +26,7 @@ import java.util.stream.Stream;
  * <pre>
  * Fork --source-root third_party/.../src --proxies proxies.txt [--proxies more.txt ...]
  *      --out build/generated/fork --report build/reports/fork.txt [--allow allow.txt] [--patches dir]
+ *      [--system-colors]
  * </pre>
  */
 public final class Fork {
@@ -39,6 +41,7 @@ public final class Fork {
         Path report = null;
         Path allowList = null;
         Path patches = null;
+        boolean systemColors = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--source-root" -> sourceRoot = Path.of(args[++i]);
@@ -47,6 +50,7 @@ public final class Fork {
                 case "--report" -> report = Path.of(args[++i]);
                 case "--allow" -> allowList = Path.of(args[++i]);
                 case "--patches" -> patches = Path.of(args[++i]);
+                case "--system-colors" -> systemColors = true;
                 default -> throw new IllegalArgumentException("Unknown argument: " + args[i]);
             }
         }
@@ -67,7 +71,7 @@ public final class Fork {
             proxies.putAll(ProxyNames.mapping(proxyList));
         }
         TypeNames typeNames = TypeNames.index(sourceRoot);
-        Codemod codemod = new Codemod(proxies, typeNames);
+        Codemod codemod = new Codemod(proxies, typeNames, systemColors);
         Audit audit = new Audit(WidgetCatalog.themeableWidgets(), typeNames);
 
         clean(out);

@@ -36,6 +36,7 @@ public class ForkExtension {
     private final Project project;
     private final Configuration tools;
     private final List<File> proxyLists = new ArrayList<>();
+    private boolean systemColors;
 
     @Inject
     public ForkExtension(Project project, Configuration tools) {
@@ -48,6 +49,14 @@ public class ForkExtension {
         proxyLists.add(project.file(file));
     }
 
+    /**
+     * Also rewrite {@code getSystemColor(c)} calls to {@code SystemColors.get(display, c)} in the
+     * upstreams declared after this call, for libraries that paint with system colors (Nebula).
+     */
+    public void themeSystemColors() {
+        systemColors = true;
+    }
+
     public void upstream(String name, Object sourceDir, Object... resourceDirs) {
         File source = project.file(sourceDir);
         String taskName = Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
@@ -57,6 +66,7 @@ public class ForkExtension {
         File allow = project.file("src/fork/" + name + "-allow.txt");
         File patches = project.file("src/fork/" + name + "-patches");
         List<File> lists = List.copyOf(proxyLists);
+        boolean themeSystemColors = systemColors;
 
         TaskProvider<JavaExec> sources = project.getTasks().register("fork" + taskName + "Sources", JavaExec.class, task -> {
             task.setGroup("build");
@@ -75,6 +85,9 @@ public class ForkExtension {
             }
             task.args("--out", out.getAbsolutePath(), "--report", report.getAbsolutePath(), "--allow", allow.getAbsolutePath(),
                     "--patches", patches.getAbsolutePath());
+            if (themeSystemColors) {
+                task.args("--system-colors");
+            }
         });
 
         TaskProvider<Sync> resources = project.getTasks().register("fork" + taskName + "Resources", Sync.class, task -> {
