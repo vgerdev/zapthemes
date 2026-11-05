@@ -33,6 +33,27 @@ jobs:
         if: runner.os != 'Linux'
         shell: bash
         run: ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest --console=plain
+      # Screenshots of every demo in every theme, to review GTK and Cocoa rendering by eye.
+      - name: Screenshots (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1600x1200x24" ./gradlew :zapthemes-demo:screenshots --console=plain
+      - name: Screenshots
+        if: runner.os == 'macOS'
+        run: ./gradlew :zapthemes-demo:screenshots --console=plain
+      # Control.print on Cocoa leaves some windows blank; a real screen capture shows what users see.
+      - name: Screen capture of the JFace demo (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ./gradlew :zapthemes-demo:run --console=plain > zapthemes-demo/build/run-jface.log 2>&1 &
+          sleep 45
+          screencapture -x zapthemes-demo/build/screenshots/macos-screen-jface.png || echo "screencapture failed"
+          kill %1 || true
+      - uses: actions/upload-artifact@v4
+        if: runner.os != 'Windows'
+        with:
+          name: screenshots-${{ matrix.os }}
+          path: zapthemes-demo/build/screenshots/
+          if-no-files-found: error
 
   # FreeBSD: no SWT fragment is published upstream; the build uses the ports SWT jar
   # (x11-toolkits/swt) via -Pswt.localJar. Enable once the ports SWT version matches 3.135.0.

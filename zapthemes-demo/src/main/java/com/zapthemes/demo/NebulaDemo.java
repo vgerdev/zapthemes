@@ -30,6 +30,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Widget;
 
 import com.zapthemes.core.ThemeKeys;
+import com.zapthemes.core.ThemeChangeListener;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.model.Theme;
 import com.zapthemes.nebula.badgedlabel.BadgedLabel;
@@ -143,6 +144,10 @@ public final class NebulaDemo {
         available.forEach(theme -> picker.add(theme.name()));
         picker.select(0);
         picker.addListener(SWT.Selection, e -> themes.setTheme(available.get(picker.getSelectionIndex())));
+        // Follow switches made elsewhere (the button, screenshots).
+        ThemeChangeListener follow = (previous, current) -> picker.select(available.indexOf(current));
+        themes.addThemeChangeListener(follow);
+        picker.addDisposeListener(e -> themes.removeThemeChangeListener(follow));
         new Label(bar, SWT.NONE).setText("Every widget below is a ZapThemes proxy of a Nebula widget.");
 
         tabs = new CTabFolder(shell, SWT.BORDER);

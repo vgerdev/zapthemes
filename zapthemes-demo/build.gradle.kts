@@ -62,3 +62,25 @@ tasks.register<JavaExec>("runNebula") {
     mainClass = "com.zapthemes.demo.NebulaDemo"
     classpath = sourceSets.main.get().runtimeClasspath
 }
+
+// Saves every demo in every bundled theme as PNG under build/screenshots. CI uploads them so the
+// GTK and Cocoa rendering can be looked at, not just tested.
+val screenshotDir = layout.buildDirectory.dir("screenshots")
+val screenshotTasks = mapOf(
+    "Standalone" to "com.zapthemes.demo.StandaloneDemo",
+    "JFace" to "com.zapthemes.demo.JFaceDemo",
+    "Nebula" to "com.zapthemes.demo.NebulaDemo",
+).map { (name, main) ->
+    tasks.register<JavaExec>("screenshots$name") {
+        group = "documentation"
+        description = "Saves screenshots of the $name demo in every theme."
+        mainClass = main
+        classpath = sourceSets.main.get().runtimeClasspath
+        args("--smoke", "--screenshots", screenshotDir.get().asFile.absolutePath)
+    }
+}
+tasks.register("screenshots") {
+    group = "documentation"
+    description = "Saves screenshots of every demo in every theme."
+    dependsOn(screenshotTasks)
+}

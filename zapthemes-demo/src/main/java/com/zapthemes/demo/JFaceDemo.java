@@ -374,13 +374,9 @@ public final class JFaceDemo extends ApplicationWindow {
         return count;
     }
 
+    /** Runs pending Skin, layout and paint events; GTK restyles some parts (table headers) only after a frame. */
     private static void dispatch() {
-        Display display = Display.getCurrent();
-        for (int i = 0; i < 10; i++) {
-            while (display.readAndDispatch()) {
-                // Run pending Skin, layout and paint events.
-            }
-        }
+        DemoSupport.settle(Display.getCurrent());
     }
 
     /** Saves {@code shell}'s client area via {@link Control#print}, which needs no screen access. */

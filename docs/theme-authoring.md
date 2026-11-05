@@ -180,6 +180,7 @@ per-state setters.
 | `*` | `darkThemePreferred` | Dark title bars and native dialogs (`Shell.setDarkThemePreferred`) |
 | `win32` | `darkScrollbars`, `darkCombos`, `darkTextIcons`, `progressBarColors` | SWT's Windows dark-mode switches (booleans) |
 | `win32` | `menuBarBackground`, `menuBarForeground`, `menuBarBorderColor`, `tableHeaderLineColor`, `disabledLabelForeground` | Colors Windows draws itself |
+| `gtk` | `menuBarBackground`, `menuBarForeground`, `menuBackground`, `menuForeground`, `menuSelectionBackground`, `menuSelectionForeground` | Menu bar and menu colors, as GTK CSS. GTK 3 keeps a light menu bar under `darkThemePreferred`, so a dark theme needs these. |
 
 ### Check a theme
 

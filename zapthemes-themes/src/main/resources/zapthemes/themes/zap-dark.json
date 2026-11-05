@@ -320,6 +320,14 @@
     "*": {
       "darkThemePreferred": true
     },
+    "gtk": {
+      "menuBarBackground": "$bg",
+      "menuBarForeground": "$fg",
+      "menuBackground": "$surface",
+      "menuForeground": "$fg",
+      "menuSelectionBackground": "$selection",
+      "menuSelectionForeground": "$fg"
+    },
     "win32": {
       "darkScrollbars": true,
       "darkCombos": true,

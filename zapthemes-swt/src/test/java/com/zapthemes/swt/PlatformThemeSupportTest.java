@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.StringReader;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.ImageData;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -14,6 +18,8 @@ import com.zapthemes.core.ThemeJson;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.model.Theme;
 import com.zapthemes.swt.widgets.Combo;
+import com.zapthemes.swt.widgets.Menu;
+import com.zapthemes.swt.widgets.MenuItem;
 import com.zapthemes.swt.widgets.Shell;
 import com.zapthemes.swt.widgets.Table;
 
@@ -29,7 +35,8 @@ class PlatformThemeSupportTest {
               "platform": {
                 "*": { "darkThemePreferred": true },
                 "win32": { "darkScrollbars": true, "darkCombos": true, "progressBarColors": true,
-                           "menuBarBackground": "$bg", "menuBarForeground": "$fg" }
+                           "menuBarBackground": "$bg", "menuBarForeground": "$fg" },
+                "gtk": { "menuBarBackground": "$bg", "menuBarForeground": "$fg" }
               }
             }
             """), "dark");
@@ -73,5 +80,45 @@ class PlatformThemeSupportTest {
         manager.setTheme(PLAIN);
         assertThat(display.getData(WIN32 + "Combo.useDarkTheme")).isEqualTo(false);
         assertThat(display.getData(WIN32 + "ProgressBar.useColors")).isEqualTo(false);
+    }
+
+    @Test
+    void gtkMenuBarFollowsTheTheme() {
+        Assumptions.assumeTrue(SWT.getPlatform().equals("gtk"), "gtk only");
+        ThemeManager manager = ThemeManager.get(display);
+        Shell shell = new Shell(display);
+        Menu bar = new Menu(shell, SWT.BAR);
+        new MenuItem(bar, SWT.CASCADE).setText("File");
+        shell.setMenuBar(bar);
+        shell.setSize(300, 150);
+        shell.open();
+
+        manager.setTheme(DARK);
+        RGB dark = menuBarPixel(shell);
+        manager.setTheme(PLAIN);
+        RGB plain = menuBarPixel(shell);
+
+        assertThat(dark).isEqualTo(new RGB(0x10, 0x10, 0x10));
+        assertThat(plain).as("the GTK theme's own menu bar").isNotEqualTo(dark);
+    }
+
+    /** A menu bar pixel right of its items, once GTK has restyled and painted. */
+    private RGB menuBarPixel(Shell shell) {
+        long end = System.currentTimeMillis() + 300;
+        while (System.currentTimeMillis() < end) {
+            if (!display.readAndDispatch()) {
+                display.timerExec(20, () -> { });
+                display.sleep();
+            }
+        }
+        var size = shell.getSize();
+        Image image = new Image(display, size.x, size.y);
+        GC gc = new GC(image);
+        shell.print(gc);
+        gc.dispose();
+        ImageData data = image.getImageData();
+        RGB rgb = data.palette.getRGB(data.getPixel(size.x / 2, 5));
+        image.dispose();
+        return rgb;
     }
 }

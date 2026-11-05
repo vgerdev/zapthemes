@@ -19,6 +19,7 @@ runs on every widget at creation and on every theme switch.
 | `win32` | `progressBarColors` | `ProgressBar.useColors`: ProgressBar uses its theme background/foreground |
 | `win32` | `menuBarBackground`, `menuBarForeground`, `menuBarBorderColor` | menu bar colors |
 | `win32` | `tableHeaderLineColor`, `disabledLabelForeground` | header separator and disabled label color |
+| `gtk` | `menuBarBackground`, `menuBarForeground`, `menuBackground`, `menuForeground`, `menuSelectionBackground`, `menuSelectionForeground` | menu bar and menu colors through a screen-wide GTK CSS provider (`GtkThemeSupport`, added after Phase 6: GTK 3's prefer-dark setting leaves the Adwaita menu bar light) |
 
 SWT reads most of the Windows flags only when a widget is created. For **live** switches,
 `Win32ThemeSupport` re-applies the explorer dark mode to existing scrollables, buttons, sliders
@@ -79,8 +80,8 @@ borders, accents and states while painting.
 
 ## Still native, by design or for later
 
-- **`DateTime`** keeps a white field on Windows; the native control ignores colors. Use Nebula
-  `CDateTime` (Phase 4).
+- **`DateTime`** keeps a white field on Windows and GTK; the native control ignores colors. Use
+  Nebula `CDateTime` (Phase 4).
 - **`Scale`** track and ticks.
 - **Native dialogs** (`FileDialog`, `MessageBox`, `ColorDialog`) follow only `darkThemePreferred`.
 - **Tree alternate rows** are not supported.
