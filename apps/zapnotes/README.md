@@ -13,7 +13,7 @@ builds against ZapThemes: a separate Gradle build that depends only on the publi
   (Ctrl+Space), and a `StyledText` body.
 - **Windows and dialogs:** any number of windows over one model (Window › New Window), a new-note
   wizard, Find, Rename, Delete, About, Preferences (theme and line wrapping) and an Export with a
-  progress dialog.
+  progress dialog and a JFace notification when it is done.
 - **Themes:** Window › Theme, the toolbar's Switch Theme, or Preferences › Appearance switch every
   window live. "Automatic" follows the desktop.
 
@@ -24,7 +24,7 @@ Until 1.0 is on Maven Central, the artifacts come from the staged repository:
 ```bash
 ./gradlew publishToStaging            # in the repository root: build/staging-deploy
 ./gradlew -p apps/zapnotes run
-./gradlew -p apps/zapnotes smokeTest  # 2 windows, field assists, 7 dialogs, every theme
+./gradlew -p apps/zapnotes smokeTest  # 2 windows, field assists, 8 dialogs and popups, every theme
 ```
 
 `-PzapthemesVersion=…` picks another version. The SWT fragment for the build machine is chosen in

@@ -17,6 +17,7 @@ import org.eclipse.jface.action.ToolBarManager;
 import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.PopupDialog;
+import org.eclipse.jface.notifications.NotificationPopup;
 import org.eclipse.jface.dialogs.TitleAreaDialog;
 import org.eclipse.jface.fieldassist.ControlDecoration;
 import org.eclipse.jface.fieldassist.FieldDecorationRegistry;
@@ -169,6 +170,8 @@ public final class JFaceDemo extends ApplicationWindow {
         dialogs.put("Wizard", () -> new WizardDialog(getShell(), new DemoWizard()));
         dialogs.put("Preferences", () -> preferenceDialog(getShell()));
         dialogs.put("Popup", () -> new DemoPopup(getShell()));
+        dialogs.put("Notification", () -> NotificationPopup.forShell(getShell()).title("ZapThemes", true)
+                .text("NotificationPopup uses the theme's notification and popup classes.").build());
     }
 
     private static Action action(String text, Runnable run) {

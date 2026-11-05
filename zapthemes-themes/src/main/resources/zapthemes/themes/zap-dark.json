@@ -313,6 +313,9 @@
     "*.error": {
       "foreground": "$error"
     },
+    "*.notification": {
+      "background": "$border"
+    },
     "*.pane": {
       "background": "$surface"
     },

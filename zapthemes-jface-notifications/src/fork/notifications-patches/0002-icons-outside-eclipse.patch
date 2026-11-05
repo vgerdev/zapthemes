@@ -1,0 +1,15 @@
+diff --git a/org/eclipse/jface/notifications/internal/CommonImages.java b/org/eclipse/jface/notifications/internal/CommonImages.java
+index 48f7221..fb8ff8d 100644
+--- a/org/eclipse/jface/notifications/internal/CommonImages.java
++++ b/org/eclipse/jface/notifications/internal/CommonImages.java
+@@ -37,7 +37,9 @@ public class CommonImages {
+ 			URL iconsUrl = null;
+ 			try {
+ 				// lookup location of CommonImages class on disk
+-				iconsUrl = new URL(CommonImages.class.getResource("CommonImages.class"), "../../../../../../icons/"); //$NON-NLS-1$ //$NON-NLS-2$
++				// ZapThemes: the icons are at the jar root, not next to an Eclipse bin/ folder.
++				URL close = CommonImages.class.getResource("/icons/eview16/notification-close.svg"); //$NON-NLS-1$
++				iconsUrl = close == null ? null : new URL(close, "../"); //$NON-NLS-1$
+ 			} catch (MalformedURLException e) {
+ 				// ignore
+ 			}

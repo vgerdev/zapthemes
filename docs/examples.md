@@ -6,7 +6,7 @@ application would be moved over. Neither is edited by hand:
 | Program | Upstream (pinned in [UPSTREAM.md](../UPSTREAM.md)) | Size |
 |---|---|---|
 | SWT **ControlExample** | `eclipse.platform.swt`, `examples/org.eclipse.swt.examples`, tag `R4_41` | 37 files, 650 widget creations, 26 tabs |
-| **JFace snippets** | `eclipse.platform.ui`, `examples/org.eclipse.jface.snippets`, tag `R4_41` | 81 files, 257 widget creations, 75 snippets |
+| **JFace snippets** | `eclipse.platform.ui`, `examples/org.eclipse.jface.snippets`, tag `R4_41` | 87 files, 262 widget creations, 81 snippets |
 
 ## How they are moved over
 
@@ -14,7 +14,8 @@ application would be moved over. Neither is edited by hand:
    etc. to the `com.zapthemes.swt` proxy (`zapthemes.fork` plugin, the same one the JFace and Nebula
    forks use). The build fails if a themeable widget is still created directly; both report 0.
    `display.getSystemColor(...)` goes through the theme as well (`themeSystemColors()`).
-2. **The forked JFace** replaces `org.eclipse.jface` on the class path; the snippets use it as is.
+2. **The forked JFace** replaces `org.eclipse.jface` on the class path, and the forked
+   notifications replace `org.eclipse.jface.notifications`; the snippets use them as is.
 3. **A theme without code changes.** Both programs create their own `Display` and never call
    `setTheme`. `-Dzapthemes.theme=<id>` (or `auto`, or the path of a theme file) themes them anyway:
    `zapthemes-themes` registers a `ThemeExtension` whose `initialTheme` reads the property when the
@@ -50,8 +51,7 @@ its own with its own `Display`, so the browser starts it in a new JVM in the cur
 On Windows the snippet PNGs come out blank (`Control.print` from those short-lived processes); the
 tag checks still run there.
 
-## Left out
-
-Snippets for JFace notifications (6), which ZapThemes does not ship yet ([Phase 7](phase7-plan.md),
-step 2). The two data binding snippets (064, 065) run on the official `jface.databinding` jar, which
-works on the forked JFace unchanged.
+Every snippet is included. The two data binding snippets (064, 065) run on the official
+`jface.databinding` jar, which works on the forked JFace unchanged; the six notification snippets run
+on `zapthemes-jface-notifications` ([Phase 7](phase7-plan.md), step 2). `screenshotsSnippets` saves
+their popups as `<snippet>-2.png` next to the main window.

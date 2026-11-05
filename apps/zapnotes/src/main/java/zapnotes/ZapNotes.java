@@ -17,6 +17,7 @@ import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.ProgressMonitorDialog;
+import org.eclipse.jface.notifications.NotificationPopup;
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.layout.GridLayoutFactory;
 import org.eclipse.jface.preference.BooleanFieldEditor;
@@ -328,8 +329,9 @@ public final class ZapNotes {
                 MessageDialog.QUESTION, 0, "&Delete", IDialogConstants.CANCEL_LABEL);
     }
 
-    /** "Exports" every note with a progress dialog; nothing is written. */
+    /** "Exports" every note with a progress dialog, then says so in a notification; nothing is written. */
     void export(Shell parent) {
+        int[] exported = { 0 };
         try {
             new ProgressMonitorDialog(parent).run(true, true, monitor -> {
                 monitor.beginTask("Exporting notes", model.notes.size());
@@ -340,14 +342,21 @@ public final class ZapNotes {
                     monitor.subTask(note.title);
                     Thread.sleep(250);
                     monitor.worked(1);
+                    exported[0]++;
                 }
                 monitor.done();
             });
+            exportedNotification(parent, exported[0]).open();
         } catch (java.lang.reflect.InvocationTargetException e) {
             MessageDialog.openError(parent, "Export failed", e.getCause().toString());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    NotificationPopup exportedNotification(Shell parent, int count) {
+        return NotificationPopup.forShell(parent).title("Export finished", true)
+                .text(count + (count == 1 ? " note" : " notes") + " exported.").build();
     }
 
     // ---------------------------------------------------------------- smoke test
@@ -371,6 +380,7 @@ public final class ZapNotes {
         dialogs.put("delete", () -> deleteDialog(first.getShell(), release));
         dialogs.put("about", () -> about(first.getShell()));
         dialogs.put("progress", () -> new ProgressMonitorDialog(first.getShell()));
+        dialogs.put("notification", () -> exportedNotification(first.getShell(), model.notes.size()));
 
         List<String> problems = new ArrayList<>();
         int checked = 0;
