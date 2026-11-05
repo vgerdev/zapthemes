@@ -40,14 +40,11 @@ jobs:
       - name: Screenshots
         if: runner.os == 'macOS'
         run: ./gradlew :zapthemes-demo:screenshots --console=plain
-      # Control.print on Cocoa leaves some windows blank; a real screen capture shows what users see.
-      - name: Screen capture of the JFace demo (macOS)
+      # Control.print on Cocoa leaves dialogs blank and cannot capture hovers; screen captures show
+      # what users see (zapthemes-demo/build/screenshots/screen).
+      - name: Screen captures of the JFace demo (macOS)
         if: runner.os == 'macOS'
-        run: |
-          ./gradlew :zapthemes-demo:run --console=plain > zapthemes-demo/build/run-jface.log 2>&1 &
-          sleep 45
-          screencapture -x zapthemes-demo/build/screenshots/macos-screen-jface.png || echo "screencapture failed"
-          kill %1 || true
+        run: ./gradlew :zapthemes-demo:screenCapturesJFace --console=plain
       - uses: actions/upload-artifact@v4
         if: runner.os != 'Windows'
         with:
