@@ -1,8 +1,14 @@
 package zapnotes;
 
+import org.eclipse.core.databinding.Binding;
+import org.eclipse.core.databinding.DataBindingContext;
+import org.eclipse.core.databinding.UpdateValueStrategy;
+import org.eclipse.core.databinding.observable.value.WritableValue;
+import org.eclipse.core.databinding.validation.ValidationStatus;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.jface.databinding.fieldassist.ControlDecorationSupport;
+import org.eclipse.jface.databinding.swt.typed.WidgetProperties;
 import org.eclipse.jface.fieldassist.ContentProposalAdapter;
-import org.eclipse.jface.fieldassist.ControlDecoration;
-import org.eclipse.jface.fieldassist.FieldDecorationRegistry;
 import org.eclipse.jface.fieldassist.SimpleContentProposalProvider;
 import org.eclipse.jface.fieldassist.TextContentAdapter;
 import org.eclipse.jface.layout.GridDataFactory;
@@ -19,6 +25,8 @@ import org.eclipse.swt.widgets.Text;
 /**
  * The editor of one note, in a tab of the editor area: a form (title, notebook, tags with content
  * assist) over the body. Changes are kept until {@link #save()}; the tab shows {@code *} meanwhile.
+ * The title is bound with JFace data binding: a validator rejects a blank one, and
+ * {@link ControlDecorationSupport} shows its message on the field.
  */
 final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
 
@@ -31,7 +39,8 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
     private final ComboViewer notebook;
     private final Text tags;
     private final StyledText body;
-    private final ControlDecoration titleRequired;
+    private final WritableValue<String> titleValue = new WritableValue<>("", String.class);
+    private final Binding titleBinding;
     private final ContentProposalAdapter tagAssist;
     private boolean dirty;
     private boolean loading;
@@ -46,10 +55,13 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
         WidgetFactory.label(SWT.NONE).text("&Title:").create(this);
         title = WidgetFactory.text(SWT.BORDER | SWT.SINGLE).onModify(e -> edited()).create(this);
         GridDataFactory.fillDefaults().grab(true, false).indent(8, 0).applyTo(title);
-        titleRequired = new ControlDecoration(title, SWT.TOP | SWT.LEFT);
-        titleRequired.setImage(FieldDecorationRegistry.getDefault().getFieldDecoration(FieldDecorationRegistry.DEC_ERROR).getImage());
-        titleRequired.setDescriptionText("A note needs a title.");
-        titleRequired.hide();
+        DataBindingContext bindings = new DataBindingContext();
+        titleBinding = bindings.bindValue(WidgetProperties.text(SWT.Modify).observe(title), titleValue,
+                new UpdateValueStrategy<String, String>()
+                        .setAfterGetValidator(v -> v.isBlank() ? ValidationStatus.error("A note needs a title.") : ValidationStatus.ok()),
+                null);
+        ControlDecorationSupport.create(titleBinding, SWT.TOP | SWT.LEFT);
+        addDisposeListener(e -> bindings.dispose());
 
         WidgetFactory.label(SWT.NONE).text("&Notebook:").create(this);
         notebook = new ComboViewer(this, SWT.READ_ONLY);
@@ -83,28 +95,17 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
 
     private void load() {
         loading = true;
-        title.setText(note.title);
+        titleValue.setValue(note.title);
         notebook.setSelection(new StructuredSelection(note.notebook));
         tags.setText(note.tags);
         body.setText(note.body);
         loading = false;
-        validate();
         setDirty(false);
     }
 
     private void edited() {
-        if (loading) {
-            return;
-        }
-        validate();
-        setDirty(true);
-    }
-
-    private void validate() {
-        if (title.getText().isBlank()) {
-            titleRequired.show();
-        } else {
-            titleRequired.hide();
+        if (!loading) {
+            setDirty(true);
         }
     }
 
@@ -119,7 +120,7 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
 
     /** Whether the form can be saved: the title must not be blank. */
     boolean isValid() {
-        return !title.getText().isBlank();
+        return ((IStatus) titleBinding.getValidationStatus().getValue()).isOK();
     }
 
     String title() {
@@ -130,7 +131,7 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
         if (!isValid()) {
             return;
         }
-        note.title = title.getText().strip();
+        note.title = titleValue.getValue().strip();
         note.notebook = (String) notebook.getStructuredSelection().getFirstElement();
         note.tags = tags.getText().strip();
         note.body = body.getText();

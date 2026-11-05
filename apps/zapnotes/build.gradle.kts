@@ -24,11 +24,17 @@ val jvmFlags = listOf("--enable-native-access=ALL-UNNAMED") + if (os.contains("m
 dependencies {
     implementation("com.zapthemes:zapthemes-jface:$zapthemes")
     implementation("com.zapthemes:zapthemes-themes:$zapthemes")
+    // The official data binding, on the forked JFace.
+    implementation("org.eclipse.platform:org.eclipse.jface.databinding:1.16.0")
     implementation("org.eclipse.platform:org.eclipse.swt.$swtFragment:3.135.0")
 }
 // The POMs name the platform-neutral SWT placeholder; Gradle needs the fragment instead.
 configurations.all {
     exclude(group = "org.eclipse.platform", module = "org.eclipse.swt")
+    // jface.databinding asks for the official JFace; the fork provides the same capability.
+    resolutionStrategy.capabilitiesResolution.withCapability("org.eclipse.platform:org.eclipse.jface") {
+        select(candidates.first { (it.id as? ModuleComponentIdentifier)?.module == "zapthemes-jface" })
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {

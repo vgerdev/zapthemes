@@ -89,15 +89,26 @@ public final class ZapNotes {
         applyTheme();
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         List<String> options = List.of(args);
         Display.setAppName("ZapNotes");
         Display display = new Display();
+        // Data binding runs in the display's realm (NoteEditor binds its title).
+        org.eclipse.core.databinding.observable.Realm.runWithDefault(
+                org.eclipse.jface.databinding.swt.DisplayRealm.getRealm(display), () -> run(display, options));
+    }
+
+    private static void run(Display display, List<String> options) {
         ZapNotes app = new ZapNotes(display);
         app.openWindow();
         int shots = options.indexOf("--screenshots");
         if (options.contains("--smoke") || shots >= 0) {
-            int exit = app.smokeTest(shots >= 0 ? Path.of(options.get(shots + 1)) : null);
+            int exit;
+            try {
+                exit = app.smokeTest(shots >= 0 ? Path.of(options.get(shots + 1)) : null);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
             display.dispose();
             System.exit(exit);
         }

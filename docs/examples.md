@@ -6,7 +6,7 @@ application would be moved over. Neither is edited by hand:
 | Program | Upstream (pinned in [UPSTREAM.md](../UPSTREAM.md)) | Size |
 |---|---|---|
 | SWT **ControlExample** | `eclipse.platform.swt`, `examples/org.eclipse.swt.examples`, tag `R4_41` | 37 files, 650 widget creations, 26 tabs |
-| **JFace snippets** | `eclipse.platform.ui`, `examples/org.eclipse.jface.snippets`, tag `R4_41` | 79 files, 251 widget creations, 73 snippets |
+| **JFace snippets** | `eclipse.platform.ui`, `examples/org.eclipse.jface.snippets`, tag `R4_41` | 81 files, 257 widget creations, 75 snippets |
 
 ## How they are moved over
 
@@ -52,5 +52,6 @@ tag checks still run there.
 
 ## Left out
 
-Snippets for bundles ZapThemes does not ship yet: JFace notifications (6) and JFace data binding
-(2). They belong to Phase 7.
+Snippets for JFace notifications (6), which ZapThemes does not ship yet ([Phase 7](phase7-plan.md),
+step 2). The two data binding snippets (064, 065) run on the official `jface.databinding` jar, which
+works on the forked JFace unchanged.

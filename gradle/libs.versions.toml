@@ -10,6 +10,8 @@ eclipse-osgi = "3.24.300"
 pde-annotations = "1.4.100"
 # SVG rasterizer fragment built against SWT 3.135.0 (JFace 3.40 ships SVG icons)
 swt-svg = "3.133.100"
+# JFace data binding 1.16.0 (R4_41); it brings core.databinding* through its POM (Phase 7)
+jface-databinding = "1.16.0"
 # Nebula Timeline
 emf-ecore = "2.43.0"
 core-jobs = "3.15.900"
@@ -19,6 +21,7 @@ assertj = "3.27.7"
 equinox-common = { module = "org.eclipse.platform:org.eclipse.equinox.common", version.ref = "equinox-common" }
 equinox-bidi = { module = "org.eclipse.platform:org.eclipse.equinox.bidi", version.ref = "equinox-bidi" }
 core-commands = { module = "org.eclipse.platform:org.eclipse.core.commands", version.ref = "core-commands" }
+jface-databinding = { module = "org.eclipse.platform:org.eclipse.jface.databinding", version.ref = "jface-databinding" }
 eclipse-osgi = { module = "org.eclipse.platform:org.eclipse.osgi", version.ref = "eclipse-osgi" }
 swt-svg = { module = "org.eclipse.platform:org.eclipse.swt.svg", version.ref = "swt-svg" }
 emf-ecore = { module = "org.eclipse.emf:org.eclipse.emf.ecore", version.ref = "emf-ecore" }
