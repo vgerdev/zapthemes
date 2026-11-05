@@ -1,4 +1,5 @@
 plugins {
+    id("zapthemes.publishing")
     id("zapthemes.swt-platform")
     id("zapthemes.raw-widget-audit")
 }

@@ -1,0 +1,14 @@
+{
+  "id": "gauge-light",
+  "name": "Gauge Light",
+  "extends": "zap-light",
+  "controls": {
+    "Gauge": {
+      "background": "$bg",
+      "trackColor": "$muted",
+      "needleColor": "$accent",
+      "labelColor": "$fg",
+      "thickness": 10
+    }
+  }
+}

@@ -1,18 +1,24 @@
 package com.zapthemes.build;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Configuration;
 
 /**
- * Adds the SWT fragment for the target platform as an {@code api} dependency.
+ * Puts the SWT fragment for the build machine's platform on every classpath, and publishes a
+ * dependency on the platform-neutral {@code org.eclipse.platform:org.eclipse.swt} instead.
  *
  * <p>The SWT POM selects its fragment with Maven OS-activated profiles, which Gradle ignores, so the
  * placeholder module {@code org.eclipse.platform:org.eclipse.swt} (pulled in transitively by JFace,
- * Nebula, ...) is excluded everywhere and the real fragment is added instead.
+ * Nebula, ...) is excluded everywhere and the real fragment is added instead. The fragment sits in
+ * the unpublished {@code swt} configuration: published metadata names the placeholder, as JFace's
+ * own does, so Maven consumers get their platform's fragment and a jar built on Windows does not
+ * pull win32 natives into a Linux app.
  *
  * <p>Properties:
  * <ul>
@@ -53,7 +59,25 @@ public class SwtPlatformPlugin implements Plugin<Project> {
             }
             swt = project.files(jar);
         }
-        project.getDependencies().add("api", swt);
+        Configuration fragment = project.getConfigurations().create("swt", c -> {
+            c.setCanBeConsumed(false);
+            c.setCanBeResolved(false);
+        });
+        project.getDependencies().add(fragment.getName(), swt);
+        for (String classpath : List.of("compileClasspath", "runtimeClasspath", "testCompileClasspath", "testRuntimeClasspath")) {
+            project.getConfigurations().getByName(classpath).extendsFrom(fragment);
+        }
+
+        Object version = project.findProperty("zapthemes.swtVersion");
+        if (version != null) {
+            Configuration published = project.getConfigurations().create("swtPublished", c -> {
+                c.setCanBeConsumed(false);
+                c.setCanBeResolved(false);
+            });
+            project.getDependencies().add(published.getName(), "org.eclipse.platform:org.eclipse.swt:" + version);
+            project.getConfigurations().getByName("apiElements").extendsFrom(published);
+            project.getConfigurations().getByName("runtimeElements").extendsFrom(published);
+        }
     }
 
     static SwtPlatform platform(Project project) {

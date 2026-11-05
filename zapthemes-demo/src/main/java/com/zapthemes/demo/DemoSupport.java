@@ -29,7 +29,7 @@ final class DemoSupport {
     static List<Theme> bundledThemes() {
         ThemeRegistry registry = new ThemeRegistry();
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
-        return List.of(registry.resolve("zap-light"), registry.resolve("zap-dark"));
+        return BundledThemes.IDS.stream().map(registry::resolve).toList();
     }
 
     /** Runs pending events for a moment, so layouts and paints are done. */
