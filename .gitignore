@@ -4,6 +4,8 @@
 /*/build/
 /*/out/
 /*/bin/
+/apps/*/build/
+/apps/*/.kotlin/
 .idea/
 *.iml
 .classpath
