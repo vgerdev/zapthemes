@@ -21,6 +21,7 @@ import com.zapthemes.core.style.ResolvedStyle;
  *       on every shell: dark title bars and native dialogs (all platforms)</td></tr>
  *   <tr><td>{@code win32}</td><td>see {@link Win32ThemeSupport}</td><td>dark scrollbars and combos,
  *       menu bar colors, ...</td></tr>
+ *   <tr><td>{@code gtk}</td><td>see {@link GtkThemeSupport}</td><td>menu bar and menu colors</td></tr>
  * </table>
  */
 public class PlatformThemeSupport {
@@ -29,7 +30,11 @@ public class PlatformThemeSupport {
 
     /** The support for the platform SWT runs on. */
     public static PlatformThemeSupport forCurrentPlatform() {
-        return SWT.getPlatform().equals("win32") ? new Win32ThemeSupport() : new PlatformThemeSupport();
+        return switch (SWT.getPlatform()) {
+            case "win32" -> new Win32ThemeSupport();
+            case "gtk" -> new GtkThemeSupport();
+            default -> new PlatformThemeSupport();
+        };
     }
 
     /** Called before the widgets are (re)themed, with the new theme's resources. */
