@@ -54,6 +54,8 @@ its own with its own `Display`, so the browser starts it in a new JVM in the cur
 On Windows the snippet PNGs come out blank (`Control.print` from those short-lived processes); the
 tag checks still run there.
 
+## Bundles beyond JFace
+
 Every snippet is included. The two data binding snippets (064, 065) run on the official
 `jface.databinding` jar, which works on the forked JFace unchanged; the six notification snippets run
 on `zapthemes-jface-notifications` ([Phase 7](phase7-plan.md), step 2). `screenshotsSnippets` saves
