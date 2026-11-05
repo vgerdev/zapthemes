@@ -354,7 +354,7 @@ Renderers read the theme's `states` block (hover, pressed, focused, disabled, se
 | **3. Owner-draw and replacements** ✅ (see [phase3-notes.md](phase3-notes.md)) | Table/Tree owner-draw, CTabFolder renderer, FlatButton / FlatCombo / FlatGroup / FlatProgressBar, platform hooks | Native vs canvas comparison in the demo on all platforms; limitations documented |
 | **4. Nebula released** ✅ (see [phase4-notes.md](phase4-notes.md)) | Fork + codemod, proxies, stylers, themed renderers, GridTableViewer path | Every listed widget is themed and switches theme live in the demo |
 | **5. Nebula incubation** ✅ (see [phase5-notes.md](phase5-notes.md)) | Same for the incubation list; Timeline gets draw2d from the GEF Classic p2 update site and EMF ecore from Maven Central | Same as Phase 4 |
-| **6. Release** ✅ (see [phase6-notes.md](phase6-notes.md); Central upload pending setup) | High-contrast theme, theme authoring guide, Javadoc, signed Maven publishing, samples | 1.0 |
+| **6. Release** ✅ (see [phase6-notes.md](phase6-notes.md); publishing to Maven Central is on hold until everything is working) | High-contrast theme, theme authoring guide, Javadoc, signed Maven publishing, samples | 1.0 |
 | **7. Optional** | NatTable (bridge to NatTable `ThemeConfiguration`), Nebula Visualization, `jface.text` fork, data binding for all controls (`jface.databinding` + the Nebula `*ObservableValue` classes left out in Phases 4–5) | — |
 
 ## 11. Risks

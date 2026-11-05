@@ -18,6 +18,8 @@ published.
   signature files and the OSGi manifest are removed. GEF Classic is not on Maven Central, and
   Nebula Timeline needs it.
 
+**On hold:** nothing is published until everything is working (decided 2026-11-05).
+
 ## One-time setup
 
 1. **Namespace.** The group is `com.zapthemes` (decided 2026-11-04). Add it under Namespaces in
@@ -33,7 +35,7 @@ published.
 
 ## Release
 
-1. Make sure `main` is green on every CI platform.
+1. Make sure `master` is green on every CI platform.
 2. Tag it: `git tag v1.0.0 && git push origin v1.0.0`. You can also run the *release* workflow by
    hand with a version.
 3. The workflow runs every test and smoke test, then
@@ -41,7 +43,7 @@ published.
    artifact.
 4. In the Portal, check the deployment's validation, then press *Publish*. Artifacts reach Maven
    Central within about 30 minutes.
-5. On `main`, set `version` in `gradle.properties` to the next `-SNAPSHOT`.
+5. On `master`, set `version` in `gradle.properties` to the next `-SNAPSHOT`.
 
 ## From a workstation
 
