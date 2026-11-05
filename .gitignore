@@ -1,0 +1,15 @@
+.gradle/
+# Gradle output only (a bare build/ would also match Java packages named .../build/)
+/build/
+/*/build/
+/*/out/
+/*/bin/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+# Upstream sources are fetched by scripts/fetch-upstream.sh at the pinned refs in UPSTREAM.md
+/third_party/

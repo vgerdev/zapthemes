@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # A hung GUI test should fail fast with a stack trace, not wait to be cancelled.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Fetch upstream sources
+        shell: bash
+        run: scripts/fetch-upstream.sh
+      - name: Install GTK (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 xvfb
+      - name: Build and test (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ./gradlew build :zapthemes-demo:smokeTest --console=plain
+      - name: Build and test
+        if: runner.os != 'Linux'
+        shell: bash
+        run: ./gradlew build :zapthemes-demo:smokeTest --console=plain
+
+  # FreeBSD: no SWT fragment is published upstream; the build uses the ports SWT jar
+  # (x11-toolkits/swt) via -Pswt.localJar. Enable once the ports SWT version matches 3.135.0.
+  # freebsd:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: vmactions/freebsd-vm@v1
+  #       with:
+  #         prepare: pkg install -y openjdk25 swt git bash xorg-vfbserver
+  #         run: bash scripts/fetch-upstream.sh && ./gradlew build -Pswt.localJar=/usr/local/share/java/classes/swt.jar

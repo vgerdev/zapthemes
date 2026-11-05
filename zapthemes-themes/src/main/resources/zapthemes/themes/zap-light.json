@@ -1,0 +1,40 @@
+{
+  "id": "zap-light",
+  "name": "Zap Light",
+  "extends": "zap-base",
+  "palette": {
+    "bg": "#F7F8FA",
+    "surface": "#FFFFFF",
+    "fg": "#1F2328",
+    "muted": "#EBECF0",
+    "hover": "#DFE1E5",
+    "disabled": "#8C8F94",
+    "selection": "#CFDEFC",
+    "accent": "#3574F0",
+    "onAccent": "#FFFFFF"
+  },
+  "defaults": { "background": "$bg", "foreground": "$fg" },
+  "controls": {
+    "Text":         { "background": "$surface" },
+    "Combo":        { "background": "$surface" },
+    "StyledText":   { "selectionBackground": "$selection", "selectionForeground": "$fg", "marginColor": "$surface" },
+    "Table":        { "background": "$surface", "headerBackground": "$muted", "headerForeground": "$fg" },
+    "Tree":         { "inherit": "Table" },
+    "Link":         { "linkForeground": "$accent" },
+    "Button[PUSH]": {
+      "background": "$muted",
+      "states": {
+        "hover":    { "background": "$hover" },
+        "pressed":  { "background": "$accent", "foreground": "$onAccent" },
+        "disabled": { "foreground": "$disabled" },
+        "focused":  { "borderColor": "$accent" }
+      }
+    },
+    "CTabFolder":   { "selectionBackground": "$surface", "selectionForeground": "$accent" }
+  },
+  "classes": {
+    "Button.primary": { "background": "$accent", "foreground": "$onAccent" },
+    "Label.muted":    { "foreground": "$disabled" }
+  },
+  "platform": { "win32": { "darkScrollbars": false } }
+}
