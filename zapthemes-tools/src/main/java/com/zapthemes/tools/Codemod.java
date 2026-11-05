@@ -62,7 +62,7 @@ public final class Codemod {
     }
 
     static JavaParser newParser() {
-        return new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
+        return new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_25));
     }
 
     public Result rewrite(String source) {

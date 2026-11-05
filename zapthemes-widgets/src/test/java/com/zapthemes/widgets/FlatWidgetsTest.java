@@ -186,9 +186,26 @@ class FlatWidgetsTest {
         control.print(gc);
         gc.dispose();
         ImageData data = image.getImageData();
+        assumePrintWorks(data);
         RGB rgb = data.palette.getRGB(data.getPixel(size.x / 8, size.y / 2));
         image.dispose();
         return rgb;
+    }
+
+    /**
+     * {@code Control.print} returns a blank (all black) image when the desktop cannot be drawn, e.g. a
+     * locked Windows session; pixel checks are meaningless then.
+     */
+    private static void assumePrintWorks(ImageData data) {
+        for (int y = 0; y < data.height; y += 4) {
+            for (int x = 0; x < data.width; x += 4) {
+                RGB rgb = data.palette.getRGB(data.getPixel(x, y));
+                if (rgb.red != 0 || rgb.green != 0 || rgb.blue != 0) {
+                    return;
+                }
+            }
+        }
+        org.junit.jupiter.api.Assumptions.abort("Control.print returned a blank image (locked desktop?)");
     }
 
     private static void mouseClick(Control control) {

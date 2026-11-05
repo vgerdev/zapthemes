@@ -8,9 +8,14 @@ import java.util.function.Function;
 
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.nebula.jface.gridviewer.GridTableViewer;
 import org.eclipse.nebula.jface.gridviewer.GridViewerColumn;
 import org.eclipse.nebula.widgets.cdatetime.CDT;
+import org.eclipse.nebula.widgets.formattedtext.FormattedText;
+import org.eclipse.nebula.widgets.formattedtext.NumberFormatter;
+import org.eclipse.nebula.widgets.pagination.collections.PageResultLoaderList;
 import org.eclipse.nebula.widgets.opal.duallist.DLItem;
 import org.eclipse.nebula.widgets.segmentedbar.Segment;
 import org.eclipse.swt.SWT;
@@ -30,6 +35,14 @@ import com.zapthemes.core.model.Theme;
 import com.zapthemes.nebula.badgedlabel.BadgedLabel;
 import com.zapthemes.nebula.calendarcombo.CalendarCombo;
 import com.zapthemes.nebula.carousel.Carousel;
+import com.zapthemes.nebula.collapsiblebuttons.CollapsibleButtons;
+import com.zapthemes.nebula.datechooser.DateChooser;
+import com.zapthemes.nebula.datechooser.DateChooserCombo;
+import com.zapthemes.nebula.pagination.table.PageableTable;
+import com.zapthemes.nebula.picture.PictureControl;
+import com.zapthemes.nebula.radiogroup.RadioGroup;
+import com.zapthemes.nebula.radiogroup.RadioItem;
+import com.zapthemes.nebula.timeline.TimelineComposite;
 import com.zapthemes.nebula.cdatetime.CDateTime;
 import com.zapthemes.nebula.chips.Chips;
 import com.zapthemes.nebula.ctreecombo.CTreeCombo;
@@ -68,7 +81,8 @@ import com.zapthemes.swt.widgets.Shell;
 import com.zapthemes.swt.widgets.TableItem;
 
 /**
- * The Nebula released widgets, created through their ZapThemes proxies, with live theme switching.
+ * The Nebula released and incubation widgets, created through their ZapThemes proxies, with live
+ * theme switching.
  * {@code --smoke} switches themes and checks that every widget is tagged and every Nebula widget has
  * the theme's background; {@code --screenshots <dir>} saves every tab in every theme.
  */
@@ -136,6 +150,7 @@ public final class NebulaDemo {
         tab("Data", this::createData);
         tab("Inputs", this::createInputs);
         tab("Display", this::createDisplay);
+        tab("Incubation", this::createIncubation);
         tabs.setSelection(0);
 
         shell.setSize(980, 640);
@@ -326,6 +341,57 @@ public final class NebulaDemo {
         Tiles<String> tiles = new Tiles<>(page, SWT.NONE);
         tiles.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         tiles.setItems(List.of("One", "Two", "Three", "Four"));
+        return page;
+    }
+
+    /** The incubation widgets (CompositeTable needs app-defined row classes; see the contract test). */
+    private Control createIncubation(CTabFolder parent) {
+        Composite page = new Composite(parent, SWT.NONE);
+        page.setLayout(new GridLayout(3, false));
+
+        CollapsibleButtons buttons = new CollapsibleButtons(page, SWT.NONE);
+        GridData buttonsData = new GridData(SWT.FILL, SWT.END, false, true, 1, 3);
+        buttonsData.widthHint = 170;
+        buttons.setLayoutData(buttonsData);
+        for (String name : new String[] { "Mail", "Calendar", "Contacts" }) {
+            buttons.addButton(name, name, swatch(name.length()), null);
+        }
+
+        Composite fields = new Composite(page, SWT.NONE);
+        fields.setLayout(new GridLayout(2, false));
+        row(fields, "DateChooserCombo");
+        DateChooserCombo combo = new DateChooserCombo(fields, SWT.BORDER);
+        combo.setValue(new Date());
+        row(fields, "FormattedText");
+        FormattedText amount = new FormattedText(fields, SWT.BORDER);
+        amount.setFormatter(new NumberFormatter("#,##0.00"));
+        amount.setValue(1234.5);
+        row(fields, "RadioGroup");
+        RadioGroup group = new RadioGroup(fields, SWT.NONE);
+        for (String text : new String[] { "Light", "Dark", "System" }) {
+            new RadioItem(group, SWT.NONE).setText(text);
+        }
+        group.setSelection(group.getItems()[1]);
+        row(fields, "PictureControl");
+        new PictureControl(fields).setDefaultImage(swatch(3));
+
+        DateChooser chooser = new DateChooser(page, SWT.BORDER);
+        chooser.setSelectedDate(new Date());
+
+        PageableTable pageable = new PageableTable(page, SWT.BORDER, SWT.BORDER | SWT.FULL_SELECTION, 4);
+        pageable.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 2, 1));
+        TableViewer viewer = pageable.getViewer();
+        viewer.setContentProvider(ArrayContentProvider.getInstance());
+        viewer.setLabelProvider(new LabelProvider());
+        List<String> rows = new ArrayList<>();
+        for (int i = 1; i <= 23; i++) {
+            rows.add("Pageable row " + i);
+        }
+        pageable.setPageLoader(new PageResultLoaderList<>(rows));
+        pageable.setCurrentPage(0);
+
+        TimelineComposite timeline = new TimelineComposite(page, SWT.NONE);
+        timeline.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 2, 1));
         return page;
     }
 

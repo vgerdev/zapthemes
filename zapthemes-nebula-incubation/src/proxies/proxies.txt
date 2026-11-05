@@ -1,0 +1,19 @@
+# Proxy list for zapthemes-nebula-incubation (see com.zapthemes.tools.ProxyNames for the format).
+# org.eclipse.nebula.widgets.X -> com.zapthemes.nebula.X, same simple names.
+package org.eclipse.nebula.widgets.collapsiblebuttons
+package org.eclipse.nebula.widgets.compositetable
+package org.eclipse.nebula.widgets.compositetable.day
+package org.eclipse.nebula.widgets.compositetable.month
+package org.eclipse.nebula.widgets.compositetable.timeeditor
+package org.eclipse.nebula.widgets.datechooser
+package org.eclipse.nebula.widgets.formattedtext
+package org.eclipse.nebula.widgets.pagination
+package org.eclipse.nebula.widgets.pagination.renderers.navigation
+package org.eclipse.nebula.widgets.pagination.renderers.navigation.graphics
+package org.eclipse.nebula.widgets.pagination.table
+package org.eclipse.nebula.widgets.pagination.tree
+package org.eclipse.nebula.widgets.picture
+package org.eclipse.nebula.widgets.radiogroup
+package org.eclipse.nebula.widgets.timeline
+
+index com.zapthemes.nebula.incubation.NebulaIncubationProxies

@@ -58,6 +58,14 @@ public class ForkExtension {
     }
 
     public void upstream(String name, Object sourceDir, Object... resourceDirs) {
+        upstream(name, sourceDir, List.of(), resourceDirs);
+    }
+
+    /**
+     * Like {@link #upstream(String, Object, Object...)}, leaving out the source files matching
+     * {@code excludes} (globs relative to the source dir, e.g. {@code "**}{@code /forms/*.java"}).
+     */
+    public void upstream(String name, Object sourceDir, List<String> excludes, Object... resourceDirs) {
         File source = project.file(sourceDir);
         String taskName = Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
         File out = project.getLayout().getBuildDirectory().dir("generated/sources/fork/" + name + "/java").get().getAsFile();
@@ -87,6 +95,9 @@ public class ForkExtension {
                     "--patches", patches.getAbsolutePath());
             if (themeSystemColors) {
                 task.args("--system-colors");
+            }
+            for (String exclude : excludes) {
+                task.args("--exclude", exclude);
             }
         });
 

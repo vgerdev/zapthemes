@@ -10,6 +10,8 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.JavaExec;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.testing.Test;
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat;
+import org.gradle.api.tasks.testing.logging.TestLogEvent;
 import org.gradle.jvm.tasks.Jar;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.jvm.toolchain.JavaToolchainService;
@@ -47,6 +49,11 @@ public class JavaConventionsPlugin implements Plugin<Project> {
             // SWT tests can block on a native event loop; fail the stuck test with its stack trace.
             test.systemProperty("junit.jupiter.execution.timeout.default", "2 m");
             test.getTimeout().set(Duration.ofMinutes(10));
+            // Full stack traces in the console, so CI logs show where a test failed.
+            test.testLogging(logging -> {
+                logging.events(TestLogEvent.FAILED, TestLogEvent.SKIPPED);
+                logging.setExceptionFormat(TestExceptionFormat.FULL);
+            });
         });
 
         JavaToolchainService toolchains = project.getExtensions().getByType(JavaToolchainService.class);
