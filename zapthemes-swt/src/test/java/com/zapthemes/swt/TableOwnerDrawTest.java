@@ -95,9 +95,11 @@ class TableOwnerDrawTest {
 
         // Selected, striped, plain and striped rows: each of the first three lines lies between two
         // differently filled rows. On GTK they used to land mid-row, offset by the header height.
-        assertThat(lines).hasSize(3);
+        String layout = "header " + table.getHeaderHeight() + ", item " + table.getItemHeight() + ", client " + table.getClientArea()
+                + ", row 0 " + row0 + ", column " + runs(data, x);
+        assertThat(lines).as(layout).hasSize(3);
         for (int y : lines) {
-            assertThat(pixel(data, x, y - 1)).as("rows around the line at y=" + y).isNotEqualTo(pixel(data, x, y + 1));
+            assertThat(pixel(data, x, y - 1)).as("rows around the line at y=" + y + "; " + layout).isNotEqualTo(pixel(data, x, y + 1));
         }
         image.dispose();
     }
@@ -163,6 +165,20 @@ class TableOwnerDrawTest {
             }
         }
         org.junit.jupiter.api.Assumptions.abort("Control.print returned a blank image (locked desktop?)");
+    }
+
+    /** The colors down column {@code x}, as "y=#RRGGBB" at each change. */
+    private static String runs(ImageData data, int x) {
+        StringBuilder runs = new StringBuilder();
+        RGB last = null;
+        for (int y = 0; y < data.height; y++) {
+            RGB rgb = pixel(data, x, y);
+            if (!rgb.equals(last)) {
+                runs.append(String.format(" %d=#%02X%02X%02X", y, rgb.red, rgb.green, rgb.blue));
+                last = rgb;
+            }
+        }
+        return runs.toString().trim();
     }
 
     private static RGB pixel(ImageData data, int x, int y) {
