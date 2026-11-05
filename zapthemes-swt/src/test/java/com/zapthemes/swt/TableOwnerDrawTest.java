@@ -87,7 +87,8 @@ class TableOwnerDrawTest {
         Rectangle row0 = table.getItem(0).getBounds(0);
         int x = row0.x + row0.width / 2;
         List<Integer> lines = new ArrayList<>();
-        for (int y = (header ? table.getHeaderHeight() : 0) + 1; y < data.height - 1 && lines.size() < 3; y++) {
+        // From the top: Control.print includes the header on win32 and GTK, not on Cocoa.
+        for (int y = 1; y < data.height - 1 && lines.size() < 3; y++) {
             if (pixel(data, x, y).equals(GRID)) {
                 lines.add(y);
             }

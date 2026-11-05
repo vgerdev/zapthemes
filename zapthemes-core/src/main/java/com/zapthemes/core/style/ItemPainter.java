@@ -32,6 +32,7 @@ final class ItemPainter {
     static final String INSTALLED = "zapthemes.itemPainter";
 
     private static final boolean GTK = "gtk".equals(SWT.getPlatform());
+    private static final boolean COCOA = "cocoa".equals(SWT.getPlatform());
 
     private ItemPainter() {
     }
@@ -143,21 +144,26 @@ final class ItemPainter {
             topRow = tree.getTopItem() != null ? tree.getTopItem().getBounds() : null;
             columnEdges = edges(tree.getColumnOrder(), null, tree.getColumns(), scrollX(tree));
         }
-        // Item bounds are client coordinates and the GC draws in widget coordinates. They differ on
-        // GTK, whose client area starts above the header (y = -header) and whose cell bounds start a
-        // pixel below the row.
-        int rowTop = topRow == null ? header : topRow.y - area.y - (GTK ? 1 : 0);
-        int bottom = area.height;
+        // Item bounds are client coordinates; where the GC draws depends on the platform:
+        //   win32: client area and GC both start at the top of the header.
+        //   GTK:   the client area starts above the header (y = -header) but the GC at the header's
+        //          top, and cell bounds start a pixel below the row.
+        //   Cocoa: the client area starts above the header too, but the header is a separate view,
+        //          so the GC starts at the first row.
+        int shift = GTK ? -area.y : 0;
+        int rowsTop = COCOA ? 0 : header;
+        int rowTop = topRow == null ? rowsTop : topRow.y + shift - (GTK ? 1 : 0);
+        int bottom = area.y + area.height + shift;
         GC gc = event.gc;
         gc.setForeground(color);
         // Rows continue below the last item, like native grid lines.
         for (int y = rowTop + itemHeight - 1; y < bottom; y += itemHeight) {
-            if (y >= header) {
+            if (y >= rowsTop) {
                 gc.drawLine(area.x, y, area.x + area.width, y);
             }
         }
         for (int x : columnEdges) {
-            gc.drawLine(x, header, x, bottom);
+            gc.drawLine(x, rowsTop, x, bottom);
         }
     }
 
