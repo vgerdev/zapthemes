@@ -18,6 +18,8 @@ published.
   signature files and the OSGi manifest are removed. GEF Classic is not on Maven Central, and
   Nebula Timeline needs it.
 
+**On hold:** nothing is published until everything is working (decided 2026-11-05).
+
 ## One-time setup
 
 1. **Namespace.** The group is `com.zapthemes` (decided 2026-11-04). Add it under Namespaces in
