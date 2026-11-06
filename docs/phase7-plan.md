@@ -9,8 +9,25 @@ own PR with tests, demo/example coverage and screenshots on Windows, GTK and mac
 | 1 ✅ | **Data binding** | Use the official `org.eclipse.jface.databinding` and `org.eclipse.core.databinding*` jars from Maven Central on the forked JFace (capability resolution, as the guide shows). They create no widgets, so no fork is needed; verify with the JFace snippets 064/065 and a ZapNotes form. Then add the Nebula `*ObservableValue` classes left out in Phase 5 (DateChooser, FormattedText). | Smallest, unblocks the most: 2 snippets, Nebula binding, and a common need in real apps. |
 | 2 ✅ | **JFace notifications** | Fork `org.eclipse.jface.notifications` (small: popups that create widgets) with the codemod; theme the popup with a style class like PopupDialog's. | Found by the examples: 6 snippets need it. Same tools as the JFace fork. |
 | 3 ✅ | **`jface.text`** | Fork `org.eclipse.jface.text` (and `org.eclipse.text` as a plain dependency): `SourceViewer`, content assist, hovers, annotation rulers. Map its color preferences and hard-coded colors to theme classes and the `colors` registry. | The largest fork; its hovers and content assist reuse the step-2 and JFace popup work. |
-| 4 | **NatTable bridge** | `zapthemes-nattable`: a NatTable `ThemeConfiguration` generated from the current ZapThemes theme, switched live. NatTable paints everything itself, so no fork. | Independent of 1–3; needs its own demo. |
+| 4 ✅ | **NatTable bridge** | `zapthemes-nattable`: a NatTable `ThemeConfiguration` generated from the current ZapThemes theme, switched live. NatTable paints everything itself, so no fork. | Independent of 1–3; needs its own demo. |
 | 5 | **Nebula Visualization** | Fork the Visualization widgets (xygraph, ...) like Phases 4–5, with stylers for their colors. | Least used; last. |
+
+## Step 4 in detail
+
+`zapthemes-nattable` uses NatTable 2.7.0 from Maven Central as is (it paints itself; its POM asks
+for the official JFace, which the capability rule replaces with the fork). `NatTableTheming`, a
+`StylerProvider`, registers a styler for the control type `NatTable` (NatTable's package is one the
+type resolver knows), so every table is themed when the `Skin` event reaches it and again on every
+theme switch, without a call from the application. The styler builds a
+`ZapNatTableThemeConfiguration` (NatTable's modern theme, with colors and fonts from the theme's
+`NatTable` rule, inverted icons on dark backgrounds) and hands it to `NatTable.setTheme`; it applies
+it once more on the first paint, in case `configure()` ran after it. A theme with nothing for
+NatTable leaves an untouched table alone and gives a themed one NatTable's default theme back.
+`addExtension` keeps the application's label styles across switches; `MANUAL` opts a table out.
+
+Covered by `NatTableThemingTest` (registry styles across a switch, painted header and body pixels,
+dark icons, extensions, opt-out, no theme) and the new `NatTableDemo` (headers, stripes, a selection
+with its anchor, a frozen column; smoke test and screenshots).
 
 ## Step 3 in detail
 

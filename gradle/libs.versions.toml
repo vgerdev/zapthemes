@@ -19,6 +19,8 @@ core-jobs = "3.15.900"
 core-runtime = "3.35.0"
 # JFace Text 3.31.100 (R4_41) and org.eclipse.text 3.14.800, built from source (Phase 7)
 equinox-preferences = "3.12.100"
+# NatTable 2.7.0, used as published by zapthemes-nattable (Phase 7)
+nattable = "2.7.0"
 assertj = "3.27.7"
 
 [libraries]
@@ -33,6 +35,7 @@ core-runtime = { module = "org.eclipse.platform:org.eclipse.core.runtime", versi
 equinox-preferences = { module = "org.eclipse.platform:org.eclipse.equinox.preferences", version.ref = "equinox-preferences" }
 core-jobs = { module = "org.eclipse.platform:org.eclipse.core.jobs", version.ref = "core-jobs" }
 pde-annotations = { module = "org.eclipse.pde:org.eclipse.pde.api.tools.annotations", version.ref = "pde-annotations" }
+nattable-core = { module = "org.eclipse.nebula.widgets.nattable:org.eclipse.nebula.widgets.nattable.core", version.ref = "nattable" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 javaparser-core = { module = "com.github.javaparser:javaparser-core", version.ref = "javaparser" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }

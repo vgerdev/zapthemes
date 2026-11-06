@@ -82,7 +82,7 @@ zapthemes/
 ├─ zapthemes-themes/               # bundled JSON themes (light, dark, high-contrast) + theme.schema.json
 ├─ zapthemes-tools/                # proxy generator, codemod, audit (used by build-logic)
 ├─ zapthemes-demo/                 # ApplicationWindow demo / theme gallery / live switcher
-└─ (later) zapthemes-nattable, zapthemes-visualization
+└─ zapthemes-nattable (Phase 7), (later) zapthemes-visualization
 ```
 
 Dependency direction, with no cycles:

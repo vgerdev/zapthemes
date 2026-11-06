@@ -23,6 +23,7 @@ include(
     "zapthemes-jface-notifications",
     "zapthemes-jface-text",
     "zapthemes-text",
+    "zapthemes-nattable",
     "zapthemes-nebula-fork",
     "zapthemes-nebula",
     "zapthemes-draw2d",
