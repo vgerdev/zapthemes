@@ -261,7 +261,7 @@ ribbon.setFileTab("File", backstage -> {
   area and hides its siblings, and swaps it back when it closes, so it works with any layout and
   with JFace's `ApplicationWindow`.
 - **Esc**, the back arrow, or running a command entry closes it. Up and Down move in the nav
-  list; Tab moves into the page. KeyTips cover the nav entries.
+  list; Tab moves into the page. (KeyTips over the nav entries are not done yet.)
 
 ## Message bar
 
@@ -308,7 +308,7 @@ also the title bar's), `badge` and `onBadge` (KeyTip and count badges). The bund
 them; zap-light and zap-dark keep the ribbon close to Office's light and dark looks.
 
 - States: items paint `hover`, `pressed`, `checked`, `disabled` and `focused` from the keys
-  above; the `Ribbon` rule's `states` block may override any key per state.
+  above (per-state overrides through a `states` block are not read yet).
 - **The app's accent:** `ribbon.setAccentColor(rgb)` overrides `fileTabBackground`,
   `tabIndicatorColor`, `selectedTabForeground`, `emphasisBackground` and the backstage nav, unless
   the theme sets `useAppAccent: false` (zap-high-contrast does). The demo switches Word blue and
@@ -374,16 +374,39 @@ New module `zapthemes-jface-ribbon` (depends on `zapthemes-jface` and `zapthemes
 
 | # | Step | What |
 |---|---|---|
-| 1 | **Plan, commands, core ribbon** | This plan; the command model and `CustomizationStore`; `Ribbon` with tabs, groups, all buttons, combos, color buttons, labels, dialog launchers, right commands; super tooltips; theming (types, catalog, base names, bundled themes); accessibility and keyboard navigation; the layout with adaptive resizing and collapsed groups; `RibbonDemo` (the Word layout) with its smoke test and screenshots |
-| 2 | **Galleries** | In-ribbon galleries, scrolling, the expand popup, app-drawn previews, reduction of columns |
-| 3 | **KeyTips, collapse, contextual tabs** | Alt / F10 badges at every level, collapse to the tab row, the overlay and pin, contextual tab sets |
-| 4 | **Backstage and message bar** | The File tab and `Backstage`; `MessageBar` |
-| 5 | **Customization** | The stored model, merging with app updates, `CustomizeRibbonDialog`, the round-trip |
-| 6 | **JFace** | `zapthemes-jface-ribbon`: action commands, contribution items, `RibbonApplicationWindow`; the demo runs on it |
-| 7 | **Docs and checks** | The theme authoring guide's ribbon section, the README, zoom once #19 merges, the GTK run |
+| 1–5 ✅ | **Commands and the ribbon** (PR 1) | The command model and `CustomizationStore`; `Ribbon` with tabs, groups, every button kind, combos, color buttons, labels, dialog launchers, right commands; super tooltips; galleries; adaptive resizing and collapsed groups; KeyTips; collapse, overlay and pin; contextual tab sets; the backstage and `MessageBar`; customization with `CustomizeRibbonDialog`; theming (types, catalog, base names, bundled themes); accessibility; `RibbonDemo` with its smoke test and screenshots |
+| 6 ✅ | **JFace** (PR 2, on PR 1) | `zapthemes-jface-ribbon`: action commands, contribution items, `RibbonApplicationWindow`; the demo's ¶ button is a JFace action |
+| 7 | **Follow-ups** | Zoom once #19 merges; the GTK and macOS checks; KeyTips in the backstage; renaming items in the dialog; per-state theme overrides |
+
+Steps 1 to 5 landed as one PR instead of five: they share one surface, hit-test and popup model
+(galleries, KeyTips, collapsed groups and the overlay are all `Hot`s of a `RibbonSurface`), so
+splitting them would have meant writing each piece twice.
 
 Each step's tests run in `zapthemes-widgets` (with a `Display`) and cover what it adds: layout and
 reduction at several widths, KeyTip navigation, collapse and pin, contextual tabs, gallery
 scrolling and selection, action sync, the customization round-trip and theme switching. The
 `RibbonDemo` smoke test resizes through every reduction stage, opens the backstage and the KeyTips,
 and saves screenshots in every theme.
+
+## As built
+
+- **Classes** (`com.zapthemes.widgets.ribbon`): `Ribbon` and `PanelSurface` extend
+  `RibbonSurface`, a canvas that lays out `Hot`s (tabs, items, launchers, collapsed groups, gallery
+  parts, ...) and paints, hit-tests, navigates and exposes them to screen readers. `RibbonLayout` is
+  the pure layout and reduction; `RibbonMetrics` derives every size from the font height.
+  `KeyTips`, `SuperToolTip`, the popups (`GroupPopup`, `GalleryPopup`, `ColorPalettePopup`,
+  `ComboListPopup`), `Backstage`, `MessageBar`, `RibbonCustomization` and `CustomizeRibbonDialog`
+  complete it.
+- **Reduction detail:** a step that does not make its group narrower is skipped. A single large
+  button is usually narrower than its medium form, so groups of one or two large buttons go
+  straight from large to collapsed, as in Office.
+- **Popups** are `ON_TOP | NO_TRIM` shells; one opened from another (a combo list in a collapsed
+  group) keeps its parent open, and any other window taking the focus closes them.
+- **Tab row:** when it runs out of room, right commands drop their labels, tabs their padding, and
+  tabs that still do not fit are left out (the selected one stays).
+- **Customization** stores `knownTabs` and `knownGroups` with the state, so tabs and groups an app
+  update adds are inserted at their default places while ones the user removed stay removed.
+- **`CommandMenu.Popup`** (added for JFace) lets a command's menu be a ready popup menu created for
+  the bar's control: `IMenuCreator.getMenu(Control)`, `MenuManager.createContextMenu`.
+- **Tests:** `RibbonTest` (39, in `zapthemes-widgets`) and `JFaceRibbonTest` (5); the demo's smoke
+  test and `checkCatalog`.

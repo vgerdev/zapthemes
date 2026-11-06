@@ -15,7 +15,10 @@
     "error": "#F07178",
     "qualifier": "#8C8F94",
     "stripe": "#303236",
-    "border": "#4A4D52"
+    "border": "#4A4D52",
+    "chrome": "#18191B",
+    "badge": "#DFE1E5",
+    "onBadge": "#1E1F22"
   },
   "defaults": {
     "background": "$bg",
@@ -102,6 +105,79 @@
       "selectionForeground": "$accent",
       "selectionBarThickness": 2,
       "highlight": true
+    },
+    "Ribbon": {
+      "background": "$surface",
+      "foreground": "$fg",
+      "tabStripBackground": "$chrome",
+      "tabForeground": "$fg",
+      "tabHoverBackground": "$hover",
+      "selectedTabBackground": "$chrome",
+      "selectedTabForeground": "$accent",
+      "tabIndicatorColor": "$accent",
+      "groupLabelForeground": "$qualifier",
+      "separatorColor": "$border",
+      "borderColor": "$border",
+      "itemHoverBackground": "$hover",
+      "itemPressedBackground": "$selection",
+      "itemCheckedBackground": "$selection",
+      "itemCheckedBorderColor": "$accent",
+      "disabledForeground": "$disabled",
+      "fieldBackground": "$surface",
+      "galleryBorderColor": "$border",
+      "galleryBackground": "$surface",
+      "gallerySelectionColor": "$accent",
+      "keyTipBackground": "$badge",
+      "keyTipForeground": "$onBadge",
+      "keyTipBorderColor": "$border",
+      "fileTabBackground": "$accent",
+      "fileTabForeground": "$onAccent",
+      "emphasisBackground": "$accent",
+      "emphasisForeground": "$onAccent",
+      "contextualAccent1": "$accent",
+      "contextualAccent2": "#B98BE8",
+      "contextualAccent3": "#5FC48A",
+      "contextualAccent4": "#E5A050",
+      "focusColor": "$accent",
+      "arc": 4
+    },
+    "RibbonPopup": {
+      "background": "$surface",
+      "borderColor": "$border"
+    },
+    "RibbonToolTip": {
+      "background": "$surface",
+      "foreground": "$fg",
+      "borderColor": "$border",
+      "titleFont": "$font.strong"
+    },
+    "RibbonBackstage": {
+      "navBackground": "$accent",
+      "navForeground": "$onAccent",
+      "navSelectedForeground": "$onAccent",
+      "titleFont": "$font.header"
+    },
+    "RibbonMessageBar": {
+      "background": "#433519",
+      "foreground": "$fg",
+      "borderColor": "#6B5A2A",
+      "iconColor": "$fg",
+      "titleFont": "$font.strong",
+      "states": {
+        "info": {
+          "background": "#1F2D45",
+          "borderColor": "$border"
+        },
+        "error": {
+          "background": "#442726",
+          "borderColor": "$error",
+          "iconColor": "$error"
+        },
+        "success": {
+          "background": "#22382A",
+          "borderColor": "$border"
+        }
+      }
     },
     "FlatButton": {
       "background": "$muted",

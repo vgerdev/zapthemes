@@ -24,6 +24,13 @@ public sealed interface CommandMenu {
     record Filler(Consumer<Menu> filler) implements CommandMenu {
     }
 
+    /**
+     * Creates a ready popup menu for the bar's control each time it opens (JFace's
+     * {@code IMenuCreator} and {@code MenuManager.createContextMenu}); the bar shows it under the item.
+     */
+    record Popup(java.util.function.Function<org.eclipse.swt.widgets.Control, Menu> factory) implements CommandMenu {
+    }
+
     static CommandMenu of(String... ids) {
         return new Ids(List.of(ids));
     }
