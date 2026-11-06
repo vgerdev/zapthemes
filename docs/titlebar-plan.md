@@ -256,7 +256,7 @@ the slot (`TitleBarSlot`) are typed so that they take the bar's colors rather th
 | 1 ✅ | **Title bar widget, drawn frame, theming** | `TitleBar`, `TitleBarItem`, `TitleBarProfile` and its pop-up; layout, painting, hit testing, the window buttons, the drawn system menu; the drawn frame (drag, double-click, resize edges); the new base names, catalog entries and bundled theme values; accent override and inactive dimming; accessibility; `TitleBarDemo` (Word and Excel looks) with a smoke test and screenshots in every theme. Tests: hit testing, button actions, theme and accent switching, profile pop-up. |
 | 2 ✅ | **Windows native frame** | Window procedure subclassing, `WM_NCCALCSIZE`, `WM_NCHITTEST` with snap layouts, the native system menu, maximized insets, DPI; FFM `DwmExtendFrameIntoClientArea`. Tests: the hit-test codes per part, the client area covering the caption, buttons through the native path. Checked by hand: snap, drag, resize, maximize, shake. |
 | 3 ✅ | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
-| 4 | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
+| 4 ✅ | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
 | 5 | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
 
 ## Step 1 in detail
@@ -361,3 +361,32 @@ dialog's add, move, remove, below, OK (saved) and reset.
 
 Also fixed here and in step 1: text is measured with antialiasing on, as it is painted, since GDI+
 text is wider than GDI's (titles were ellipsized with room to spare).
+
+## Step 4 in detail
+
+`com.zapthemes.jface.TitleBarWindow extends ApplicationWindow` (zapthemes-jface now depends on
+zapthemes-widgets). It creates the bar first in `createTrimWidgets`, before the tool bar, cool bar
+and status line, and lays the shell out with a copy of `ApplicationWindowLayout` that puts the bar
+first (the upstream layout gives every unknown child the contents' bounds). It drops the top
+separator, creates its shell with `TitleBar.shellStyle`, and hooks `createTitleBar(TitleBar)` and
+`getTitleBarPreferences()`. `addQuickAccess(IAction[, shown])` works before or after the shell
+exists. A menu bar from `addMenuBar()` would sit between the frame and the bar, so its manager
+becomes the title menu instead (`setTitleMenu(MenuManager)` sets one directly). The bar's title
+now defaults to the shell's text, which is how JFace windows set theirs.
+
+`ActionTitleBarItem` binds an action to an item: `AS_CHECK_BOX` gives a check item,
+`AS_DROP_DOWN_MENU` a drop-down whose arrow opens the menu creator's menu, the text loses its
+accelerator suffix, the image comes from the descriptor (a `LocalResourceManager` freed with the
+item), and text, tooltip, image, enabled and checked follow property changes (from any thread);
+selecting the item runs the action. `TitleBarWindow.profileAction(IAction)` turns an action into a
+profile pop-up action.
+
+`TitleBarDemo` has a third window, PowerPoint-like in orange, built as a `TitleBarWindow` with
+actions, a tool bar, a status line and a menu bar turned title menu; it is in the smoke test and
+the screenshots. Also here: when the theme's avatar color is close to the bar's (an orange accent
+with zap-light's orange avatar), the avatar uses a tint of the bar's foreground.
+
+Tests (`TitleBarWindowTest`, 6): the bar above the tool bar and contents and its title from the
+shell, items following their actions (enabled, text, checked, running, the check state), disposal
+stopping the binding, the menu bar becoming the title menu, the window's preferences file, and
+profile actions from JFace actions; one more in `TitleBarTest` for the avatar.

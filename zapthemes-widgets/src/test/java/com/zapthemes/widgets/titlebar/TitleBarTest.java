@@ -403,6 +403,17 @@ class TitleBarTest {
     }
 
     @Test
+    void theAvatarStaysVisibleOnAnAccentOfItsOwnColor() {
+        Assumptions.assumeFalse(display.getHighContrast());
+        manager.setTheme(light);
+        bar.setAccent(new RGB(0xC4, 0x3E, 0x1C));
+        TitleBarColors colors = colors(true);
+        assertThat(TitleBarColors.distance(colors.avatarBackground(), colors.background())).isGreaterThan(60);
+        bar.setAccent(EXCEL_GREEN);
+        assertThat(colors(true).avatarBackground()).isEqualTo(new RGB(0xCA, 0x50, 0x10));
+    }
+
+    @Test
     void inactiveWindowsDimTheBar() {
         Assumptions.assumeFalse(display.getHighContrast());
         TitleBarColors active = colors(true);
