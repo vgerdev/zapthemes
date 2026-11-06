@@ -152,6 +152,14 @@ public final class ThemeManager {
         listeners.remove(listener);
     }
 
+    /**
+     * The current theme's rule for {@code type} alone ({@code inherit} followed; no {@code defaults},
+     * style bits or classes), e.g. for draw2d figures: empty when the theme has no such rule.
+     */
+    public ResolvedStyle ruleOf(String type) {
+        return resolver.rule(type);
+    }
+
     /** A {@code registries} block of the current theme, e.g. {@code "colors"} or {@code "fonts"}. */
     public ResolvedStyle registry(String name) {
         return resolver.registry(name);

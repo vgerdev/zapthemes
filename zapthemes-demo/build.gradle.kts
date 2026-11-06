@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":zapthemes-jface-notifications"))
     implementation(project(":zapthemes-jface-text"))
     implementation(project(":zapthemes-nattable"))
+    implementation(project(":zapthemes-visualization"))
     implementation(project(":zapthemes-widgets"))
     implementation(project(":zapthemes-nebula"))
     implementation(project(":zapthemes-nebula-incubation"))
@@ -73,10 +74,17 @@ val smokeNatTable = tasks.register<JavaExec>("smokeTestNatTable") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeVisualization = tasks.register<JavaExec>("smokeTestVisualization") {
+    group = "verification"
+    description = "Smoke-tests the Nebula Visualization demo."
+    mainClass = "com.zapthemes.demo.VisualizationDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
 tasks.register("smokeTest") {
     group = "verification"
     description = "Runs every demo smoke test."
-    dependsOn(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable)
+    dependsOn(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization)
 }
 
 // The JFace Text source viewer demo.
@@ -84,6 +92,14 @@ tasks.register<JavaExec>("runText") {
     group = "application"
     description = "Runs the JFace Text source viewer demo."
     mainClass = "com.zapthemes.demo.TextDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
+// The Nebula Visualization demo.
+tasks.register<JavaExec>("runVisualization") {
+    group = "application"
+    description = "Runs the Nebula Visualization demo."
+    mainClass = "com.zapthemes.demo.VisualizationDemo"
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
@@ -112,6 +128,7 @@ val screenshotTasks = mapOf(
     "Nebula" to "com.zapthemes.demo.NebulaDemo",
     "Text" to "com.zapthemes.demo.TextDemo",
     "NatTable" to "com.zapthemes.demo.NatTableDemo",
+    "Visualization" to "com.zapthemes.demo.VisualizationDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"

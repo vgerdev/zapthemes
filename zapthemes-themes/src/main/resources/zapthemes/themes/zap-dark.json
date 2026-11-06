@@ -52,6 +52,39 @@
     "Tree": {
       "inherit": "Table"
     },
+    "XYGraph": {
+      "background": "$surface",
+      "foreground": "$fg",
+      "titleColor": "$fg"
+    },
+    "ToolbarArmedXYGraph": {
+      "background": "$bg"
+    },
+    "PlotArea": {
+      "background": "$surface"
+    },
+    "Axis": {
+      "background": "$surface",
+      "foreground": "$fg",
+      "majorGridColor": "$border",
+      "minorGridColor": "$muted"
+    },
+    "Legend": {
+      "foreground": "$fg"
+    },
+    "Annotation": {
+      "annotationColor": "$fg"
+    },
+    "AbstractScaledWidgetFigure": {
+      "foreground": "$fg"
+    },
+    "AbstractLinearMarkedFigure": {
+      "fillBackgroundColor": "$muted",
+      "fillColor": "$accent"
+    },
+    "KnobFigure": {
+      "thumbColor": "$hover"
+    },
     "NatTable": {
       "inherit": "Table",
       "freezeSeparatorColor": "$border",

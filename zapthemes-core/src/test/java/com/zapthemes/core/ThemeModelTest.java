@@ -81,6 +81,16 @@ class ThemeModelTest {
     }
 
     @Test
+    void aRuleAloneHasNoDefaults() {
+        StyleResolver resolver = new StyleResolver(resolvedChild());
+        ResolvedStyle grid = resolver.rule("Grid");
+
+        assertThat(grid.keys()).containsExactlyInAnyOrder("background", "headerBackground", "foreground");
+        assertThat(grid.color("background")).contains(new RGBA(0x20, 0x20, 0x20, 255));
+        assertThat(resolver.rule("Label").keys()).as("no rule: nothing, not the defaults").isEmpty();
+    }
+
+    @Test
     void styleBitRulesApplyOnlyWhenBitsAreSet() {
         StyleResolver resolver = new StyleResolver(parse(BASE));
 

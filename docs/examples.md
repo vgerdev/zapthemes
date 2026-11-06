@@ -63,4 +63,6 @@ their popups as `<snippet>-2.png` next to the main window.
 
 The snippets browser also lists the two demos of `examples/org.eclipse.jface.text.examples`
 (`CodeMiningDemo`, `InlinedAnnotationDemo`, groups "text ..."), forked the same way and run on
-`zapthemes-jface-text` ([Phase 7](phase7-plan.md), step 3).
+`zapthemes-jface-text` ([Phase 7](phase7-plan.md), step 3), and Nebula Visualization's
+`PureJavaExample` (group "visualization"; the other examples there are workbench views) on
+`zapthemes-visualization` (step 5).

@@ -1,0 +1,48 @@
+diff --git a/org/eclipse/nebula/visualization/widgets/figures/AbstractScaledWidgetFigure.java b/org/eclipse/nebula/visualization/widgets/figures/AbstractScaledWidgetFigure.java
+--- a/org/eclipse/nebula/visualization/widgets/figures/AbstractScaledWidgetFigure.java
++++ b/org/eclipse/nebula/visualization/widgets/figures/AbstractScaledWidgetFigure.java
+@@ -30,6 +30,20 @@
+  *
+  */
+ public abstract class AbstractScaledWidgetFigure extends Figure implements Introspectable{
++
++	// ZapThemes: the theme's figure rules (com.zapthemes.visualization.FigureTheming) apply while
++	// the figure is shown.
++	@Override
++	public void addNotify() {
++		super.addNotify();
++		com.zapthemes.visualization.FigureTheming.attach(this);
++	}
++
++	@Override
++	public void removeNotify() {
++		com.zapthemes.visualization.FigureTheming.detach(this);
++		super.removeNotify();
++	}
+ 
+ 	protected AbstractScale scale;
+ 	
+diff --git a/org/eclipse/nebula/visualization/widgets/figures/IntensityGraphFigure.java b/org/eclipse/nebula/visualization/widgets/figures/IntensityGraphFigure.java
+--- a/org/eclipse/nebula/visualization/widgets/figures/IntensityGraphFigure.java
++++ b/org/eclipse/nebula/visualization/widgets/figures/IntensityGraphFigure.java
+@@ -66,6 +66,20 @@
+  *
+  */
+ public class IntensityGraphFigure extends Figure implements Introspectable {
++
++	// ZapThemes: the theme's figure rules (com.zapthemes.visualization.FigureTheming) apply while
++	// the figure is shown.
++	@Override
++	public void addNotify() {
++		super.addNotify();
++		com.zapthemes.visualization.FigureTheming.attach(this);
++	}
++
++	@Override
++	public void removeNotify() {
++		com.zapthemes.visualization.FigureTheming.detach(this);
++		super.removeNotify();
++	}
+ 	
+ 	/**
+ 	 * Color depth of the image data in RGB1 mode, since SWT only support 8 bit color depth,

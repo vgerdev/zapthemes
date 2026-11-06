@@ -97,6 +97,18 @@ public final class StyleResolver {
     }
 
     /**
+     * The rule for {@code type} alone, with its {@code inherit} chain but without {@code defaults},
+     * style bits or classes: for things that are not widgets, such as draw2d figures, which should
+     * get only what the theme says for them. Empty when the theme has no rule for the type.
+     */
+    public ResolvedStyle rule(String type) {
+        Map<String, JsonElement> props = new LinkedHashMap<>();
+        mergeType(type, props, new LinkedHashSet<>());
+        props.remove(INHERIT);
+        return new ResolvedStyle(props, theme.palette());
+    }
+
+    /**
      * A {@code registries} block (e.g. {@code "colors"}, {@code "fonts"}) with palette references
      * resolved on read; empty if the theme has none.
      */

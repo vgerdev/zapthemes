@@ -82,7 +82,7 @@ zapthemes/
 ├─ zapthemes-themes/               # bundled JSON themes (light, dark, high-contrast) + theme.schema.json
 ├─ zapthemes-tools/                # proxy generator, codemod, audit (used by build-logic)
 ├─ zapthemes-demo/                 # ApplicationWindow demo / theme gallery / live switcher
-└─ zapthemes-nattable (Phase 7), (later) zapthemes-visualization
+└─ zapthemes-nattable, zapthemes-visualization (Phase 7)
 ```
 
 Dependency direction, with no cycles:
@@ -355,7 +355,7 @@ Renderers read the theme's `states` block (hover, pressed, focused, disabled, se
 | **4. Nebula released** ✅ (see [phase4-notes.md](phase4-notes.md)) | Fork + codemod, proxies, stylers, themed renderers, GridTableViewer path | Every listed widget is themed and switches theme live in the demo |
 | **5. Nebula incubation** ✅ (see [phase5-notes.md](phase5-notes.md)) | Same for the incubation list; Timeline gets draw2d from the GEF Classic p2 update site and EMF ecore from Maven Central | Same as Phase 4 |
 | **6. Release** ✅ (see [phase6-notes.md](phase6-notes.md); publishing to Maven Central is on hold until everything is working) | High-contrast theme, theme authoring guide, Javadoc, signed Maven publishing, samples | 1.0 |
-| **7. Optional** (in progress, see [phase7-plan.md](phase7-plan.md)) | NatTable (bridge to NatTable `ThemeConfiguration`), Nebula Visualization, `jface.text` fork, data binding for all controls (`jface.databinding` + the Nebula `*ObservableValue` classes left out in Phases 4–5) | — |
+| **7. Optional** (all five steps done, see [phase7-plan.md](phase7-plan.md)) | NatTable (bridge to NatTable `ThemeConfiguration`), Nebula Visualization, `jface.text` fork, data binding for all controls (`jface.databinding` + the Nebula `*ObservableValue` classes left out in Phases 4–5) | — |
 
 ## 11. Risks
 
