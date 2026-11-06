@@ -223,6 +223,21 @@ class ZoomSizesTest {
     }
 
     @Test
+    void aToolBarWithoutAnAppFontFollowsTheZoom() {
+        // Windows' tool bar reports a different native font than it was given; that is not the app's.
+        com.zapthemes.swt.widgets.ToolBar bar = new com.zapthemes.swt.widgets.ToolBar(shell, SWT.FLAT | SWT.RIGHT);
+        com.zapthemes.swt.widgets.ToolItem item = new com.zapthemes.swt.widgets.ToolItem(bar, SWT.PUSH);
+        item.setText("Switch theme");
+        int width = item.getWidth();
+
+        manager.setZoom(2.5);
+
+        assertThat(bar.getData(ThemeKeys.APP_FONT)).isNull();
+        assertThat(font(bar).getHeight()).isEqualTo((int) Math.round(display.getSystemFont().getFontData()[0].getHeight() * 2.5));
+        assertThat(item.getWidth()).isGreaterThan(width * 2);
+    }
+
+    @Test
     void appFontsDoNotLeakWhenZooming() {
         Label label = new Label(shell, SWT.NONE);
         Font own = new Font(display, "Courier New", 11, SWT.NORMAL);

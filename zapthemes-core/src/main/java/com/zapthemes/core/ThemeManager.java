@@ -357,6 +357,22 @@ public final class ThemeManager {
     }
 
     /**
+     * Called by every proxy control's {@code setFont}, before SWT's: records {@code font} as the
+     * application's own font for {@code control} ({@link ThemeKeys#APP_FONT}), kept through theme
+     * switches and scaled by the zoom. {@code null}, or a font like the theme's, follows the theme.
+     */
+    public static void fontSetByApplication(Control control, org.eclipse.swt.graphics.Font font) {
+        ThemeManager manager = MANAGERS.get(control.getDisplay());
+        if (manager == null) {
+            return;
+        }
+        ThemeContext context = new ThemeContext(manager.resources);
+        org.eclipse.swt.graphics.Font theme = context.font(manager.styleOf(control), DefaultStyler.FONT);
+        DefaultStyler.fontSetByApplication(control, font, theme != null ? theme
+                : context.defaultFont() != null ? context.defaultFont() : control.getDisplay().getSystemFont(), context);
+    }
+
+    /**
      * Drops a font the application set on {@code control} ({@link ThemeKeys#APP_FONT}), so that it
      * takes the theme's font, at the current zoom, again.
      */
@@ -376,8 +392,10 @@ public final class ThemeManager {
 
     void apply(Widget widget) {
         ResolvedStyle style = styleOf(widget);
-        stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
+        // The native theme first: on Windows SetWindowTheme makes a tool bar reload its default
+        // font, so the styler's font must come after it.
         platform.apply(widget, resolver.platform());
+        stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
     }
 
     private String typeOf(Widget widget) {

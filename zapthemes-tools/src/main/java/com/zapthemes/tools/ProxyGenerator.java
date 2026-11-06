@@ -133,6 +133,14 @@ public final class ProxyGenerator {
             appendConstructor(src, original, simpleName, constructor);
         }
 
+        if (reportsFont(original)) {
+            // A font the application chooses is kept through theme switches and scaled by the zoom.
+            src.append("\n    @Override\n");
+            src.append("    public void setFont(org.eclipse.swt.graphics.Font font) {\n");
+            src.append("        com.zapthemes.core.ThemeManager.fontSetByApplication(this, font);\n");
+            src.append("        super.setFont(font);\n");
+            src.append("    }\n");
+        }
         if (zoomsImage(original)) {
             // The zoomed image is set right away, so a dialog sizes itself around it.
             src.append("\n    @Override\n");
@@ -232,6 +240,19 @@ public final class ProxyGenerator {
         }
         try {
             Method setter = type.getMethod("setImage", org.eclipse.swt.graphics.Image.class);
+            return !Modifier.isFinal(setter.getModifiers()) && !Modifier.isStatic(setter.getModifiers());
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
+    /** Whether the proxy reports {@code setFont} calls: controls with a public, overridable {@code setFont(Font)}. */
+    static boolean reportsFont(Class<?> type) {
+        if (!org.eclipse.swt.widgets.Control.class.isAssignableFrom(type)) {
+            return false;
+        }
+        try {
+            Method setter = type.getMethod("setFont", org.eclipse.swt.graphics.Font.class);
             return !Modifier.isFinal(setter.getModifiers()) && !Modifier.isStatic(setter.getModifiers());
         } catch (NoSuchMethodException e) {
             return false;

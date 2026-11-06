@@ -179,10 +179,11 @@ themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100)
   JFace dialogs and viewers take their fonts from it. A value you `put` for a key the theme doesn't
   set becomes that key's original and is zoomed right away. At 100 % every key holds its original
   again.
-- **Fonts an app sets with `setFont`** are kept and scaled. The styler remembers the font it
-  left on each control, so a different font found there later is one the app set (a bold label,
-  a code editor's monospace font). From then on the control keeps
-  that family and style through theme switches and zooms, at its height times the zoom. The height
+- **Fonts an app sets with `setFont`** are kept and scaled. Every proxy control reports its
+  `setFont` calls (the theme's own are told apart), so a font the app sets (a bold label, a code
+  editor's monospace font) is known to be the app's. From then on the control keeps that family
+  and style through theme switches and zooms, at its height times the zoom. Controls created
+  without a proxy take the theme's font on every pass, as before. The height
   is taken at the zoom the font was set at, so a font derived from an already zoomed one (a bold
   copy of the dialog font at 150 %) doesn't grow twice. At 100 % the control gets the app's own
   `Font` object back.
@@ -244,6 +245,11 @@ themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100)
     images painted directly in paint listeners. Images reach a zoom only through `setImage`.
   - `themes.setZoomImagesEnabled(false)` gives every widget its own image back, and
     `setData(ThemeKeys.ZOOM_IMAGES, Boolean.FALSE)` does that for one widget and its children.
+- **Tool bars** follow the zoom. On Windows the native tool bar measures a button with the font it
+  had when the button was added, so ZapThemes measures the items again after a new font.
+- **The native menu bar doesn't zoom.** SWT has no font for menus, and Windows draws the menu bar
+  with the system menu font, at a height the system sets. Menus that drop down from it don't
+  zoom either. On macOS the menu bar is the system's anyway.
 - **Windows keep their size.** As in Chrome, the zoom reflows the contents inside the window.
 
 **Turning it off.** `themes.setZoomShortcutsEnabled(false)` turns off the mouse, keyboard and
