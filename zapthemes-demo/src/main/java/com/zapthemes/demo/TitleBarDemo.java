@@ -74,11 +74,15 @@ public final class TitleBarDemo {
         List<String> options = List.of(args);
         boolean smoke = options.contains("--smoke");
         int shots = options.indexOf("--screenshots");
+        int captures = options.indexOf("--screen-captures");
         Display display = new Display();
         TitleBarDemo demo = new TitleBarDemo(display);
         demo.open();
         if (shots >= 0) {
             demo.screenshots(Path.of(options.get(shots + 1)));
+        }
+        if (captures >= 0) {
+            demo.screenCaptures(Path.of(options.get(captures + 1)));
         }
         int exitCode = smoke ? demo.smokeTest() : 0;
         if (smoke) {
@@ -358,6 +362,34 @@ public final class TitleBarDemo {
         loader.save(file, SWT.IMAGE_PNG);
         image.dispose();
         System.out.println("Saved " + file);
+    }
+
+    /** The windows as the screen shows them, frame and native caption parts included (needs a desktop). */
+    private void screenCaptures(Path dir) {
+        try {
+            java.nio.file.Files.createDirectories(dir);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        for (Theme theme : available) {
+            themes.setTheme(theme);
+            for (Window window : windows) {
+                window.shell.forceActive();
+                DemoSupport.settle(display);
+                Rectangle bounds = window.shell.getBounds();
+                Image image = new Image(display, bounds.width, bounds.height);
+                GC gc = new GC(display);
+                gc.copyArea(image, bounds.x, bounds.y);
+                gc.dispose();
+                org.eclipse.swt.graphics.ImageLoader loader = new org.eclipse.swt.graphics.ImageLoader();
+                loader.data = new org.eclipse.swt.graphics.ImageData[] { image.getImageData() };
+                String file = dir.resolve("titlebar-" + window.name + "-" + theme.id() + ".png").toString();
+                loader.save(file, SWT.IMAGE_PNG);
+                image.dispose();
+                System.out.println("Saved " + file);
+            }
+        }
+        themes.setTheme(available.getFirst());
     }
 
     private int smokeTest() {

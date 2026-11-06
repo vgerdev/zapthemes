@@ -253,7 +253,7 @@ the slot (`TitleBarSlot`) are typed so that they take the bar's colors rather th
 | # | Step | What |
 |---|---|---|
 | 1 ✅ | **Title bar widget, drawn frame, theming** | `TitleBar`, `TitleBarItem`, `TitleBarProfile` and its pop-up; layout, painting, hit testing, the window buttons, the drawn system menu; the drawn frame (drag, double-click, resize edges); the new base names, catalog entries and bundled theme values; accent override and inactive dimming; accessibility; `TitleBarDemo` (Word and Excel looks) with a smoke test and screenshots in every theme. Tests: hit testing, button actions, theme and accent switching, profile pop-up. |
-| 2 | **Windows native frame** | Window procedure subclassing, `WM_NCCALCSIZE`, `WM_NCHITTEST` with snap layouts, the native system menu, maximized insets, DPI; FFM `DwmExtendFrameIntoClientArea`. Tests: the hit-test codes per part, the client area covering the caption, buttons through the native path. Checked by hand: snap, drag, resize, maximize, shake. |
+| 2 ✅ | **Windows native frame** | Window procedure subclassing, `WM_NCCALCSIZE`, `WM_NCHITTEST` with snap layouts, the native system menu, maximized insets, DPI; FFM `DwmExtendFrameIntoClientArea`. Tests: the hit-test codes per part, the client area covering the caption, buttons through the native path. Checked by hand: snap, drag, resize, maximize, shake. |
 | 3 | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
 | 4 | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
 | 5 | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
@@ -291,3 +291,41 @@ live, inactive dimming, painted pixels, catalog coverage, initials and the profi
 (`TitleBarDemo`: Word-like and Excel-like windows) has a smoke test that checks every part, the
 colors in each theme, every widget's tag and the pop-up, and screenshots of both windows in each
 theme plus a narrow bar.
+
+## Step 2 in detail
+
+`Win32Frame` subclasses the shell's and the bar's window procedures with SWT's `Callback` (four
+`long` arguments) and `SetWindowLongPtr(GWLP_WNDPROC)`, chaining to SWT's procedures through
+`CallWindowProc`; all of `OS` is reached through method handles, so another SWT version only loses
+the native frame (the bar then works `EMBEDDED`, with a warning). On dispose the procedures are put
+back and `SWP_FRAMECHANGED` brings the caption back.
+
+- `WM_NCCALCSIZE` reads the proposed rectangle, lets SWT and Windows compute the frame, and writes
+  the original top back (plus `SM_CYFRAME + SM_CXPADDEDBORDER` for the window's DPI when maximized).
+- `WM_NCHITTEST` on the bar answers `HTTRANSPARENT` over caption, title-without-menu, top-edge and
+  maximize parts; the shell first asks the default procedure (side and bottom borders stay native)
+  and maps the rest with `Win32Frame.hitCode`. Coordinates go from screen pixels to bar points with
+  `ScreenToClient` and the bar's pixel-to-point ratio, so it holds at any monitor scale.
+- The maximize button gets `HTMAXBUTTON`, which is what turns on Windows 11 snap layouts; its hover
+  and press come as `WM_NCMOUSEMOVE`/`WM_NCLBUTTONDOWN`/`UP`, which the bar paints
+  (`setFrameState`) and acts on. A timer clears the hover when the pointer has left, since
+  non-client leave messages are not guaranteed. Minimize and close stay client parts.
+- **System menu:** SWT binds `TrackPopupMenu` returning a `boolean`, so `TPM_RETURNCMD` can't give the
+  command back. The icon instead posts `WM_SYSCOMMAND`/`SC_KEYMENU` with a space, exactly what
+  Alt+Space does: the native menu opens under the icon with Windows' own item states. Right-click on
+  the caption shows it at the pointer, natively.
+- **No FFM:** with only the caption removed, the side and bottom frame keep the DWM shadow, Windows
+  11's rounded corners and its 1 px border (top included), so `DwmExtendFrameIntoClientArea` is not
+  needed and there is no `--enable-native-access` requirement. Windows 10 shows no 1 px border at the
+  top (the bar's own color is the top edge).
+
+Tests (`Win32FrameTest`, Windows only): the frame mode and shell style, the client area starting at
+the window's top, real `WM_NCHITTEST` messages for caption, title, maximize, minimize, close, the
+icon, an item, the top edge and corner, the client area below the bar and the left border, maximize
+and restore through non-client clicks (and no top edge or cut-off when maximized), the hit-code map,
+and the caption coming back when the bar is disposed. `TitleBarDemo` now runs with the native frame
+on Windows, and `:zapthemes-demo:screenCapturesTitleBar` saves the windows from the screen, frame
+included.
+
+Not verified by hand in this step: dragging, Aero snap and shake, the snap-layout flyout and the
+shadow were not exercised with a real mouse; the hit codes that drive them are tested.
