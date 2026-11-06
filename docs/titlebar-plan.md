@@ -257,7 +257,7 @@ the slot (`TitleBarSlot`) are typed so that they take the bar's colors rather th
 | 2 ✅ | **Windows native frame** | Window procedure subclassing, `WM_NCCALCSIZE`, `WM_NCHITTEST` with snap layouts, the native system menu, maximized insets, DPI; FFM `DwmExtendFrameIntoClientArea`. Tests: the hit-test codes per part, the client area covering the caption, buttons through the native path. Checked by hand: snap, drag, resize, maximize, shake. |
 | 3 ✅ | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
 | 4 ✅ | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
-| 5 | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
+| 5 ✅ | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
 
 ## Step 1 in detail
 
@@ -390,3 +390,33 @@ Tests (`TitleBarWindowTest`, 6): the bar above the tool bar and contents and its
 shell, items following their actions (enabled, text, checked, running, the check state), disposal
 stopping the binding, the menu bar becoming the title menu, the window's preferences file, and
 profile actions from JFace actions; one more in `TitleBarTest` for the avatar.
+
+## Step 5 in detail
+
+`CocoaFrame` reads the shell's `NSWindow` (SWT's package field `Shell.window`, by reflection) and
+sends it `setStyleMask:` with `NSWindowStyleMaskFullSizeContentView` added,
+`setTitlebarAppearsTransparent: YES` and `setTitleVisibility: NSWindowTitleHidden`, then nudges the
+shell's size so SWT lays out into the taller content view. The traffic lights stay native: the bar
+draws no icon or window buttons and leaves 78 points for them (none in full screen). Mouse-down on
+empty bar space calls `performWindowDragWithEvent:` with the current `NSEvent`, double-click calls
+`performZoom:`, and the system menu is the drawn one (macOS has no window menu of its own). On
+dispose the style mask, transparency and title come back. Any missing class, field or selector
+leaves the bar `EMBEDDED` under the native title bar.
+
+**Not verified:** there is no Mac here. `CocoaFrameTest` (traffic-light room, no drawn window
+buttons, the content view starting at the window's top) and the demo's smoke test run in CI on
+macOS, and CI uploads the screenshots; dragging and zooming need a person on a Mac. The demo's smoke
+test expects no window buttons or icon on macOS's native frame.
+
+## What each platform gets
+
+| Platform | Frame | Native | Drawn by ZapThemes |
+|---|---|---|---|
+| Windows 10/11 | `NATIVE` | Frame, shadow, rounded corners, border, resizing on all edges, drag, double-click, Aero snap and shake, snap layouts, system menu (icon, Alt+Space, caption right-click), animations | The caption's contents, the window buttons (maximize hover/press via non-client messages) |
+| macOS | `NATIVE` | Window, shadow, traffic lights, resizing, full screen; drag and zoom through `performWindowDragWithEvent:` / `performZoom:` | The bar's contents; the system menu (an SWT menu) |
+| GTK (X11, Wayland) and others | `DRAWN` on a `NO_TRIM` shell | Nothing of the frame (no shadow) | Drag (`setLocation`), double-click, resize edges and cursors, window buttons, the system menu, Alt+Space; keyboard Move and Size |
+| A trimmed shell where the native frame isn't available | `EMBEDDED` | The whole native caption | The bar as a header row (no icon, no window buttons) |
+
+Known gaps: on Wayland a `NO_TRIM` shell can't be moved with `setLocation`; `gtk_window_begin_move_drag`
+through FFM (or GTK client-side decorations) is the next step there. A shell's `computeTrim` and
+`pack()` on Windows still count the removed caption.
