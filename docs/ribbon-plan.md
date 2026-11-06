@@ -303,8 +303,8 @@ themes set them on common names):
 | `RibbonBackstage` | `background` (background), `foreground`, `navBackground` (accent), `navForeground` (onAccent), `navHoverBackground`, `navSelectedBackground`, `navSelectedForeground`, `titleFont` (heading1), `navFont` |
 | `RibbonMessageBar` | `background` (warning-tinted surface), `foreground`, `borderColor`, `titleFont` (strong), and per kind `info`, `warning`, `error`, `success` states |
 
-New common names in `BaseNames`: `chrome` (window chrome: title bars and the ribbon's tab row,
-also the title bar's), `badge` and `onBadge` (KeyTip and count badges). The bundled themes get
+New common names in `BaseNames`: `chrome` (window chrome around the content: the ribbon's tab row; the title bar has names
+of its own, because Office paints the two differently), `badge` and `onBadge` (KeyTip and count badges). The bundled themes get
 them; zap-light and zap-dark keep the ribbon close to Office's light and dark looks.
 
 - States: items paint `hover`, `pressed`, `checked`, `disabled` and `focused` from the keys
