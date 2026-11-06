@@ -64,6 +64,10 @@ record TitleBarColors(RGB background, RGB foreground, RGB hover, RGB pressed, RG
         RGB searchHint = blend(searchForeground, searchBackground, 0.70);
         RGB searchBorder = useAccent ? blend(foreground, background, 0.35) : color(context, style, "searchBorderColor", blend(foreground, background, 0.30));
         RGB avatarBackground = color(context, style, "avatarBackground", blend(foreground, background, 0.30));
+        if (distance(avatarBackground, background) < 60) {
+            // The theme's avatar color vanishes on this bar (an accent close to it): a tint of the foreground.
+            avatarBackground = blend(foreground, background, 0.30);
+        }
         RGB avatarForeground = color(context, style, "avatarForeground", contrasting(avatarBackground));
         RGB focus = useAccent ? foreground : color(context, style, "focusColor", foreground);
         RGB itemBorder = blend(foreground, background, 0.55);
@@ -118,6 +122,21 @@ record TitleBarColors(RGB background, RGB foreground, RGB hover, RGB pressed, RG
     private static double channel(int value) {
         double c = value / 255.0;
         return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    /** How far apart two colors are, in RGB units (0 to 441). */
+    static double distance(RGB a, RGB b) {
+        int dr = a.red - b.red;
+        int dg = a.green - b.green;
+        int db = a.blue - b.blue;
+        return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    /** WCAG contrast ratio of two colors, 1 to 21. */
+    static double contrast(RGB a, RGB b) {
+        double la = luminance(a);
+        double lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
     }
 
     /** White or black, whichever contrasts more with {@code background}. */

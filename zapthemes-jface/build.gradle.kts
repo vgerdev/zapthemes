@@ -21,6 +21,8 @@ zapthemesFork {
 
 dependencies {
     api(project(":zapthemes-swt"))
+    // TitleBarWindow: the Office-style title bar.
+    api(project(":zapthemes-widgets"))
     api(libs.core.commands)
     api(libs.equinox.common)
     implementation(libs.equinox.bidi)

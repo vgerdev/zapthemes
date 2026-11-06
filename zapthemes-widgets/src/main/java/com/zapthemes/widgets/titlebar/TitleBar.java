@@ -107,6 +107,7 @@ public class TitleBar extends Canvas {
 
     private RGB accent;
     private String title = "";
+    private boolean titleSet;
     private org.eclipse.swt.widgets.Menu titleMenu;
     private String searchHint;
     private boolean searchExpanded;
@@ -226,8 +227,12 @@ public class TitleBar extends Canvas {
 
     // ------------------------------------------------------------------ properties
 
+    /** The title: what {@link #setTitle} set, else the shell's text. */
     public String getTitle() {
         checkWidget();
+        if (!titleSet && !shell.isDisposed()) {
+            title = shell.getText();
+        }
         return title;
     }
 
@@ -235,6 +240,7 @@ public class TitleBar extends Canvas {
     public void setTitle(String title) {
         checkWidget();
         this.title = title == null ? "" : title;
+        this.titleSet = true;
         shell.setText(this.title);
         relayout();
     }
@@ -748,6 +754,7 @@ public class TitleBar extends Canvas {
         if (frame == null) {
             return; // Still in the constructor: children are being created.
         }
+        getTitle();
         hits.clear();
         items.forEach(item -> {
             item.bounds.x = item.bounds.y = item.bounds.width = item.bounds.height = 0;
