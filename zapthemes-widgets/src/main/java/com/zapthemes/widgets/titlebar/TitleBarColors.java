@@ -71,6 +71,16 @@ record TitleBarColors(RGB background, RGB foreground, RGB hover, RGB pressed, RG
                 searchBackground, searchForeground, searchHint, searchBorder, avatarBackground, avatarForeground, focus, itemBorder);
     }
 
+    /** Colors derived from a plain background and foreground (the toolbar row below the bar). */
+    static TitleBarColors plain(RGB background, RGB foreground) {
+        RGB hover = blend(foreground, background, 0.10);
+        RGB pressed = blend(foreground, background, 0.18);
+        return new TitleBarColors(background, foreground, hover, pressed, CLOSE_RED, WHITE, CLOSE_RED_PRESSED,
+                background, foreground, blend(foreground, background, 0.6), blend(foreground, background, 0.3),
+                blend(foreground, background, 0.3), contrasting(blend(foreground, background, 0.3)), foreground,
+                blend(foreground, background, 0.25));
+    }
+
     private static TitleBarColors highContrast(Display display, boolean active) {
         RGB background = display.getSystemColor(active ? SWT.COLOR_TITLE_BACKGROUND : SWT.COLOR_TITLE_INACTIVE_BACKGROUND).getRGB();
         RGB foreground = display.getSystemColor(active ? SWT.COLOR_TITLE_FOREGROUND : SWT.COLOR_TITLE_INACTIVE_FOREGROUND).getRGB();

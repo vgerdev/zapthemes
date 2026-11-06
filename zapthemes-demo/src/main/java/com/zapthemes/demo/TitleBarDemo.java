@@ -59,6 +59,7 @@ public final class TitleBarDemo {
     private final List<Theme> available;
     private final List<Window> windows = new ArrayList<>();
     private final List<Image> images = new ArrayList<>();
+    private Path preferencesDir = Path.of(System.getProperty("user.home"), ".zapthemes");
 
     private record Window(String name, Shell shell, TitleBar bar, RGB accent) {
     }
@@ -77,6 +78,13 @@ public final class TitleBarDemo {
         int captures = options.indexOf("--screen-captures");
         Display display = new Display();
         TitleBarDemo demo = new TitleBarDemo(display);
+        if (smoke) {
+            try {
+                demo.preferencesDir = java.nio.file.Files.createTempDirectory("titlebar-demo");
+            } catch (java.io.IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        }
         demo.open();
         if (shots >= 0) {
             demo.screenshots(Path.of(options.get(shots + 1)));
@@ -128,6 +136,8 @@ public final class TitleBarDemo {
         bar.setSearchHint("Search");
         Window window = new Window(name, shell, bar, accent);
         quickAccess(window);
+        // Users' changes to the quick access toolbar survive restarts.
+        bar.setPreferences(preferencesDir.resolve("titlebar-demo-" + name + ".properties"));
         if (spreadsheet) {
             new TitleBarItem(bar, SWT.PUSH | SWT.TRAIL).setText("Upgrade your plan");
         }
@@ -325,6 +335,12 @@ public final class TitleBarDemo {
         DemoSupport.settle(display);
         DemoSupport.screenshot(word.bar, dir, "titlebar-word-narrow");
         word.shell.setBounds(bounds);
+        // The quick access toolbar on its own row below the bar.
+        word.bar.setQuickAccessBelow(true);
+        word.bar.getItem("print").setShown(true);
+        DemoSupport.settle(display);
+        capture(word.shell, dir, "titlebar-word-below");
+        word.bar.resetCustomization();
         themes.setTheme(available.getFirst());
     }
 
@@ -421,6 +437,17 @@ public final class TitleBarDemo {
             problems.add("a command shown from the customize menu has no bounds");
         }
         word.bar.getItem("print").setShown(false);
+        // Customization survives a restart: a second bar reads the first one's preferences file.
+        word.bar.getItem("redo").setShown(false);
+        word.bar.setQuickAccessBelow(true);
+        Window again = window("word-again", "Again", WORD_BLUE, 'W', false);
+        again.bar.setPreferences(preferencesDir.resolve("titlebar-demo-word.properties"));
+        if (again.bar.getItem("redo").isShown() || !again.bar.isQuickAccessBelow()) {
+            problems.add("the quick access customization did not survive through the preferences file");
+        }
+        again.shell.dispose();
+        windows.remove(again);
+        word.bar.resetCustomization();
         themes.setTheme(available.getFirst());
         if (problems.isEmpty()) {
             System.out.println("SMOKE OK: title bars (" + word.bar.getFrameMode() + " frame) in " + available.size()
