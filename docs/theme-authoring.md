@@ -150,6 +150,58 @@ every open shell, JFace's color and font registries, and the themed system color
 painters. To react after a switch (for example to refresh content that shows colors), add a
 `ThemeChangeListener`.
 
+### Zoom
+
+Like Chrome, an app can be zoomed: **Ctrl + mouse wheel** (Cmd on macOS) makes every themed font
+bigger or smaller, one step per wheel notch, and **Ctrl+=** (or Ctrl++), **Ctrl+-** and **Ctrl+0**
+zoom in, zoom out and reset. The steps are Chrome's: 25, 33, 50, 67, 75, 80, 90, 100, 110, 125,
+150, 175, 200, 250, 300, 400 and 500 %.
+
+```java
+themes.zoomIn();                       // 100 % -> 110 %
+themes.setZoom(1.5);                   // any factor from 0.25 to 5.0
+themes.resetZoom();
+themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100) + " %"));
+```
+
+- The zoom multiplies the height the theme gives each font. A theme font with no height (the
+  system font's size) is scaled too; name, bold and italic stay. Heights are rounded to whole
+  points, so a 9 pt font is 10 pt at 110 % and 11 pt at 125 %.
+- It is per `Display`, so it applies to the whole app. It applies live: existing widgets get the
+  new fonts and every shell is laid out again. Shells, popups and dialogs opened later use the
+  current zoom. Switching themes keeps the zoom, and zooming keeps the theme.
+- **Controls without a theme font** follow the zoom too: at any zoom but 100 % they get the system
+  font at that zoom. At 100 % they keep the platform default, as before.
+- **JFace's `FontRegistry`** follows the zoom: the keys the theme sets in `registries.fonts`, and
+  every other key, JFace's own (`JFaceResources.getTextFont()`, the banner font, ...) and yours.
+  JFace dialogs and viewers take their fonts from it. A value you `put` for a key the theme doesn't
+  set becomes that key's original and is zoomed right away. At 100 % every key holds its original
+  again.
+- **Fonts an app sets with `setFont`** are not scaled. As on a theme switch, a zoom applies the
+  theme again, so a control's font becomes its theme font again. To keep a font of your own
+  through zoom and theme switches, give the control a style class with a font
+  (`"*.mono": { "font": { "name": "Consolas", "height": 10 } }`). You can also use a JFace registry
+  key, or set `themes.resources().font(new FontSpec("Consolas", 10, SWT.NORMAL))` again from a
+  `ZoomListener`. `ThemeResources.font` returns fonts at the current zoom, and
+  `ThemeResources.zoomed(int)` scales a height you compute yourself.
+- **Owner-drawn widgets** (`FlatButton`, `FlatGroup`, Nebula's painters, NatTable, Visualization
+  figures) take their fonts from the theme, so they scale as well. They must use
+  `ThemeContext.font` or the control's font, not a font they made once.
+- Only fonts scale. Images, icons, borders, spacing and pixel sizes (for example table column
+  widths) stay as they are.
+
+**Turning it off.** `themes.setZoomShortcutsEnabled(false)` turns off the mouse and keyboard
+shortcuts for the display. `setZoom` and the other methods keep working, for a View menu of your
+own. The system property `-Dzapthemes.zoomShortcuts=false` starts every display with them turned
+off. A control that uses Ctrl + wheel itself, such as a chart that zooms its plot, keeps it with
+`chart.setData(ThemeKeys.ZOOM_SHORTCUTS, Boolean.FALSE)`. That covers its children too, and its
+listeners then get the events as usual. Elsewhere the shortcuts consume the event, so the widget
+under the mouse doesn't scroll. If your menus have their own Ctrl+= / Ctrl+- / Ctrl+0 accelerators,
+turn the shortcuts off, or leave the accelerators out of the menu items, so a key doesn't zoom
+twice.
+
+### High contrast
+
 `zap-high-contrast` is black with white text and yellow accents. Every text color in it reaches the
 WCAG AAA contrast ratio of 7:1 against its background, which a test checks. When Windows itself runs
 a contrast theme, some native controls draw with the system's contrast colors whatever the
@@ -262,7 +314,7 @@ nothing from the previous one behind.
 ## 6. Tips
 
 - Don't dispose fonts you get from a theme (`getFont()` on a themed widget, `ThemeContext.font`):
-  they are cached and shared until the display is disposed. Theme colors are safe to dispose,
+  they are cached and shared until the display is disposed, one per font and zoomed height. Theme colors are safe to dispose,
   because each caller gets its own.
 - To restyle one widget without a new theme, give it a class and add a class rule. Calling
   `setBackground` directly works, but it lasts only until the next theme switch.

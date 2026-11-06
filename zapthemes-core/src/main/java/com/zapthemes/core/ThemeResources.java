@@ -16,13 +16,22 @@ import com.zapthemes.core.model.FontSpec;
  *
  * <p>Every {@link #color} call returns a new {@link Color}: colors hold no OS resource (SWT 3.115+),
  * and some widget libraries dispose the colors they were given, which must not break other widgets.
- * Fonts are cached by spec for the display's lifetime (bounded by the specs the themes use) and are
- * not disposed on a theme switch, since widgets the re-theme walk cannot reach may still use them.
+ * Fonts are cached by spec and zoomed height for the display's lifetime (bounded by the specs the
+ * themes use and the zoom levels) and are not disposed on a theme switch or zoom, since widgets the
+ * re-theme walk cannot reach may still use them.
+ *
+ * <p>Every font is scaled by the display's {@linkplain #zoom() zoom} (see
+ * {@link ThemeManager#setZoom(double)}).
  */
 public final class ThemeResources {
 
     private final Display display;
-    private final Map<FontSpec, Font> fonts = new HashMap<>();
+    private final Map<FontKey, Font> fonts = new HashMap<>();
+    private double zoom = 1;
+
+    /** A spec at one effective height: zoom levels that round to the same height share a font. */
+    private record FontKey(FontSpec spec, int height) {
+    }
 
     ThemeResources(Display display) {
         this.display = display;
@@ -32,18 +41,37 @@ public final class ThemeResources {
         return new Color(display, rgba);
     }
 
+    /** The font of {@code spec} at the current zoom. */
     public Font font(FontSpec spec) {
-        return fonts.computeIfAbsent(spec, key -> {
-            FontData system = display.getSystemFont().getFontData()[0];
-            String name = key.name() != null ? key.name() : system.getName();
-            int height = key.height() > 0 ? key.height() : system.getHeight();
-            return new Font(display, name, height, key.style());
+        int height = zoomed(spec.height() > 0 ? spec.height() : systemFontData().getHeight());
+        return fonts.computeIfAbsent(new FontKey(spec, height), key -> {
+            FontData system = systemFontData();
+            String name = spec.name() != null ? spec.name() : system.getName();
+            return new Font(display, name, key.height(), spec.style());
         });
+    }
+
+    /** The current zoom factor, {@code 1.0} for 100 %. */
+    public double zoom() {
+        return zoom;
+    }
+
+    /** {@code height} (in points) at the current zoom, rounded, at least 1. */
+    public int zoomed(int height) {
+        return zoom == 1 ? height : Math.max(1, (int) Math.round(height * zoom));
+    }
+
+    void setZoom(double zoom) {
+        this.zoom = zoom;
     }
 
     /** Number of fonts held; used by leak tests. */
     public int fontCount() {
         return fonts.size();
+    }
+
+    private FontData systemFontData() {
+        return display.getSystemFont().getFontData()[0];
     }
 
     /** Called when the display is disposed. */

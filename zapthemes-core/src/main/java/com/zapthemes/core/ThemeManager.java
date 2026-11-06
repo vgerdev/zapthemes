@@ -13,6 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTException;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
@@ -38,6 +39,9 @@ import com.zapthemes.core.style.ThemeContext;
  *       through {@link PlatformThemeSupport}.</li>
  *   <li>{@link ThemeExtension}s found by {@link ServiceLoader} are installed when the manager is
  *       created, e.g. zapthemes-jface's sync of the JFace color and font registries.</li>
+ *   <li>A Chrome-style {@linkplain #setZoom(double) zoom} scales every theme font; Ctrl + mouse
+ *       wheel and Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS) change it unless
+ *       {@linkplain #setZoomShortcutsEnabled(boolean) turned off}.</li>
  * </ul>
  *
  * All methods except {@link #setTheme(Theme)} must be called on the display's UI thread.
@@ -48,19 +52,33 @@ public final class ThemeManager {
     private static final Map<Display, ThemeManager> MANAGERS = new ConcurrentHashMap<>();
     private static final Set<Class<?>> RETRY_LOGGED = ConcurrentHashMap.newKeySet();
 
+    /** Chrome's zoom levels, as factors; {@link #zoomIn()} and {@link #zoomOut()} step through them. */
+    public static final List<Double> ZOOM_LEVELS = List.of(
+            0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0, 5.0);
+    /** Smallest and largest zoom {@link #setZoom(double)} accepts. */
+    public static final double MIN_ZOOM = 0.25;
+    public static final double MAX_ZOOM = 5.0;
+    /** System property: {@code false} makes the zoom shortcuts start turned off on every display. */
+    public static final String ZOOM_SHORTCUTS_PROPERTY = "zapthemes.zoomShortcuts";
+    private static final double EPSILON = 1e-6;
+
     private final Display display;
     private final StylerRegistry stylers = StylerRegistry.withDefaults();
     private final ControlTypeResolver typeResolver = new ControlTypeResolver();
     private final List<ThemeChangeListener> listeners = new CopyOnWriteArrayList<>();
+    private final List<ZoomListener> zoomListeners = new CopyOnWriteArrayList<>();
     private final PlatformThemeSupport platform = PlatformThemeSupport.forCurrentPlatform();
 
     private StyleResolver resolver = new StyleResolver(Theme.EMPTY);
     private final ThemeResources resources;
+    private boolean zoomShortcuts = !"false".equalsIgnoreCase(System.getProperty(ZOOM_SHORTCUTS_PROPERTY));
 
     private ThemeManager(Display display) {
         this.display = display;
         this.resources = new ThemeResources(display);
         display.addListener(SWT.Skin, this::onSkin);
+        display.addFilter(SWT.MouseWheel, this::onZoomWheel);
+        display.addFilter(SWT.KeyDown, this::onZoomKey);
         display.disposeExec(() -> {
             MANAGERS.remove(display);
             resources.dispose();
@@ -129,14 +147,77 @@ public final class ThemeManager {
         }
         Theme previous = resolver.theme();
         resolver = new StyleResolver(theme);
-
-        platform.beforeTheme(display, resolver.platform(), resources);
-        Set<Widget> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (Shell shell : display.getShells()) {
-            reapplyTree(shell, visited);
-        }
-        platform.afterTheme(display, resolver.platform());
+        reapplyAll();
         listeners.forEach(listener -> listener.themeChanged(previous, theme));
+    }
+
+    /** The zoom factor of every theme font on this display; {@code 1.0} (100 %) by default. */
+    public double getZoom() {
+        return resources.zoom();
+    }
+
+    /**
+     * Scales every theme font of this display by {@code zoom} (clamped to {@link #MIN_ZOOM} ..
+     * {@link #MAX_ZOOM}), on top of the heights the theme gives them, and re-themes and re-lays out
+     * every shell. The zoom survives theme switches. May be called from any thread; the work runs
+     * synchronously on the UI thread.
+     */
+    public void setZoom(double zoom) {
+        if (!(zoom > 0)) {
+            throw new IllegalArgumentException("zoom must be positive: " + zoom);
+        }
+        if (display.getThread() != Thread.currentThread()) {
+            display.syncExec(() -> setZoom(zoom));
+            return;
+        }
+        double clamped = Math.clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+        double previous = resources.zoom();
+        if (Math.abs(clamped - previous) < EPSILON) {
+            return;
+        }
+        resources.setZoom(clamped);
+        reapplyAll();
+        zoomListeners.forEach(listener -> listener.zoomChanged(previous, clamped));
+    }
+
+    /** The next larger of Chrome's {@link #ZOOM_LEVELS}, e.g. 100 % to 110 %. */
+    public void zoomIn() {
+        double zoom = getZoom();
+        setZoom(ZOOM_LEVELS.stream().filter(level -> level > zoom + EPSILON).findFirst().orElse(MAX_ZOOM));
+    }
+
+    /** The next smaller of Chrome's {@link #ZOOM_LEVELS}, e.g. 100 % to 90 %. */
+    public void zoomOut() {
+        double zoom = getZoom();
+        setZoom(ZOOM_LEVELS.reversed().stream().filter(level -> level < zoom - EPSILON).findFirst().orElse(MIN_ZOOM));
+    }
+
+    /** Back to 100 %. */
+    public void resetZoom() {
+        setZoom(1.0);
+    }
+
+    public void addZoomListener(ZoomListener listener) {
+        zoomListeners.add(listener);
+    }
+
+    public void removeZoomListener(ZoomListener listener) {
+        zoomListeners.remove(listener);
+    }
+
+    /** Whether Ctrl + mouse wheel and Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS) zoom; on by default. */
+    public boolean isZoomShortcutsEnabled() {
+        return zoomShortcuts;
+    }
+
+    /**
+     * Turns the zoom shortcuts on or off for the whole display; {@link #setZoom(double)} and friends
+     * keep working. To leave the shortcuts to a single control instead, set
+     * {@link ThemeKeys#ZOOM_SHORTCUTS} to {@link Boolean#FALSE} on it. They start on unless the
+     * system property {@value #ZOOM_SHORTCUTS_PROPERTY} is {@code false}.
+     */
+    public void setZoomShortcutsEnabled(boolean enabled) {
+        zoomShortcuts = enabled;
     }
 
     /** Re-applies the current theme to {@code widget} only (not its children). */
@@ -168,6 +249,15 @@ public final class ThemeManager {
     /** The colors and fonts of this display's themes (kept for the display's lifetime). */
     public ThemeResources resources() {
         return resources;
+    }
+
+    private void reapplyAll() {
+        platform.beforeTheme(display, resolver.platform(), resources);
+        Set<Widget> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Shell shell : display.getShells()) {
+            reapplyTree(shell, visited);
+        }
+        platform.afterTheme(display, resolver.platform());
     }
 
     private void reapplyTree(Shell shell, Set<Widget> visited) {
@@ -218,6 +308,55 @@ public final class ThemeManager {
         String type = typeResolver.resolve(widget);
         widget.setData(ThemeKeys.THEME_CONTROL_TYPE, type);
         return type;
+    }
+
+    private void onZoomWheel(Event event) {
+        if (event.count == 0 || (event.stateMask & SWT.MODIFIER_MASK) != SWT.MOD1 || !zoomShortcutsFor(event.widget)) {
+            return;
+        }
+        consume(event);
+        if (event.count > 0) {
+            zoomIn();
+        } else {
+            zoomOut();
+        }
+    }
+
+    private void onZoomKey(Event event) {
+        int modifiers = event.stateMask & SWT.MODIFIER_MASK;
+        // Shift is allowed, so Ctrl++ (Shift and =) works as in Chrome; Alt is not (AltGr is Ctrl+Alt).
+        if ((modifiers & ~SWT.SHIFT) != SWT.MOD1) {
+            return;
+        }
+        Runnable action = switch (event.keyCode) {
+            case '=', '+', SWT.KEYPAD_ADD -> this::zoomIn;
+            case '-', SWT.KEYPAD_SUBTRACT -> this::zoomOut;
+            case '0', SWT.KEYPAD_0 -> this::resetZoom;
+            default -> null;
+        };
+        if (action == null || !zoomShortcutsFor(event.widget)) {
+            return;
+        }
+        consume(event);
+        action.run();
+    }
+
+    /** Whether the shortcuts are on and neither {@code widget} nor a parent keeps them for itself. */
+    private boolean zoomShortcutsFor(Widget widget) {
+        if (!zoomShortcuts) {
+            return false;
+        }
+        for (Control control = widget instanceof Control c ? c : null; control != null; control = control.getParent()) {
+            if (Boolean.FALSE.equals(control.getData(ThemeKeys.ZOOM_SHORTCUTS))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void consume(Event event) {
+        event.doit = false;
+        event.type = SWT.None;
     }
 
     private void onSkin(Event event) {

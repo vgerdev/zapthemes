@@ -125,10 +125,14 @@ class ThemeManagerTest {
     @Test
     void repeatedThemeSwitchesDoNotLeakFonts() {
         new Label(shell, SWT.NONE);
+        manager.setTheme(dark);
+        manager.setTheme(light);
+        // Relative: other test classes on this display may have created fonts of their own.
+        int before = manager.resources().fontCount();
         for (int i = 0; i < 50; i++) {
             manager.setTheme(i % 2 == 0 ? dark : light);
         }
-        assertThat(manager.resources().fontCount()).isLessThanOrEqualTo(1);
+        assertThat(manager.resources().fontCount()).isEqualTo(before);
     }
 
     @Test

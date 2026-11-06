@@ -23,6 +23,7 @@ import org.eclipse.swt.widgets.Display;
 
 import com.zapthemes.core.ThemeChangeListener;
 import com.zapthemes.core.ThemeManager;
+import com.zapthemes.core.ZoomListener;
 import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.ThemeContext;
 
@@ -109,10 +110,14 @@ public final class FigureTheming {
                 walk(root, manager, true);
             }
         };
+        // Theme fonts follow the zoom, so a zoom re-styles the figures like a theme switch.
+        ZoomListener onZoom = (previous, current) -> onSwitch.themeChanged(manager.getTheme(), manager.getTheme());
         manager.addThemeChangeListener(onSwitch);
+        manager.addZoomListener(onZoom);
         root.addLayoutListener(onLayout);
         ATTACHED.put(root, () -> {
             manager.removeThemeChangeListener(onSwitch);
+            manager.removeZoomListener(onZoom);
             root.removeLayoutListener(onLayout);
         });
     }

@@ -31,7 +31,8 @@ public class DefaultStyler implements ControlStyler {
             case Control control -> {
                 control.setBackground(background);
                 control.setForeground(foreground);
-                control.setFont(font);
+                // Without a theme font a control still follows the zoom; items inherit their parent's.
+                control.setFont(font != null ? font : context.defaultFont());
                 if (control instanceof Composite composite) {
                     style.string(BACKGROUND_MODE).ifPresent(mode -> composite.setBackgroundMode(backgroundMode(mode)));
                 }
