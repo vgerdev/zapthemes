@@ -30,7 +30,7 @@ import com.zapthemes.themes.BundledThemes;
  * A JFace {@link ApplicationWindow} on the forked JFace: no ZapThemes types in sight, because
  * zapthemes-jface is a drop-in {@code org.eclipse.jface} whose viewers, dialogs and managers create
  * proxies. A Theme menu switches themes; a {@link ThemeChangeListener} refreshes the table, which
- * lists the current theme's palette.
+ * lists the current theme's common names.
  */
 public final class JFaceSample extends ApplicationWindow {
 
@@ -94,13 +94,13 @@ public final class JFaceSample extends ApplicationWindow {
         viewer.getTable().setHeaderVisible(true);
         viewer.getTable().setLinesVisible(true);
         viewer.setContentProvider(ArrayContentProvider.getInstance());
-        column("Palette entry", 160, entry -> entry.getKey());
+        column("Common name", 160, entry -> entry.getKey());
         column("Value", 220, entry -> entry.getValue().toString());
 
-        ThemeChangeListener refresh = (previous, current) -> showPalette(current);
+        ThemeChangeListener refresh = (previous, current) -> showNames(current);
         themes.addThemeChangeListener(refresh);
         viewer.getTable().addDisposeListener(e -> themes.removeThemeChangeListener(refresh));
-        showPalette(themes.getTheme());
+        showNames(themes.getTheme());
         return viewer.getControl();
     }
 
@@ -117,9 +117,9 @@ public final class JFaceSample extends ApplicationWindow {
         });
     }
 
-    private void showPalette(Theme theme) {
-        viewer.setInput(theme.palette().entrySet().toArray());
-        setStatus(theme.name() + ": " + theme.palette().size() + " palette entries");
+    private void showNames(Theme theme) {
+        viewer.setInput(theme.names().entrySet().toArray());
+        setStatus(theme.name() + ": " + theme.names().size() + " common names");
     }
 
     @Override

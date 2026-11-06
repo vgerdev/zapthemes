@@ -12,7 +12,7 @@ import com.zapthemes.core.model.Theme;
 
 /**
  * Checks a theme (with its {@code extends} chain already merged) for mistakes that would otherwise
- * surface only when a matching widget is themed: bad colors and fonts, unknown palette entries,
+ * surface only when a matching widget is themed: bad colors and fonts, unknown names and swatches,
  * unknown style bits, broken {@code inherit} chains and malformed class or state rules.
  *
  * <p>Keys are typed by name: {@code background}, {@code foreground} and keys ending in
@@ -27,6 +27,7 @@ public final class ThemeValidator {
     /** @return one message per problem, empty if the theme is valid */
     public static List<String> validate(Theme theme) {
         List<String> problems = new ArrayList<>();
+        checkNames(theme, problems);
         checkProps("defaults", theme.defaults(), theme, problems);
         theme.controls().forEach((key, props) -> {
             int open = key.indexOf('[');
@@ -59,7 +60,7 @@ public final class ThemeValidator {
             checkProps("platform." + ws, settings, theme, problems);
         });
         theme.registries().forEach((name, entries) -> {
-            ResolvedStyle registry = new ResolvedStyle(entries, theme.palette());
+            ResolvedStyle registry = new ResolvedStyle(entries, ThemeNames.of(theme));
             for (String key : entries.keySet()) {
                 if (name.equals(SystemColors.REGISTRY) && !SystemColors.isConstant(key)) {
                     problems.add("registries." + name + "." + key + ": not an SWT system color constant (COLOR_...)");
@@ -92,8 +93,49 @@ public final class ThemeValidator {
         return problems;
     }
 
+    /** Swatches are plain colors; names are objects of a color and/or a font that resolve. */
+    private static void checkNames(Theme theme, List<String> problems) {
+        ThemeNames names = ThemeNames.of(theme);
+        theme.swatches().forEach((key, value) -> {
+            if (theme.names().containsKey(key)) {
+                problems.add("swatches." + key + ": also a common name; \"$" + key + "\" would be ambiguous");
+            }
+            if (ThemeNames.isReference(value)) {
+                problems.add("swatches." + key + ": a swatch is a color (#RRGGBB), not a reference");
+                return;
+            }
+            try {
+                names.color(value, "swatches." + key);
+            } catch (RuntimeException e) {
+                problems.add("swatches." + key + ": " + e.getMessage());
+            }
+        });
+        theme.names().forEach((key, entry) -> {
+            if (!entry.isJsonObject()) {
+                problems.add("names." + key + ": must be an object of \"color\" and/or \"font\", got: " + entry);
+                return;
+            }
+            Set<String> parts = entry.getAsJsonObject().keySet();
+            if (parts.isEmpty()) {
+                problems.add("names." + key + ": has neither a \"color\" nor a \"font\"");
+            }
+            for (String part : parts) {
+                JsonElement value = entry.getAsJsonObject().get(part);
+                try {
+                    switch (part) {
+                        case "color" -> names.color(value, "names." + key + ".color");
+                        case "font" -> names.font(value, "names." + key + ".font");
+                        default -> problems.add("names." + key + "." + part + ": a name has only \"color\" and \"font\"");
+                    }
+                } catch (RuntimeException e) {
+                    problems.add("names." + key + "." + part + ": " + e.getMessage());
+                }
+            }
+        });
+    }
+
     private static void checkProps(String path, Map<String, JsonElement> props, Theme theme, List<String> problems) {
-        ResolvedStyle style = new ResolvedStyle(props, theme.palette());
+        ResolvedStyle style = new ResolvedStyle(props, ThemeNames.of(theme));
         for (String key : props.keySet()) {
             try {
                 if (key.equals(ResolvedStyle.STATES)) {

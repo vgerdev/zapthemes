@@ -216,21 +216,28 @@ is the most complete reference.
 
 ```json
 {
+  "formatVersion": 2,
   "id": "acme-dark",
   "name": "Acme Dark",
   "extends": "zap-dark",
-  "palette":  { "accent": "#E8590C", "danger": "#C62828", "font.headline": { "height": 14, "style": "bold" } },
+  "dark": true,
+  "swatches": { "orange": "#E8590C", "red": "#C62828" },
+  "names": {
+    "accent":   { "color": "$orange" },
+    "danger":   { "color": "$red" },
+    "headline": { "color": "$fg", "font": { "name": ["Segoe UI Semibold", "Cantarell", ".AppleSystemUIFont"], "height": 14, "style": "bold" } }
+  },
   "defaults": { "background": "$bg", "foreground": "$fg" },
   "controls": {
     "Table":        { "selectionBackground": "$selection", "states": { "hover": { "background": "$hover" } } },
     "Tree":         { "inherit": "Table" },
     "Label[WRAP]":  { "foreground": "$qualifier" }
   },
-  "classes":  { "Button.danger": { "background": "$danger" }, "*.headline": { "font": "$font.headline" } },
+  "classes":  { "Button.danger": { "background": "$danger" }, "*.headline": { "foreground": "$headline", "font": "$headline" } },
   "platform": { "*": { "darkThemePreferred": true }, "win32": { "darkScrollbars": true } },
   "registries": {
     "colors":       { "HYPERLINK_COLOR": "$accent" },
-    "fonts":        { "org.eclipse.jface.headerfont": "$font.headline" },
+    "fonts":        { "org.eclipse.jface.headerfont": "$headline" },
     "systemColors": { "COLOR_LIST_SELECTION": "$accent" }
   }
 }
@@ -240,15 +247,20 @@ is the most complete reference.
 
 | Block | Meaning |
 |---|---|
+| `formatVersion` | The format of the file, now `2`. A file without it is version 1, whose single `palette` held colors and fonts; it still loads, upgraded as it is read: each palette entry becomes a common name with that one part. A file of a newer version than the library is refused with a message to update. Themes are always written in the current format. |
 | `id`, `name` | Unique id (what `registry.resolve` takes) and display name |
-| `extends` | Id of the theme this one is layered on. Each block is merged key by key, so a theme can change only what differs. A palette entry replaced here also changes every rule of the parent that references it. |
-| `palette` | Named values referenced from anywhere as `"$name"`. Colors are `#RRGGBB` or `#RRGGBBAA`. Fonts are `{ "name": "Segoe UI", "height": 9, "style": "bold\|italic" }`; a missing name or height keeps the system font's. An entry may reference another. |
+| `extends` | Id of the theme this one is layered on. Each block is merged key by key, so a theme can change only what differs; a common name merges by part, so giving it only a color keeps the parent's font. A name or swatch replaced here also changes every rule of the parent that refers to it. |
+| `dark` | Whether the theme is dark, for tools such as the theme editor. Theming does not read it (use `platform` for what the OS draws). |
+| `swatches` | Raw colors, `#RRGGBB` or `#RRGGBBAA`, referenced as `"$name"`: the theme's palette, before any meaning is given to them |
+| `names` | Common names (`foreground`, `border`, `heading1`, ...), referenced as `"$name"`. Each is an object holding a `color`, a `font`, or both; either part may itself refer to a swatch or to another name. A reference takes the part its key asks for: a color key (`background`, `foreground`, `...Background`, `...Foreground`, `...Color`) takes the color, a font key (`font`, `...Font`) the font, and any other key the color if there is one, else the font. A name without the part asked for, an unknown name and a reference cycle are errors. |
+| fonts | `{ "name": "Segoe UI", "height": 9, "style": "bold\|italic" }`. `name` may be a list, `["Segoe UI", "Cantarell", ".AppleSystemUIFont"]`: the first family installed is used, so one theme fits every platform. `"inherit": "$name"` starts from another name's font and overrides only what it gives. A missing name or height keeps the system font's. |
 | `defaults` | Properties for every widget, applied first |
 | `controls` | Rules by control type. Keys: `Type` (`"Button"`, `"Grid"`, `"FlatButton"`, `"NatTable"`, and figure types such as `"Axis"`), or `Type[BIT\|BIT]` (`"Button[CHECK]"`, `"Text[MULTI\|WRAP]"`), which applies when the widget has all of those SWT style bits. `"inherit": "Other"` starts a rule from another type's rule. |
 | `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any. The JFace fork sets `banner`, `title`, `info` (tooltips and hovers), `popup` (`PopupDialog`; its info text also `muted`), `error` (status line errors), `plain` and `pane`; the notifications fork sets `notification` (the popup's frame) and `popup` (its content); the JFace Text fork sets `ruler`, `popup` (hovers, content assist; status lines also `muted`) and `frame` (context information): give them rules, as the bundled themes do |
 | `states` (inside a rule) | Overrides while a widget is `hover`, `pressed`, `selected`, `focused` or `disabled` |
 | `platform` | What the OS draws itself: `*` for all platforms, then `win32`, `gtk` or `cocoa` |
 | `registries` | Named resources of other toolkits: JFace `colors` and `fonts`, and `systemColors`, which replaces `Display.getSystemColor` constants inside the Nebula and JFace Text forks |
+| `editor` | The theme editor's own state (generator settings, locked swatches). Theming ignores it, and reading and writing a theme keeps it. |
 
 ### Which rule wins
 
@@ -286,8 +298,9 @@ per-state setters.
 
 ### Check a theme
 
-`ThemeValidator.validate(registry.resolve(id))` returns every problem with its path: unknown palette
-references, malformed colors and fonts, unknown style bits, broken `inherit` chains, and malformed
+`ThemeValidator.validate(registry.resolve(id))` returns every problem with its path: unknown names,
+names without the part a key asks for, reference cycles, swatches that are not plain colors, a
+swatch and a name of the same name, malformed colors and fonts, unknown style bits, broken `inherit` chains, and malformed
 class or state rules. An empty list means the theme is valid. Run it in a unit test for each of your
 themes, as [ThemeValidatorTest](../zapthemes-core/src/test/java/com/zapthemes/core/ThemeValidatorTest.java)
 does for the bundled ones.
@@ -303,8 +316,8 @@ Do what the Nebula proxies do (see [Gauge](../zapthemes-samples/src/main/java/co
 3. Register a styler for the type in a `StylerProvider`, listed in
    `META-INF/services/com.zapthemes.core.style.StylerProvider`. A `PropertyStyler` maps theme keys to
    your setters; override `apply` to `redraw()` afterwards.
-4. Write the widget's rule in your themes (`"Gauge": { "needleColor": "$accent" }`), against palette
-   entries so that it follows each theme.
+4. Write the widget's rule in your themes (`"Gauge": { "needleColor": "$accent" }`), against common
+   names so that it follows each theme.
 
 A widget that paints from the theme directly can instead call `themes.styleOf(this)` in its paint
 listener, as `FlatButton` does. To write a styler from scratch, implement `ControlStyler`. It must

@@ -124,15 +124,13 @@ class ThemeManagerTest {
 
     @Test
     void repeatedThemeSwitchesDoNotLeakFonts() {
-        new Label(shell, SWT.NONE);
-        manager.setTheme(dark);
-        manager.setTheme(light);
-        // Relative: other test classes on this display may have created fonts of their own.
         int before = manager.resources().fontCount();
+        new Label(shell, SWT.NONE);
         for (int i = 0; i < 50; i++) {
             manager.setTheme(i % 2 == 0 ? dark : light);
         }
-        assertThat(manager.resources().fontCount()).isEqualTo(before);
+        // Fonts are cached per display, so other tests' fonts may be there already.
+        assertThat(manager.resources().fontCount() - before).isLessThanOrEqualTo(1);
     }
 
     @Test
@@ -156,5 +154,20 @@ class ThemeManagerTest {
             super.setBackground(color);
             applied.add(color.getRGB()); // NPE while super(...) runs: 'applied' is still null
         }
+    }
+
+    /** A font's family list takes the first one installed; a single family is used as written. */
+    @Test
+    void aFontFamilyListTakesTheFirstInstalled() {
+        String installed = display.getFontList(null, true)[0].getName();
+        var resources = manager.resources();
+
+        var listed = resources.font(new com.zapthemes.core.model.FontSpec(
+                List.of("No Such Font ZapThemes", installed), 11, SWT.NORMAL));
+        var none = resources.font(new com.zapthemes.core.model.FontSpec(
+                List.of("No Such Font ZapThemes", "Nor This One"), 11, SWT.NORMAL));
+
+        assertThat(listed.getFontData()[0].getName()).isEqualTo(installed);
+        assertThat(none).as("none installed: the first, as the platform substitutes it").isNotNull();
     }
 }

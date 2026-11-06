@@ -2,61 +2,211 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zapthemes.com/theme.schema.json",
   "title": "ZapThemes theme",
-  "description": "A theme for SWT/JFace/Nebula controls. Values may reference the palette with \"$name\".",
+  "description": "A theme for SWT/JFace/Nebula controls, format version 2. Values refer to swatches and common names with \"$name\"; a color key takes a name's color, a font key its font. A file without formatVersion is version 1 (one palette) and is upgraded when read.",
   "type": "object",
-  "required": ["id"],
+  "required": [
+    "id"
+  ],
   "properties": {
-    "id": { "type": "string", "minLength": 1, "description": "Unique theme id, e.g. \"zap-dark\"." },
-    "name": { "type": "string", "description": "Display name." },
-    "extends": { "type": "string", "description": "Id of the theme this one is layered on." },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique theme id, e.g. \"zap-dark\"."
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name."
+    },
+    "extends": {
+      "type": "string",
+      "description": "Id of the theme this one is layered on."
+    },
+    "formatVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2,
+      "description": "Format of this file; missing means 1. Older formats are upgraded when read."
+    },
+    "dark": {
+      "type": "boolean",
+      "description": "Whether the theme is dark, for tools such as the theme editor; theming does not read it."
+    },
+    "swatches": {
+      "type": "object",
+      "description": "Raw colors, the theme editor's palette, referenced as \"$name\".",
+      "additionalProperties": {
+        "$ref": "#/$defs/color"
+      }
+    },
+    "names": {
+      "type": "object",
+      "description": "Common names (foreground, border, heading1, ...), each holding a color, a font or both, referenced as \"$name\": a color key takes the name's color, a font key its font.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/color"
+              },
+              {
+                "$ref": "#/$defs/reference"
+              }
+            ]
+          },
+          "font": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/font"
+              },
+              {
+                "$ref": "#/$defs/reference"
+              }
+            ]
+          }
+        },
+        "minProperties": 1,
+        "additionalProperties": false
+      }
+    },
     "palette": {
       "type": "object",
-      "description": "Named colors and fonts, referenced from rules as \"$name\".",
-      "additionalProperties": { "anyOf": [{ "$ref": "#/$defs/color" }, { "$ref": "#/$defs/font" }, { "$ref": "#/$defs/reference" }] }
+      "description": "Version 1 only: named colors and fonts. Each entry becomes a common name when the file is read.",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/color"
+          },
+          {
+            "$ref": "#/$defs/font"
+          },
+          {
+            "$ref": "#/$defs/reference"
+          }
+        ]
+      }
     },
-    "defaults": { "$ref": "#/$defs/rule", "description": "Properties applied to every widget before its type rule." },
+    "defaults": {
+      "$ref": "#/$defs/rule",
+      "description": "Properties applied to every widget before its type rule."
+    },
     "controls": {
       "type": "object",
       "description": "Rules by THEME_CONTROL_TYPE (\"Button\"), or by type and SWT style bits (\"Button[CHECK|FLAT]\").",
-      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\[[A-Z0-9_]+(\|[A-Z0-9_]+)*\])?$" },
-      "additionalProperties": { "$ref": "#/$defs/rule" }
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\[[A-Z0-9_]+(\\|[A-Z0-9_]+)*\\])?$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/rule"
+      }
     },
     "classes": {
       "type": "object",
       "description": "Rules by THEME_CLASS: \"Button.primary\" or \"*.primary\" for any type.",
-      "propertyNames": { "pattern": "^(\*|[A-Za-z_][A-Za-z0-9_]*)\.[A-Za-z0-9_-]+$" },
-      "additionalProperties": { "$ref": "#/$defs/rule" }
+      "propertyNames": {
+        "pattern": "^(\\*|[A-Za-z_][A-Za-z0-9_]*)\\.[A-Za-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/rule"
+      }
     },
     "registries": {
       "type": "object",
       "description": "Named resources for toolkit registries, keyed by their symbolic names (JFace ColorRegistry / FontRegistry).",
       "properties": {
-        "colors": { "type": "object", "additionalProperties": { "anyOf": [{ "$ref": "#/$defs/color" }, { "$ref": "#/$defs/reference" }] } },
-        "fonts": { "type": "object", "additionalProperties": { "anyOf": [{ "$ref": "#/$defs/font" }, { "$ref": "#/$defs/reference" }] } }
+        "colors": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/color"
+              },
+              {
+                "$ref": "#/$defs/reference"
+              }
+            ]
+          }
+        },
+        "fonts": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/font"
+              },
+              {
+                "$ref": "#/$defs/reference"
+              }
+            ]
+          }
+        }
       }
     },
     "platform": {
       "type": "object",
       "description": "Global settings per SWT windowing system.",
       "properties": {
-        "*": { "type": "object", "description": "Settings for every platform, e.g. darkThemePreferred." },
-        "win32": { "type": "object" },
-        "gtk": { "type": "object" },
-        "cocoa": { "type": "object" }
+        "*": {
+          "type": "object",
+          "description": "Settings for every platform, e.g. darkThemePreferred."
+        },
+        "win32": {
+          "type": "object"
+        },
+        "gtk": {
+          "type": "object"
+        },
+        "cocoa": {
+          "type": "object"
+        }
       },
       "additionalProperties": false
+    },
+    "editor": {
+      "type": "object",
+      "description": "The theme editor's own state; theming ignores it and keeps it as read."
     }
   },
   "additionalProperties": false,
   "$defs": {
-    "color": { "type": "string", "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$" },
-    "reference": { "type": "string", "pattern": "^\$.+$" },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    },
+    "reference": {
+      "type": "string",
+      "pattern": "^\\$.+$"
+    },
     "font": {
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "height": { "type": "integer", "minimum": 1 },
-        "style": { "type": "string", "pattern": "^(normal|bold|italic)([|, ]+(normal|bold|italic))*$" }
+        "name": {
+          "description": "A family, or families in order of preference: the first one installed is used.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "style": {
+          "type": "string",
+          "pattern": "^(normal|bold|italic)([|, ]+(normal|bold|italic))*$"
+        },
+        "inherit": {
+          "$ref": "#/$defs/reference",
+          "description": "Start from another name's font; the other properties override it."
+        }
       },
       "additionalProperties": false
     },
@@ -64,17 +214,48 @@
       "type": "object",
       "description": "Properties of a widget. Keys named background/foreground or ending in Background/Foreground/Color are colors; font or ...Font are fonts; other keys belong to the type's styler.",
       "properties": {
-        "inherit": { "type": "string", "description": "Copy another control rule first." },
+        "inherit": {
+          "type": "string",
+          "description": "Copy another control rule first."
+        },
         "states": {
           "type": "object",
           "description": "Overrides per state, used by owner-draw renderers.",
-          "propertyNames": { "enum": ["hover", "pressed", "focused", "disabled", "selected"] },
-          "additionalProperties": { "$ref": "#/$defs/rule" }
+          "propertyNames": {
+            "enum": [
+              "hover",
+              "pressed",
+              "focused",
+              "disabled",
+              "selected"
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/rule"
+          }
         }
       },
       "patternProperties": {
-        "^(background|foreground)$|(Background|Foreground|Color)$": { "anyOf": [{ "$ref": "#/$defs/color" }, { "$ref": "#/$defs/reference" }] },
-        "^font$|Font$": { "anyOf": [{ "$ref": "#/$defs/font" }, { "$ref": "#/$defs/reference" }] }
+        "^(background|foreground)$|(Background|Foreground|Color)$": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/color"
+            },
+            {
+              "$ref": "#/$defs/reference"
+            }
+          ]
+        },
+        "^font$|Font$": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/font"
+            },
+            {
+              "$ref": "#/$defs/reference"
+            }
+          ]
+        }
       }
     }
   }

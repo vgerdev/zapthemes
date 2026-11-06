@@ -30,12 +30,14 @@ public final class StyleResolver {
     static final String INHERIT = "inherit";
 
     private final Theme theme;
+    private final ThemeNames names;
     private final Map<String, List<StyleBitRule>> bitRules = new HashMap<>();
     private final Map<CacheKey, ResolvedStyle> cache = new HashMap<>();
     private ResolvedStyle platform;
 
     public StyleResolver(Theme theme) {
         this.theme = theme;
+        this.names = ThemeNames.of(theme);
         theme.controls().forEach((key, props) -> {
             int open = key.indexOf('[');
             if (open > 0 && key.endsWith("]")) {
@@ -48,6 +50,11 @@ public final class StyleResolver {
 
     public Theme theme() {
         return theme;
+    }
+
+    /** The theme's swatches and common names. */
+    public ThemeNames names() {
+        return names;
     }
 
     public ResolvedStyle resolve(String type, int style) {
@@ -79,19 +86,19 @@ public final class StyleResolver {
                 }
             }
             props.remove(INHERIT);
-            return new ResolvedStyle(props, theme.palette());
+            return new ResolvedStyle(props, names);
         });
     }
 
     /**
      * The platform settings: {@code platform["*"]} overlaid with {@code platform[<SWT.getPlatform()>]},
-     * palette references resolved on read.
+     * references resolved on read.
      */
     public ResolvedStyle platform() {
         if (platform == null) {
             Map<String, JsonElement> settings = new LinkedHashMap<>(theme.platformSettings("*"));
             settings.putAll(theme.platformSettings(SWT.getPlatform()));
-            platform = new ResolvedStyle(settings, theme.palette());
+            platform = new ResolvedStyle(settings, names);
         }
         return platform;
     }
@@ -105,15 +112,15 @@ public final class StyleResolver {
         Map<String, JsonElement> props = new LinkedHashMap<>();
         mergeType(type, props, new LinkedHashSet<>());
         props.remove(INHERIT);
-        return new ResolvedStyle(props, theme.palette());
+        return new ResolvedStyle(props, names);
     }
 
     /**
-     * A {@code registries} block (e.g. {@code "colors"}, {@code "fonts"}) with palette references
+     * A {@code registries} block (e.g. {@code "colors"}, {@code "fonts"}) with references
      * resolved on read; empty if the theme has none.
      */
     public ResolvedStyle registry(String name) {
-        return new ResolvedStyle(theme.registries().getOrDefault(name, Map.of()), theme.palette());
+        return new ResolvedStyle(theme.registries().getOrDefault(name, Map.of()), names);
     }
 
     private void mergeType(String type, Map<String, JsonElement> into, Set<String> seen) {

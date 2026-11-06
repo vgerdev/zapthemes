@@ -134,9 +134,7 @@ class NotificationPopupThemingTest {
     }
 
     private static RGB palette(Theme theme, String name) {
-        String hex = theme.palette().get(name).getAsString().substring(1);
-        int value = Integer.parseInt(hex, 16);
-        return new RGB(value >> 16 & 0xFF, value >> 8 & 0xFF, value & 0xFF);
+        return com.zapthemes.core.style.ThemeNames.of(theme).color(name).orElseThrow().rgb;
     }
 
     private static <T> List<T> findAll(Control root, Class<T> type) {

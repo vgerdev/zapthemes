@@ -27,6 +27,7 @@ public final class ThemeResources {
 
     private final Display display;
     private final Map<FontKey, Font> fonts = new HashMap<>();
+    private final Map<String, Boolean> installed = new HashMap<>();
     private double zoom = 1;
 
     /** A spec at one effective height: zoom levels that round to the same height share a font. */
@@ -45,10 +46,29 @@ public final class ThemeResources {
     public Font font(FontSpec spec) {
         int height = zoomed(spec.height() > 0 ? spec.height() : systemFontData().getHeight());
         return fonts.computeIfAbsent(new FontKey(spec, height), key -> {
-            FontData system = systemFontData();
-            String name = spec.name() != null ? spec.name() : system.getName();
+            String name = family(spec, systemFontData().getName());
             return new Font(display, name, key.height(), spec.style());
         });
+    }
+
+    /**
+     * The first of {@code spec}'s families that is installed. A single family is used as given (the
+     * platform substitutes a missing one, as it always has); when none of several is installed, the
+     * first.
+     */
+    private String family(FontSpec spec, String system) {
+        if (spec.names().isEmpty()) {
+            return system;
+        }
+        if (spec.names().size() > 1) {
+            for (String candidate : spec.names()) {
+                if (installed.computeIfAbsent(candidate,
+                        n -> display.getFontList(n, true).length > 0 || display.getFontList(n, false).length > 0)) {
+                    return candidate;
+                }
+            }
+        }
+        return spec.name();
     }
 
     /** The current zoom factor, {@code 1.0} for 100 %. */
