@@ -245,9 +245,12 @@ class TitleBarTest {
         assertThat(closes[0]).isEqualTo(1);
         assertThat(shell.isDisposed()).isFalse();
 
-        click(bar.getPartBounds(Part.MINIMIZE));
-        assertThat(shell.getMinimized()).isTrue();
-        shell.setMinimized(false);
+        // A borderless Cocoa window can't be miniaturized; macOS gets the native frame instead.
+        if (!"cocoa".equals(SWT.getPlatform())) {
+            click(bar.getPartBounds(Part.MINIMIZE));
+            assertThat(shell.getMinimized()).isTrue();
+            shell.setMinimized(false);
+        }
     }
 
     @Test
