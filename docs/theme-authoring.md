@@ -22,6 +22,7 @@ runnable program:
 | `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar` |
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
 | `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |
+| `zapthemes-jface-text` | JFace Text 3.31.100 fork: a drop-in `org.eclipse.jface.text` (`SourceViewer`, rulers, hovers, content assist), with `zapthemes-text`, `org.eclipse.text` 3.14.800 built from source |
 | `zapthemes-nebula`, `zapthemes-nebula-incubation` | Nebula proxies and stylers, with the forked widgets (`zapthemes-nebula-fork`, `zapthemes-nebula-incubation-fork`) and draw2d (`zapthemes-draw2d`) |
 
 Every module needs JDK 25 and depends on SWT 3.135.0. As with JFace on Maven Central, the POMs name the
@@ -67,6 +68,18 @@ for the official JFace, which the capability rule above replaces with the fork. 
 declares its capability, like `zapthemes-jface`. Its popup takes the theme's `notification` class
 (frame) and `popup` class (content area) instead of upstream's white content; it brings
 `org.eclipse.core.runtime`, as upstream does.
+
+**Source viewers.** `zapthemes-jface-text` replaces `org.eclipse.jface.text` and brings
+`zapthemes-text` in place of `org.eclipse.text`. Both declare the upstream capabilities. `org.eclipse.text` creates no widgets, but it shares
+packages with `jface.text` and its published jar is signed, so the JVM would refuse the unsigned
+fork's classes next to it; `zapthemes-text` is the same code, unsigned. Rulers take the theme's
+`ruler` class (line numbers in its foreground), hovers, content assist and context information
+`popup` (status lines also `muted`), and the context popups' frame `frame`. Colors the application
+sets (`setBackground` on a ruler column, `ContentAssistant.setProposalSelectorBackground`, ...) win.
+Syntax colors stay the application's: the bundled themes set `com.zapthemes.text.keyword`, `.string`,
+`.comment` and `.number` in JFace's `ColorRegistry` (constants in `TextTheming`), for scanners to use
+and to re-read when the registry changes. With a top margin on the text widget
+(`StyledText.setMargins`), upstream's line number column paints no numbers; use side margins.
 
 ## 2. Create widgets from the proxies
 
@@ -155,10 +168,10 @@ is the most complete reference.
 | `palette` | Named values referenced from anywhere as `"$name"`. Colors are `#RRGGBB` or `#RRGGBBAA`. Fonts are `{ "name": "Segoe UI", "height": 9, "style": "bold\|italic" }`; a missing name or height keeps the system font's. An entry may reference another. |
 | `defaults` | Properties for every widget, applied first |
 | `controls` | Rules by control type. Keys: `Type` (`"Button"`, `"Grid"`, `"FlatButton"`), or `Type[BIT\|BIT]` (`"Button[CHECK]"`, `"Text[MULTI\|WRAP]"`), which applies when the widget has all of those SWT style bits. `"inherit": "Other"` starts a rule from another type's rule. |
-| `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any. The JFace fork sets `banner`, `title`, `info` (tooltips and hovers), `popup` (`PopupDialog`; its info text also `muted`), `error` (status line errors), `plain` and `pane`; the notifications fork sets `notification` (the popup's frame) and `popup` (its content): give them rules, as the bundled themes do |
+| `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any. The JFace fork sets `banner`, `title`, `info` (tooltips and hovers), `popup` (`PopupDialog`; its info text also `muted`), `error` (status line errors), `plain` and `pane`; the notifications fork sets `notification` (the popup's frame) and `popup` (its content); the JFace Text fork sets `ruler`, `popup` (hovers, content assist; status lines also `muted`) and `frame` (context information): give them rules, as the bundled themes do |
 | `states` (inside a rule) | Overrides while a widget is `hover`, `pressed`, `selected`, `focused` or `disabled` |
 | `platform` | What the OS draws itself: `*` for all platforms, then `win32`, `gtk` or `cocoa` |
-| `registries` | Named resources of other toolkits: JFace `colors` and `fonts`, and `systemColors`, which replaces `Display.getSystemColor` constants inside the Nebula forks |
+| `registries` | Named resources of other toolkits: JFace `colors` and `fonts`, and `systemColors`, which replaces `Display.getSystemColor` constants inside the Nebula and JFace Text forks |
 
 ### Which rule wins
 

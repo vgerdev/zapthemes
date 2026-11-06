@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":zapthemes-swt"))
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-jface-notifications"))
+    implementation(project(":zapthemes-jface-text"))
     implementation(project(":zapthemes-widgets"))
     implementation(project(":zapthemes-nebula"))
     implementation(project(":zapthemes-nebula-incubation"))
@@ -50,10 +51,25 @@ val smokeNebula = tasks.register<JavaExec>("smokeTestNebula") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeText = tasks.register<JavaExec>("smokeTestText") {
+    group = "verification"
+    description = "Smoke-tests the JFace Text source viewer demo and its popups."
+    mainClass = "com.zapthemes.demo.TextDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
 tasks.register("smokeTest") {
     group = "verification"
     description = "Runs every demo smoke test."
-    dependsOn(smokeStandalone, smokeJFace, smokeNebula)
+    dependsOn(smokeStandalone, smokeJFace, smokeNebula, smokeText)
+}
+
+// The JFace Text source viewer demo.
+tasks.register<JavaExec>("runText") {
+    group = "application"
+    description = "Runs the JFace Text source viewer demo."
+    mainClass = "com.zapthemes.demo.TextDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
 }
 
 // The Nebula widgets demo.
@@ -71,6 +87,7 @@ val screenshotTasks = mapOf(
     "Standalone" to "com.zapthemes.demo.StandaloneDemo",
     "JFace" to "com.zapthemes.demo.JFaceDemo",
     "Nebula" to "com.zapthemes.demo.NebulaDemo",
+    "Text" to "com.zapthemes.demo.TextDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"

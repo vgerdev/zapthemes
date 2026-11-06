@@ -1,0 +1,139 @@
+diff --git a/org/eclipse/jface/text/source/AbstractRulerColumn.java b/org/eclipse/jface/text/source/AbstractRulerColumn.java
+--- a/org/eclipse/jface/text/source/AbstractRulerColumn.java
++++ b/org/eclipse/jface/text/source/AbstractRulerColumn.java
+@@ -198,6 +198,8 @@
+ 
+ 		fCanvas.setBackground(getDefaultBackground());
+ 		fCanvas.setFont(getFont());
++		// ZapThemes: the theme styles rulers (style class "ruler").
++		com.zapthemes.jface.text.TextTheming.ruler(fCanvas);
+ 
+ 		fCanvas.addPaintListener(AbstractRulerColumn.this::paintControl);
+ 
+@@ -359,7 +361,7 @@
+ 			display= Display.getCurrent();
+ 		}
+ 		if (display != null) {
+-			return com.zapthemes.core.SystemColors.get(display, SWT.COLOR_LIST_BACKGROUND);
++			return com.zapthemes.jface.text.TextTheming.rulerBackground(fCanvas, com.zapthemes.core.SystemColors.get(display, SWT.COLOR_LIST_BACKGROUND));
+ 		}
+ 		return null;
+ 	}
+diff --git a/org/eclipse/jface/text/source/AnnotationRulerColumn.java b/org/eclipse/jface/text/source/AnnotationRulerColumn.java
+--- a/org/eclipse/jface/text/source/AnnotationRulerColumn.java
++++ b/org/eclipse/jface/text/source/AnnotationRulerColumn.java
+@@ -255,6 +255,8 @@
+ 		fHitDetectionCursor= parentControl.getDisplay().getSystemCursor(SWT.CURSOR_HAND);
+ 
+ 		fCanvas= createCanvas(parentControl);
++		// ZapThemes: the theme styles rulers (style class "ruler").
++		com.zapthemes.jface.text.TextTheming.ruler(fCanvas);
+ 
+ 		fCanvas.addPaintListener(event -> {
+ 			if (fCachedTextViewer != null) {
+diff --git a/org/eclipse/jface/text/source/ChangeRulerColumn.java b/org/eclipse/jface/text/source/ChangeRulerColumn.java
+--- a/org/eclipse/jface/text/source/ChangeRulerColumn.java
++++ b/org/eclipse/jface/text/source/ChangeRulerColumn.java
+@@ -177,7 +177,7 @@
+ 	 */
+ 	private Color getBackground() {
+ 		if (fBackground == null) {
+-			return com.zapthemes.core.SystemColors.get(fCachedTextWidget.getDisplay(), SWT.COLOR_LIST_BACKGROUND);
++			return com.zapthemes.jface.text.TextTheming.rulerBackground(fCanvas, com.zapthemes.core.SystemColors.get(fCachedTextWidget.getDisplay(), SWT.COLOR_LIST_BACKGROUND));
+ 		}
+ 		return fBackground;
+ 	}
+@@ -191,6 +191,8 @@
+ 
+ 		fCanvas= new com.zapthemes.swt.widgets.Canvas(parentControl, SWT.NONE);
+ 		fCanvas.setBackground(getBackground());
++		// ZapThemes: the theme styles rulers (style class "ruler").
++		com.zapthemes.jface.text.TextTheming.ruler(fCanvas);
+ 
+ 		fCanvas.addPaintListener(event -> {
+ 			if (fCachedTextViewer != null) {
+diff --git a/org/eclipse/jface/text/source/LineNumberRulerColumn.java b/org/eclipse/jface/text/source/LineNumberRulerColumn.java
+--- a/org/eclipse/jface/text/source/LineNumberRulerColumn.java
++++ b/org/eclipse/jface/text/source/LineNumberRulerColumn.java
+@@ -464,7 +464,7 @@
+ 	 */
+ 	protected Color getBackground(Display display) {
+ 		if (fBackground == null) {
+-			return com.zapthemes.core.SystemColors.get(display, SWT.COLOR_LIST_BACKGROUND);
++			return com.zapthemes.jface.text.TextTheming.rulerBackground(fCanvas, com.zapthemes.core.SystemColors.get(display, SWT.COLOR_LIST_BACKGROUND));
+ 		}
+ 		return fBackground;
+ 	}
+@@ -608,8 +608,12 @@
+ 				}
+ 			}
+ 		};
++		// ZapThemes: the theme styles rulers (style class "ruler"): line numbers in its foreground.
++		com.zapthemes.jface.text.TextTheming.ruler(fCanvas);
+ 		fCanvas.setBackground(getBackground(fCanvas.getDisplay()));
+-		fCanvas.setForeground(fForeground);
++		if (fForeground != null) {
++			fCanvas.setForeground(fForeground);
++		}
+ 
+ 		fCanvas.addPaintListener(event -> {
+ 			if (fCachedTextViewer != null) {
+@@ -811,8 +815,10 @@
+ 
+ 	private void initializeGC(GC gc, int x, int y, int width, int height) {
+ 		gc.setFont(fCanvas.getFont());
+-		if (fForeground != null) {
+-			gc.setForeground(fForeground);
++		// ZapThemes: without a color of the application's, line numbers use the ruler's theme foreground.
++		Color foreground= fForeground != null ? fForeground : com.zapthemes.jface.text.TextTheming.rulerForeground(fCanvas);
++		if (foreground != null) {
++			gc.setForeground(foreground);
+ 		}
+ 		gc.setBackground(getBackground(fCanvas.getDisplay()));
+ 		gc.fillRectangle(x, y, width, height);
+diff --git a/org/eclipse/jface/text/source/OverviewRuler.java b/org/eclipse/jface/text/source/OverviewRuler.java
+--- a/org/eclipse/jface/text/source/OverviewRuler.java
++++ b/org/eclipse/jface/text/source/OverviewRuler.java
+@@ -598,6 +598,8 @@
+ 		}
+ 
+ 		fCanvas= new com.zapthemes.swt.widgets.Canvas(parent, SWT.NO_BACKGROUND);
++		// ZapThemes: the theme styles rulers (style class "ruler").
++		com.zapthemes.jface.text.TextTheming.ruler(fHeader, fCanvas);
+ 
+ 		fCanvas.addPaintListener(event -> {
+ 			if (fTextViewer != null) {
+diff --git a/org/eclipse/jface/text/source/VerticalRuler.java b/org/eclipse/jface/text/source/VerticalRuler.java
+--- a/org/eclipse/jface/text/source/VerticalRuler.java
++++ b/org/eclipse/jface/text/source/VerticalRuler.java
+@@ -150,6 +150,8 @@
+ 		fTextViewer= textViewer;
+ 
+ 		fCanvas= new com.zapthemes.swt.widgets.Canvas(parent, SWT.NO_BACKGROUND);
++		// ZapThemes: the theme styles rulers (style class "ruler").
++		com.zapthemes.jface.text.TextTheming.ruler(fCanvas);
+ 
+ 		fCanvas.addPaintListener(event -> {
+ 			if (fTextViewer != null) {
+diff --git a/org/eclipse/jface/text/source/CompositeRuler.java b/org/eclipse/jface/text/source/CompositeRuler.java
+--- a/org/eclipse/jface/text/source/CompositeRuler.java
++++ b/org/eclipse/jface/text/source/CompositeRuler.java
+@@ -117,7 +117,8 @@
+ 	 * A canvas that adds listeners to all its children. Used by the implementation of the
+ 	 * vertical ruler to propagate listener additions and removals to the ruler's columns.
+ 	 */
+-	static class CompositeRulerCanvas extends Canvas {
++	// ZapThemes: a proxy, like the columns' canvases.
++	static class CompositeRulerCanvas extends com.zapthemes.swt.widgets.Canvas {
+ 
+ 		/**
+ 		 * Keeps the information for which event type a listener object has been added.
+@@ -605,6 +606,8 @@
+ 		fTextViewer= textViewer;
+ 
+ 		fComposite= new CompositeRulerCanvas(parent, SWT.NONE);
++		// ZapThemes: the theme styles rulers (style class "ruler").
++		com.zapthemes.jface.text.TextTheming.ruler(fComposite);
+ 		fComposite.setLayout(new RulerLayout());
+ 
+ 		Iterator<IVerticalRulerColumn> iter= fDecorators.iterator();

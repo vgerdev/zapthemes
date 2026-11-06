@@ -1,0 +1,12 @@
+diff --git a/org/eclipse/jface/text/AbstractInformationControl.java b/org/eclipse/jface/text/AbstractInformationControl.java
+--- a/org/eclipse/jface/text/AbstractInformationControl.java
++++ b/org/eclipse/jface/text/AbstractInformationControl.java
+@@ -459,6 +459,8 @@
+ 	 */
+ 	protected final void create() {
+ 		createContent(fContentComposite);
++		// ZapThemes: the theme styles hovers (style class "popup", the status line also "muted").
++		com.zapthemes.jface.text.TextTheming.popup(fShell, fStatusLabel);
+ 	}
+ 
+ 	/**

@@ -12,6 +12,24 @@ import org.eclipse.jface.fieldassist.ContentProposalAdapter;
 import org.eclipse.jface.fieldassist.SimpleContentProposalProvider;
 import org.eclipse.jface.fieldassist.TextContentAdapter;
 import org.eclipse.jface.layout.GridDataFactory;
+import org.eclipse.jface.resource.JFaceResources;
+import org.eclipse.jface.text.Document;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.TextAttribute;
+import org.eclipse.jface.text.presentation.IPresentationReconciler;
+import org.eclipse.jface.text.presentation.PresentationReconciler;
+import org.eclipse.jface.text.rules.DefaultDamagerRepairer;
+import org.eclipse.jface.text.rules.EndOfLineRule;
+import org.eclipse.jface.text.rules.IRule;
+import org.eclipse.jface.text.rules.RuleBasedScanner;
+import org.eclipse.jface.text.rules.SingleLineRule;
+import org.eclipse.jface.text.rules.Token;
+import org.eclipse.jface.text.source.CompositeRuler;
+import org.eclipse.jface.text.source.ISourceViewer;
+import org.eclipse.jface.text.source.LineNumberRulerColumn;
+import org.eclipse.jface.text.source.SourceViewer;
+import org.eclipse.jface.text.source.SourceViewerConfiguration;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.layout.GridLayoutFactory;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ComboViewer;
@@ -22,9 +40,12 @@ import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Text;
 
+import com.zapthemes.jface.text.TextTheming;
+
 /**
  * The editor of one note, in a tab of the editor area: a form (title, notebook, tags with content
- * assist) over the body. Changes are kept until {@link #save()}; the tab shows {@code *} meanwhile.
+ * assist) over the body, a JFace Text {@link SourceViewer} with line numbers and light Markdown
+ * highlighting (headings, {@code `code`}, quotes) in the theme's syntax colors ({@link TextTheming}). Changes are kept until {@link #save()}; the tab shows {@code *} meanwhile.
  * The title is bound with JFace data binding: a validator rejects a blank one, and
  * {@link ControlDecorationSupport} shows its message on the field.
  */
@@ -38,7 +59,11 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
     private final Text title;
     private final ComboViewer notebook;
     private final Text tags;
+    private final SourceViewer viewer;
     private final StyledText body;
+    private final Token heading = new Token(null);
+    private final Token code = new Token(null);
+    private final Token quote = new Token(null);
     private final WritableValue<String> titleValue = new WritableValue<>("", String.class);
     private final Binding titleBinding;
     private final ContentProposalAdapter tagAssist;
@@ -78,11 +103,52 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
         tagAssist = new ContentProposalAdapter(tags, new TextContentAdapter(), proposals, ctrlSpace(), null);
         tagAssist.setProposalAcceptanceStyle(ContentProposalAdapter.PROPOSAL_INSERT);
 
-        body = new com.zapthemes.swt.custom.StyledText(this, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL | (wrap ? SWT.WRAP : SWT.H_SCROLL));
-        body.setMargins(8, 6, 8, 6);
+        CompositeRuler ruler = new CompositeRuler();
+        ruler.addDecorator(0, new LineNumberRulerColumn());
+        viewer = new SourceViewer(this, ruler, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL | (wrap ? SWT.WRAP : SWT.H_SCROLL));
+        viewer.configure(new SourceViewerConfiguration() {
+            @Override
+            public IPresentationReconciler getPresentationReconciler(ISourceViewer sourceViewer) {
+                PresentationReconciler reconciler = new PresentationReconciler();
+                DefaultDamagerRepairer repairer = new DefaultDamagerRepairer(markdown());
+                reconciler.setDamager(repairer, IDocument.DEFAULT_CONTENT_TYPE);
+                reconciler.setRepairer(repairer, IDocument.DEFAULT_CONTENT_TYPE);
+                return reconciler;
+            }
+        });
+        viewer.setDocument(new Document());
+        body = viewer.getTextWidget();
+        // Side margins only: with a top margin, upstream's line number column paints no numbers.
+        body.setLeftMargin(8);
+        body.setRightMargin(8);
         body.addModifyListener(e -> edited());
-        GridDataFactory.fillDefaults().grab(true, true).span(2, 1).applyTo(body);
+        GridDataFactory.fillDefaults().grab(true, true).span(2, 1).applyTo(viewer.getControl());
+        // The theme sets the syntax colors in JFace's ColorRegistry on every switch.
+        recolor();
+        IPropertyChangeListener recolor = e -> {
+            recolor();
+            viewer.invalidateTextPresentation();
+        };
+        JFaceResources.getColorRegistry().addListener(recolor);
+        addDisposeListener(e -> JFaceResources.getColorRegistry().removeListener(recolor));
         load();
+    }
+
+    private RuleBasedScanner markdown() {
+        EndOfLineRule headings = new EndOfLineRule("#", heading);
+        headings.setColumnConstraint(0);
+        EndOfLineRule quotes = new EndOfLineRule(">", quote);
+        quotes.setColumnConstraint(0);
+        RuleBasedScanner scanner = new RuleBasedScanner();
+        scanner.setRules(new IRule[] { headings, quotes, new SingleLineRule("`", "`", code) });
+        return scanner;
+    }
+
+    private void recolor() {
+        var colors = JFaceResources.getColorRegistry();
+        heading.setData(new TextAttribute(colors.get(TextTheming.KEYWORD), null, SWT.BOLD));
+        code.setData(new TextAttribute(colors.get(TextTheming.STRING)));
+        quote.setData(new TextAttribute(colors.get(TextTheming.COMMENT), null, SWT.ITALIC));
     }
 
     private static org.eclipse.jface.bindings.keys.KeyStroke ctrlSpace() {
@@ -98,7 +164,7 @@ final class NoteEditor extends com.zapthemes.swt.widgets.Composite {
         titleValue.setValue(note.title);
         notebook.setSelection(new StructuredSelection(note.notebook));
         tags.setText(note.tags);
-        body.setText(note.body);
+        viewer.getDocument().set(note.body);
         loading = false;
         setDirty(false);
     }

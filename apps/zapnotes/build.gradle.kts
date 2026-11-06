@@ -24,6 +24,8 @@ val jvmFlags = listOf("--enable-native-access=ALL-UNNAMED") + if (os.contains("m
 dependencies {
     implementation("com.zapthemes:zapthemes-jface:$zapthemes")
     implementation("com.zapthemes:zapthemes-jface-notifications:$zapthemes")
+    // Source viewer for the note body (brings com.zapthemes:zapthemes-text).
+    implementation("com.zapthemes:zapthemes-jface-text:$zapthemes")
     implementation("com.zapthemes:zapthemes-themes:$zapthemes")
     // The official data binding, on the forked JFace.
     implementation("org.eclipse.platform:org.eclipse.jface.databinding:1.16.0")

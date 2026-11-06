@@ -2,10 +2,11 @@ plugins {
     id("zapthemes.fork")
 }
 
-description = "Eclipse's SWT ControlExample and JFace snippets, unchanged but for the codemod, on ZapThemes. Not published."
+description = "Eclipse's SWT ControlExample, JFace snippets and JFace Text examples, unchanged but for the codemod, on ZapThemes. Not published."
 
 val swtExamples = rootProject.layout.projectDirectory.dir("third_party/swt-upstream/examples/org.eclipse.swt.examples/src")
 val jfaceSnippets = rootProject.layout.projectDirectory.dir("third_party/jface-upstream/examples/org.eclipse.jface.snippets/Eclipse JFace Snippets")
+val jfaceTextExamples = rootProject.layout.projectDirectory.dir("third_party/jface-upstream/examples/org.eclipse.jface.text.examples/src")
 
 // Only the ControlExample package of the SWT examples.
 val otherSwtExamples = swtExamples.dir("org/eclipse/swt/examples").asFile.listFiles { f -> f.isDirectory && f.name != "controlexample" }
@@ -16,11 +17,13 @@ zapthemesFork {
     themeSystemColors()
     upstream("controlexample", swtExamples, otherSwtExamples)
     upstream("jfacesnippets", jfaceSnippets)
+    upstream("jfacetextexamples", jfaceTextExamples)
 }
 
 dependencies {
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-jface-notifications"))
+    implementation(project(":zapthemes-jface-text"))
     implementation(project(":zapthemes-themes"))
     // The official data binding jars run on the forked JFace: they observe widgets, never create them.
     implementation(libs.jface.databinding)

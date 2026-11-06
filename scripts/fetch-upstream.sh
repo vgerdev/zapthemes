@@ -31,7 +31,8 @@ fetch() { # dir repo ref sparse-patterns...
 }
 
 fetch "$root/third_party/jface-upstream" "$JFACE_REPO" "$JFACE_REF" \
-    '/bundles/org.eclipse.jface/*' '/bundles/org.eclipse.jface.notifications/*' '/examples/org.eclipse.jface.snippets/*'
+    '/bundles/org.eclipse.jface/*' '/bundles/org.eclipse.jface.notifications/*' \
+    '/bundles/org.eclipse.jface.text/*' '/bundles/org.eclipse.text/*' '/examples/org.eclipse.jface.snippets/*' '/examples/org.eclipse.jface.text.examples/*'
 fetch "$root/third_party/swt-upstream" "$SWT_REPO" "$SWT_REF"     '/examples/org.eclipse.swt.examples/*'
 fetch "$root/third_party/nebula-upstream" "$NEBULA_REPO" "$NEBULA_COMMIT" \
     '/widgets/*/*/src/' '/widgets/*/*/src-gen/' '/widgets/*/*/META-INF/' '/widgets/*/*/*/src/' '/widgets/*/*/*/META-INF/'

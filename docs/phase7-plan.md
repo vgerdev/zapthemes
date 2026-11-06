@@ -8,9 +8,31 @@ own PR with tests, demo/example coverage and screenshots on Windows, GTK and mac
 |---|---|---|---|
 | 1 ✅ | **Data binding** | Use the official `org.eclipse.jface.databinding` and `org.eclipse.core.databinding*` jars from Maven Central on the forked JFace (capability resolution, as the guide shows). They create no widgets, so no fork is needed; verify with the JFace snippets 064/065 and a ZapNotes form. Then add the Nebula `*ObservableValue` classes left out in Phase 5 (DateChooser, FormattedText). | Smallest, unblocks the most: 2 snippets, Nebula binding, and a common need in real apps. |
 | 2 ✅ | **JFace notifications** | Fork `org.eclipse.jface.notifications` (small: popups that create widgets) with the codemod; theme the popup with a style class like PopupDialog's. | Found by the examples: 6 snippets need it. Same tools as the JFace fork. |
-| 3 | **`jface.text`** | Fork `org.eclipse.jface.text` (and `org.eclipse.text` as a plain dependency): `SourceViewer`, content assist, hovers, annotation rulers. Map its color preferences and hard-coded colors to theme classes and the `colors` registry. | The largest fork; its hovers and content assist reuse the step-2 and JFace popup work. |
+| 3 ✅ | **`jface.text`** | Fork `org.eclipse.jface.text` (and `org.eclipse.text` as a plain dependency): `SourceViewer`, content assist, hovers, annotation rulers. Map its color preferences and hard-coded colors to theme classes and the `colors` registry. | The largest fork; its hovers and content assist reuse the step-2 and JFace popup work. |
 | 4 | **NatTable bridge** | `zapthemes-nattable`: a NatTable `ThemeConfiguration` generated from the current ZapThemes theme, switched live. NatTable paints everything itself, so no fork. | Independent of 1–3; needs its own demo. |
 | 5 | **Nebula Visualization** | Fork the Visualization widgets (xygraph, ...) like Phases 4–5, with stylers for their colors. | Least used; last. |
+
+## Step 3 in detail
+
+`zapthemes-jface-text` forks `bundles/org.eclipse.jface.text` at `R4_41` (3.31.100), both source
+folders (`src`, `projection`): 340 files, 83 widget creations rewritten, `getSystemColor` routed
+through `registries.systemColors`, no raw creation left. `zapthemes-text` builds
+`bundles/org.eclipse.text` (3.14.800) unchanged: it shares packages with `jface.text`, and the JVM
+refuses unsigned classes in a package of the signed published jar. Patches
+(`src/fork/text-patches`, `src/fork/projection-patches`), through `TextTheming`:
+
+1. Information controls (hovers, content assist details) → `popup`, status line `popup muted`.
+2. Content assist: proposal list → `popup` (no stripes: `Table.popup` in the bundled themes),
+   context information and its selector → `popup` in a `frame`; colors the app set are kept.
+3. Rulers (vertical, composite, columns, overview) → `ruler`; line numbers and column backgrounds
+   paint in its colors.
+4. The folded-code hover → `popup`.
+
+Syntax colors: `TextTheming.KEYWORD`, ... are `ColorRegistry` keys the bundled themes set. Covered
+by `SourceViewerThemingTest`, the new `TextDemo` (editor, content assist, context information,
+hover; smoke test and screenshots), upstream's `CodeMiningDemo` and `InlinedAnnotationDemo` in the
+snippets browser, and ZapNotes' note body (a `SourceViewer` with line numbers and Markdown
+highlighting) on the staged artifacts.
 
 ## Step 2 in detail
 

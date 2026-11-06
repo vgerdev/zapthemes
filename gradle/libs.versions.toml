@@ -17,6 +17,8 @@ emf-ecore = "2.43.0"
 core-jobs = "3.15.900"
 # JFace notifications 0.8.100 (R4_41) requires core.runtime (Phase 7)
 core-runtime = "3.35.0"
+# JFace Text 3.31.100 (R4_41) and org.eclipse.text 3.14.800, built from source (Phase 7)
+equinox-preferences = "3.12.100"
 assertj = "3.27.7"
 
 [libraries]
@@ -28,6 +30,7 @@ eclipse-osgi = { module = "org.eclipse.platform:org.eclipse.osgi", version.ref =
 swt-svg = { module = "org.eclipse.platform:org.eclipse.swt.svg", version.ref = "swt-svg" }
 emf-ecore = { module = "org.eclipse.emf:org.eclipse.emf.ecore", version.ref = "emf-ecore" }
 core-runtime = { module = "org.eclipse.platform:org.eclipse.core.runtime", version.ref = "core-runtime" }
+equinox-preferences = { module = "org.eclipse.platform:org.eclipse.equinox.preferences", version.ref = "equinox-preferences" }
 core-jobs = { module = "org.eclipse.platform:org.eclipse.core.jobs", version.ref = "core-jobs" }
 pde-annotations = { module = "org.eclipse.pde:org.eclipse.pde.api.tools.annotations", version.ref = "pde-annotations" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }

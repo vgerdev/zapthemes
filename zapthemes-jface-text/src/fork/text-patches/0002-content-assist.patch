@@ -1,0 +1,80 @@
+diff --git a/org/eclipse/jface/text/contentassist/CompletionProposalPopup.java b/org/eclipse/jface/text/contentassist/CompletionProposalPopup.java
+--- a/org/eclipse/jface/text/contentassist/CompletionProposalPopup.java
++++ b/org/eclipse/jface/text/contentassist/CompletionProposalPopup.java
+@@ -697,6 +697,10 @@
+ 		fProposalShell.setBackground(background);
+ 		fProposalTable.setBackground(background);
+ 		fProposalTable.setForeground(foreground);
++		// ZapThemes: the theme styles the proposal list (style class "popup") unless the app chose its colors.
++		if (fContentAssistant.getProposalSelectorBackground() == null && fContentAssistant.getProposalSelectorForeground() == null) {
++			com.zapthemes.jface.text.TextTheming.popup(fProposalShell);
++		}
+ 
+ 		fProposalTable.addSelectionListener(new SelectionListener() {
+ 
+diff --git a/org/eclipse/jface/internal/text/link/contentassist/CompletionProposalPopup2.java b/org/eclipse/jface/internal/text/link/contentassist/CompletionProposalPopup2.java
+--- a/org/eclipse/jface/internal/text/link/contentassist/CompletionProposalPopup2.java
++++ b/org/eclipse/jface/internal/text/link/contentassist/CompletionProposalPopup2.java
+@@ -327,6 +327,8 @@
+ 		fProposalShell.setBackground(background);
+ 		fProposalTable.setBackground(background);
+ 		fProposalTable.setForeground(foreground);
++		// ZapThemes: the theme styles the proposal list (style class "popup").
++		com.zapthemes.jface.text.TextTheming.popup(fProposalShell);
+ 
+ 		fProposalTable.addSelectionListener(new SelectionListener() {
+ 
+diff --git a/org/eclipse/jface/text/contentassist/ContextInformationPopup.java b/org/eclipse/jface/text/contentassist/ContextInformationPopup.java
+--- a/org/eclipse/jface/text/contentassist/ContextInformationPopup.java
++++ b/org/eclipse/jface/text/contentassist/ContextInformationPopup.java
+@@ -443,6 +443,11 @@
+ 			c= com.zapthemes.core.SystemColors.get(display, SWT.COLOR_INFO_FOREGROUND);
+ 		}
+ 		fContextInfoText.setForeground(c);
++		// ZapThemes: the theme styles the frame ("frame") and, unless the app chose its colors, the text ("popup").
++		com.zapthemes.jface.text.TextTheming.frame(fContextInfoPopup);
++		if (fContentAssistant.getContextInformationPopupBackground() == null && fContentAssistant.getContextInformationPopupForeground() == null) {
++			com.zapthemes.jface.text.TextTheming.popup(fContextInfoText);
++		}
+ 	}
+ 
+ 	/**
+@@ -588,6 +593,11 @@
+ 			c= com.zapthemes.core.SystemColors.get(control.getDisplay(), SWT.COLOR_INFO_FOREGROUND);
+ 		}
+ 		fContextSelectorTable.setForeground(c);
++		// ZapThemes: as for the context information.
++		com.zapthemes.jface.text.TextTheming.frame(fContextSelectorShell);
++		if (fContentAssistant.getContextSelectorBackground() == null && fContentAssistant.getContextSelectorForeground() == null) {
++			com.zapthemes.jface.text.TextTheming.popup(fContextSelectorTable);
++		}
+ 
+ 		fContextSelectorTable.addSelectionListener(new SelectionListener() {
+ 			@Override
+diff --git a/org/eclipse/jface/internal/text/link/contentassist/ContextInformationPopup2.java b/org/eclipse/jface/internal/text/link/contentassist/ContextInformationPopup2.java
+--- a/org/eclipse/jface/internal/text/link/contentassist/ContextInformationPopup2.java
++++ b/org/eclipse/jface/internal/text/link/contentassist/ContextInformationPopup2.java
+@@ -263,6 +263,11 @@
+ 			c= com.zapthemes.core.SystemColors.get(display, SWT.COLOR_INFO_FOREGROUND);
+ 		}
+ 		fContextInfoText.setForeground(c);
++		// ZapThemes: the theme styles the frame ("frame") and, unless the app chose its colors, the text ("popup").
++		com.zapthemes.jface.text.TextTheming.frame(fContextInfoPopup);
++		if (fContentAssistant.getContextInformationPopupBackground() == null && fContentAssistant.getContextInformationPopupForeground() == null) {
++			com.zapthemes.jface.text.TextTheming.popup(fContextInfoText);
++		}
+ 	}
+ 
+ 	/**
+@@ -353,6 +358,11 @@
+ 			c= com.zapthemes.core.SystemColors.get(control.getDisplay(), SWT.COLOR_INFO_FOREGROUND);
+ 		}
+ 		fContextSelectorTable.setForeground(c);
++		// ZapThemes: as for the context information.
++		com.zapthemes.jface.text.TextTheming.frame(fContextSelectorShell);
++		if (fContentAssistant.getContextSelectorBackground() == null && fContentAssistant.getContextSelectorForeground() == null) {
++			com.zapthemes.jface.text.TextTheming.popup(fContextSelectorTable);
++		}
+ 
+ 		fContextSelectorTable.addSelectionListener(new SelectionListener() {
+ 			@Override
