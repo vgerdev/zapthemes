@@ -40,6 +40,7 @@ public final class SnippetBrowser extends com.zapthemes.swt.widgets.Composite {
 
     static final String PACKAGE = "org.eclipse.jface.snippets";
     static final String TEXT_PACKAGE = "org.eclipse.jface.text.examples";
+    static final String VISUALIZATION_PACKAGE = "org.eclipse.nebula.visualization.xygraph.exampleview";
 
     private final Supplier<String> theme;
     private final TreeViewer tree;
@@ -130,14 +131,18 @@ public final class SnippetBrowser extends com.zapthemes.swt.widgets.Composite {
     /** Snippet class names by package, sorted: the JFace snippets, then the JFace Text demos. */
     static Map<String, List<String>> snippets() {
         Map<String, List<String>> byPackage = new TreeMap<>();
-        scan(byPackage, PACKAGE, "", "Snippet");
+        scan(byPackage, PACKAGE, "", "Snippet*");
         // Group names have no dot: the tree tells groups from class names by it.
-        scan(byPackage, TEXT_PACKAGE, "text ", "");
+        scan(byPackage, TEXT_PACKAGE, "text ", "Demo");
+        scan(byPackage, VISUALIZATION_PACKAGE, "visualization", "PureJavaExample");
         return byPackage;
     }
 
-    /** Adds the top-level classes under {@code pkg} whose simple name starts with {@code prefix} ({@code ""}: ending in Demo). */
-    private static void scan(Map<String, List<String>> byPackage, String pkg, String groupPrefix, String prefix) {
+    /**
+     * Adds the top-level classes under {@code pkg} named {@code name}: an exact simple name, or one
+     * starting with it ({@code "Snippet*"}), or ending with it ({@code "Demo"} matches {@code CodeMiningDemo}).
+     */
+    private static void scan(Map<String, List<String>> byPackage, String pkg, String groupPrefix, String name) {
         URL root = SnippetBrowser.class.getClassLoader().getResource(pkg.replace('.', '/'));
         if (root == null) {
             return;
@@ -145,16 +150,17 @@ public final class SnippetBrowser extends com.zapthemes.swt.widgets.Composite {
         try (Classes classes = Classes.at(root.toURI())) {
             try (Stream<Path> files = Files.walk(classes.root())) {
                 files.map(p -> classes.root().relativize(p).toString().replace('\\', '/'))
-                        .filter(p -> p.endsWith(".class") && !p.contains("$") && p.contains("/"))
+                        .filter(p -> p.endsWith(".class") && !p.contains("$"))
                         .filter(p -> {
                             String simple = p.substring(p.lastIndexOf('/') + 1, p.length() - ".class".length());
-                            return prefix.isEmpty() ? simple.endsWith("Demo") : simple.startsWith(prefix);
+                            return name.endsWith("*") ? simple.startsWith(name.substring(0, name.length() - 1)) : simple.endsWith(name);
                         })
                         .sorted()
                         .forEach(p -> {
-                            String name = pkg + "." + p.substring(0, p.length() - ".class".length()).replace('/', '.');
-                            String group = groupPrefix + name.substring(pkg.length() + 1, name.lastIndexOf('.'));
-                            byPackage.computeIfAbsent(group, k -> new ArrayList<>()).add(name);
+                            String cls = pkg + "." + p.substring(0, p.length() - ".class".length()).replace('/', '.');
+                            String relative = cls.substring(pkg.length() + 1);
+                            String group = groupPrefix + (relative.contains(".") ? relative.substring(0, relative.lastIndexOf('.')) : "");
+                            byPackage.computeIfAbsent(group.strip(), k -> new ArrayList<>()).add(cls);
                         });
             }
         } catch (IOException e) {

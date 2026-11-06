@@ -10,7 +10,26 @@ own PR with tests, demo/example coverage and screenshots on Windows, GTK and mac
 | 2 ✅ | **JFace notifications** | Fork `org.eclipse.jface.notifications` (small: popups that create widgets) with the codemod; theme the popup with a style class like PopupDialog's. | Found by the examples: 6 snippets need it. Same tools as the JFace fork. |
 | 3 ✅ | **`jface.text`** | Fork `org.eclipse.jface.text` (and `org.eclipse.text` as a plain dependency): `SourceViewer`, content assist, hovers, annotation rulers. Map its color preferences and hard-coded colors to theme classes and the `colors` registry. | The largest fork; its hovers and content assist reuse the step-2 and JFace popup work. |
 | 4 ✅ | **NatTable bridge** | `zapthemes-nattable`: a NatTable `ThemeConfiguration` generated from the current ZapThemes theme, switched live. NatTable paints everything itself, so no fork. | Independent of 1–3; needs its own demo. |
-| 5 | **Nebula Visualization** | Fork the Visualization widgets (xygraph, ...) like Phases 4–5, with stylers for their colors. | Least used; last. |
+| 5 ✅ | **Nebula Visualization** | Fork the Visualization widgets (xygraph, ...) like Phases 4–5, with stylers for their colors. | Least used; last. |
+
+## Step 5 in detail
+
+`zapthemes-visualization` forks `widgets/visualization` (`xygraph`, 90 files, 111 widget creations
+rewritten in its dialogs and toolbar; `widgets`, 40 files) at the pinned Nebula commit, with
+`getSystemColor` routed through the theme. Its graphs and widgets are draw2d figures, which the
+control stylers cannot reach, so the theme's rules for figure types (by simple class name, in
+`controls`) go through `FigureTheming`: setters by key, the class's and its superclasses' rules,
+the most general first, never the theme's `defaults` (a new core API, `ThemeManager.ruleOf`, gives a
+type's rule alone). Originals come back when a theme drops a key; for colors and fonts that is the
+figure's own value, often none (inherited). A patch makes `XYGraph`, `ToolbarArmedXYGraph`,
+`AbstractScaledWidgetFigure` and `IntensityGraphFigure` attach the theme in `addNotify` and detach
+it in `removeNotify`, so applications need no call; figures added later (legends) are themed on the
+next layout.
+
+Covered by `FigureThemingTest` (types, a graph across a switch, a legend added later, trace colors
+kept, widget fills, originals restored, removal), the new `VisualizationDemo` (XYGraph with toolbar
+and traces, six widget figures; smoke test and screenshots), and upstream's `PureJavaExample` in
+the snippets browser.
 
 ## Step 4 in detail
 

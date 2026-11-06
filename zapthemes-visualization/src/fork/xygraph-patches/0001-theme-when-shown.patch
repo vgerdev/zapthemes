@@ -1,0 +1,48 @@
+diff --git a/org/eclipse/nebula/visualization/xygraph/figures/XYGraph.java b/org/eclipse/nebula/visualization/xygraph/figures/XYGraph.java
+--- a/org/eclipse/nebula/visualization/xygraph/figures/XYGraph.java
++++ b/org/eclipse/nebula/visualization/xygraph/figures/XYGraph.java
+@@ -55,6 +55,20 @@
+  * @author Baha El-Kassaby/Matthew Gerring (added Diamond Light Source contributions)
+  */
+ public class XYGraph extends Figure implements IXYGraph {
++
++	// ZapThemes: the theme's figure rules (com.zapthemes.visualization.FigureTheming) apply while
++	// the figure is shown.
++	@Override
++	public void addNotify() {
++		super.addNotify();
++		com.zapthemes.visualization.FigureTheming.attach(this);
++	}
++
++	@Override
++	public void removeNotify() {
++		com.zapthemes.visualization.FigureTheming.detach(this);
++		super.removeNotify();
++	}
+ 
+ 	/**
+ 	 * Use {@link IXYGraph#PROPERTY_CONFIG} instead
+diff --git a/org/eclipse/nebula/visualization/xygraph/figures/ToolbarArmedXYGraph.java b/org/eclipse/nebula/visualization/xygraph/figures/ToolbarArmedXYGraph.java
+--- a/org/eclipse/nebula/visualization/xygraph/figures/ToolbarArmedXYGraph.java
++++ b/org/eclipse/nebula/visualization/xygraph/figures/ToolbarArmedXYGraph.java
+@@ -23,6 +23,20 @@
+  * @author Kay Kasemir added flags
+  */
+ public class ToolbarArmedXYGraph extends Figure {
++
++	// ZapThemes: the theme's figure rules (com.zapthemes.visualization.FigureTheming) apply while
++	// the figure is shown.
++	@Override
++	public void addNotify() {
++		super.addNotify();
++		com.zapthemes.visualization.FigureTheming.attach(this);
++	}
++
++	@Override
++	public void removeNotify() {
++		com.zapthemes.visualization.FigureTheming.detach(this);
++		super.removeNotify();
++	}
+ 	final private IXYGraph xyGraph;
+ 
+ 	final private XYGraphToolbar toolbar;

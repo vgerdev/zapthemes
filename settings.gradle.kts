@@ -24,6 +24,7 @@ include(
     "zapthemes-jface-text",
     "zapthemes-text",
     "zapthemes-nattable",
+    "zapthemes-visualization",
     "zapthemes-nebula-fork",
     "zapthemes-nebula",
     "zapthemes-draw2d",
