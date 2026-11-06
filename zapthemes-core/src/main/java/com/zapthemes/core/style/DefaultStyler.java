@@ -4,6 +4,7 @@ import java.util.Locale;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabItem;
+import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.TableItem;
@@ -24,32 +25,31 @@ public class DefaultStyler implements ControlStyler {
 
     @Override
     public void apply(Widget widget, ResolvedStyle style, ThemeContext context) {
-        var background = context.color(style, BACKGROUND);
-        var foreground = context.color(style, FOREGROUND);
-        var font = context.font(style, FONT);
+        // Read only what is set, so that the keys read are the keys a type has (KeyRecorder).
         switch (widget) {
             case Control control -> {
-                control.setBackground(background);
-                control.setForeground(foreground);
+                control.setBackground(context.color(style, BACKGROUND));
+                control.setForeground(context.color(style, FOREGROUND));
                 // Without a theme font a control still follows the zoom; items inherit their parent's.
+                Font font = context.font(style, FONT);
                 control.setFont(font != null ? font : context.defaultFont());
                 if (control instanceof Composite composite) {
                     style.string(BACKGROUND_MODE).ifPresent(mode -> composite.setBackgroundMode(backgroundMode(mode)));
                 }
             }
             case TableItem item -> {
-                item.setBackground(background);
-                item.setForeground(foreground);
-                item.setFont(font);
+                item.setBackground(context.color(style, BACKGROUND));
+                item.setForeground(context.color(style, FOREGROUND));
+                item.setFont(context.font(style, FONT));
             }
             case TreeItem item -> {
-                item.setBackground(background);
-                item.setForeground(foreground);
-                item.setFont(font);
+                item.setBackground(context.color(style, BACKGROUND));
+                item.setForeground(context.color(style, FOREGROUND));
+                item.setFont(context.font(style, FONT));
             }
             case CTabItem item -> {
-                item.setForeground(foreground);
-                item.setFont(font);
+                item.setForeground(context.color(style, FOREGROUND));
+                item.setFont(context.font(style, FONT));
             }
             default -> {
                 // Other items (TableColumn, ToolItem, MenuItem, ...) are styled through their parent.

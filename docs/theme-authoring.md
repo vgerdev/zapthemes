@@ -305,6 +305,19 @@ class or state rules. An empty list means the theme is valid. Run it in a unit t
 themes, as [ThemeValidatorTest](../zapthemes-core/src/test/java/com/zapthemes/core/ThemeValidatorTest.java)
 does for the bundled ones.
 
+`PropertyCatalog.load().undescribed(theme)` lists what a theme sets that no module on the class path
+describes: a misspelled type, property, style class, state, registry entry or platform setting, which
+the validator cannot tell from a styler's own key. See [the property catalog](#the-property-catalog).
+
+### The property catalog
+
+`PropertyCatalog.load()` describes everything a theme can set, as the modules on the class path
+declare it: each control type with its properties (key, kind, and the common name it takes by
+default), style-bit variants and owner-draw states; the style classes the forks set; the
+`registries` entries; and the `platform` settings. The theme editor lists it, and the defaults
+together make the *default map*. `BaseNames` lists the common names those defaults refer to
+(`background`, `surface`, `raised`, `foreground`, `muted`, `border`, `gridLine`, `accent`, ...).
+
 ## 5. Make your own widgets theme-aware
 
 Do what the Nebula proxies do (see [Gauge](../zapthemes-samples/src/main/java/com/zapthemes/samples/Gauge.java)):
@@ -318,6 +331,11 @@ Do what the Nebula proxies do (see [Gauge](../zapthemes-samples/src/main/java/co
    your setters; override `apply` to `redraw()` afterwards.
 4. Write the widget's rule in your themes (`"Gauge": { "needleColor": "$accent" }`), against common
    names so that it follows each theme.
+5. Describe the type for tools such as the theme editor: implement `CatalogProvider` (listed in
+   `META-INF/services/com.zapthemes.core.catalog.CatalogProvider`) and add a `TypeSpec`.
+   `TypeSpec.reflect` finds a property per color or font setter; `.defaults("needleColor=accent")`
+   gives each the common name it takes by default. [GaugeStylers](../zapthemes-samples/src/main/java/com/zapthemes/samples/GaugeStylers.java)
+   does both steps 3 and 5.
 
 A widget that paints from the theme directly can instead call `themes.styleOf(this)` in its paint
 listener, as `FlatButton` does. To write a styler from scratch, implement `ControlStyler`. It must

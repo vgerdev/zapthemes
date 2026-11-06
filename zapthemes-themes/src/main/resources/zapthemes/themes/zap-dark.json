@@ -95,22 +95,7 @@
       "linkForeground": "$accent"
     },
     "Button[PUSH]": {
-      "background": "$muted",
-      "states": {
-        "hover": {
-          "background": "$hover"
-        },
-        "pressed": {
-          "background": "$accent",
-          "foreground": "$onAccent"
-        },
-        "disabled": {
-          "foreground": "$disabled"
-        },
-        "focused": {
-          "borderColor": "$accent"
-        }
-      }
+      "background": "$muted"
     },
     "CTabFolder": {
       "selectionBackground": "$surface",

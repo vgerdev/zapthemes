@@ -90,11 +90,11 @@ The user-facing words don't match today's JSON, so the format changes with them:
 Today stylers read their keys in code (`context.color(style, "headerBackground")`) and declare
 nothing, so step 4 has no list to show. A catalog fixes that:
 
-- `PropertySpec(type, key, kind, defaultName, description)`, where `kind` is color, font, int,
-  boolean, string or enum (renderer ids). It's registered next to each styler
-  (`StylerRegistry.register(type, styler, specs...)`), and figure types register with
-  `FigureTheming`.
-- `PropertyCatalog.all()` covers SWT and JFace types, the Flat widgets, Nebula, Nebula
+- `PropertySpec(key, kind, defaultName, ...)`, where `kind` is color, font, int, boolean, string
+  or choice, grouped by type in a `TypeSpec`. Each module describes its types through a
+  `CatalogProvider` service, implemented next to its styler provider (the same class, where there
+  is one); figure types are described by the visualization module.
+- `PropertyCatalog.load()` covers SWT and JFace types, the Flat widgets, Nebula, Nebula
   incubation, NatTable, Visualization figures, the jface.text classes (`*.ruler`, `*.frame`, syntax
   keys) and the JFace registry keys.
 - Each type also lists its style-bit variants, the style classes the library uses (`popup`,
@@ -104,7 +104,7 @@ nothing, so step 4 has no list to show. A catalog fixes that:
 - **Tests:**
   - every key a bundled theme uses is in the catalog;
   - every key a styler reads is in the catalog, by recording what `ResolvedStyle` is asked for
-    while the demos' smoke tests run on GTK;
+    while the demos' smoke tests run, on every CI platform;
   - every `defaultName` exists in the base names.
 
 ## Base common names
@@ -184,7 +184,7 @@ haven't set yourself.
 | # | Step | What | Why this order |
 |---|---|---|---|
 | 1 ✅ | **Theme format v2** | `formatVersion`; `swatches`, `names` with color + font, references resolved by key type, chained references with cycle errors, font fallback lists and `inherit`, the `editor` section, `dark`; v1 → v2 upgrade on load; the schema, `ThemeJson.write`, and validator messages. Old themes keep loading. | Everything else is built on this format. |
-| 2 | **Property catalog + default map** | `PropertySpec`, registration in every styler provider and `FigureTheming`, variants, classes and states per type; the catalog coverage tests above. | Step 4 of the wizard and upgrades on load both need it. |
+| 2 ✅ | **Property catalog + default map** | `PropertySpec`, registration in every styler provider and `FigureTheming`, variants, classes and states per type; the catalog coverage tests above. | Step 4 of the wizard and upgrades on load both need it. |
 | 3 | **Bundled themes on common names** | Rewrite the four bundled themes as v2 with the base names, turning literals into names where one fits. **Equivalence test:** every catalog type, variant, class and state resolves to the same colors and fonts before and after, and screenshot diffs show no change. | Shows that the format and names are enough for real themes before any UI exists. |
 | 4 | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
 | 5 | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
@@ -241,3 +241,32 @@ themes resolves after the upgrade to the same value as under version 1's rules (
 references) and that the upgraded themes write and read back unchanged; it also checks that the
 schema documents every section of `Theme`. The sample `acme-dark.json` and the authoring guide use
 format 2.
+
+## Step 2 in detail
+
+`com.zapthemes.core.catalog`: `PropertyCatalog.load()` merges what core describes (`CoreCatalog`:
+the 47 SWT widget types with the base properties of their kind, the built-in stylers' extra
+properties, `systemColors` and the platform settings) with every `CatalogProvider` on the class
+path: the Flat widgets, Nebula and Nebula incubation (a property per color or font setter of each
+proxy, found by `TypeSpec.reflect`, plus the dotted and gradient keys their stylers set), NatTable
+(inheriting Table's), the Visualization figures (each class inheriting its superclass, as figure
+rules apply), JFace (its style classes and its `colors` and `fonts` registry names), JFace Text
+(rulers, frames, syntax colors), notifications, and the sample Gauge. A type described twice is
+merged. `BaseNames` lists the common names; default names were taken from zap-dark's references,
+renamed to the base names (`bg` is `background`, `muted` is `raised`, `qualifier` is `muted`, `fg` is
+`foreground`), with grid lines defaulting to `gridLine` and focus colors to `focus`.
+
+`PropertyCatalog.undescribed(theme)` lists what a theme sets that the catalog does not describe;
+`describesRead(owner, key)` answers for a key a styler reads. `KeyRecorder`
+(`-Dzapthemes.recordKeys=<dir>`) records, per type, the keys stylers read; the demo smoke tests
+record, and `:zapthemes-demo:checkCatalog`, run by `:zapthemes-demo:smokeTest`, fails on any key
+read but not described (478 keys over 135 types). Making it pass found that `DefaultStyler` read
+background, foreground and font of widgets it then did not set (menus, columns, carets); it now
+reads only what it sets. It also found three unproxied Nebula parts themed by name and the plain
+system colors the forks look up. The bundled themes lost two rules nothing read: `Button[PUSH]`
+states and the high-contrast `Button[PUSH].borderColor` (native buttons paint neither).
+
+Tests: `PropertyCatalogTest` (base names, the core types and defaults, reflection, merging,
+`undescribed`, `describesRead`) and, in zapthemes-demo with every module, `CatalogCoverageTest`
+(every module described, every bundled theme fully described, every default a base name with the
+right part).
