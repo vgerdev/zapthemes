@@ -24,31 +24,29 @@ public class DefaultStyler implements ControlStyler {
 
     @Override
     public void apply(Widget widget, ResolvedStyle style, ThemeContext context) {
-        var background = context.color(style, BACKGROUND);
-        var foreground = context.color(style, FOREGROUND);
-        var font = context.font(style, FONT);
+        // Read only what is set, so that the keys read are the keys a type has (KeyRecorder).
         switch (widget) {
             case Control control -> {
-                control.setBackground(background);
-                control.setForeground(foreground);
-                control.setFont(font);
+                control.setBackground(context.color(style, BACKGROUND));
+                control.setForeground(context.color(style, FOREGROUND));
+                control.setFont(context.font(style, FONT));
                 if (control instanceof Composite composite) {
                     style.string(BACKGROUND_MODE).ifPresent(mode -> composite.setBackgroundMode(backgroundMode(mode)));
                 }
             }
             case TableItem item -> {
-                item.setBackground(background);
-                item.setForeground(foreground);
-                item.setFont(font);
+                item.setBackground(context.color(style, BACKGROUND));
+                item.setForeground(context.color(style, FOREGROUND));
+                item.setFont(context.font(style, FONT));
             }
             case TreeItem item -> {
-                item.setBackground(background);
-                item.setForeground(foreground);
-                item.setFont(font);
+                item.setBackground(context.color(style, BACKGROUND));
+                item.setForeground(context.color(style, FOREGROUND));
+                item.setFont(context.font(style, FONT));
             }
             case CTabItem item -> {
-                item.setForeground(foreground);
-                item.setFont(font);
+                item.setForeground(context.color(style, FOREGROUND));
+                item.setFont(context.font(style, FONT));
             }
             default -> {
                 // Other items (TableColumn, ToolItem, MenuItem, ...) are styled through their parent.

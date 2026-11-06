@@ -17,6 +17,11 @@ dependencies {
     implementation(project(":zapthemes-nebula"))
     implementation(project(":zapthemes-nebula-incubation"))
     implementation(project(":zapthemes-themes"))
+
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.assertj.core)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 // NatTable's POM asks for the official JFace; the fork provides the same capability.
@@ -38,7 +43,12 @@ tasks.register<JavaExec>("runStandalone") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
-// Opens both demos, switches themes, checks every control and exits. Used in CI.
+// Opens both demos, switches themes, checks every control and exits. Used in CI. Each records the
+// theme keys its stylers read (KeyRecorder), which checkCatalog compares with the property catalog.
+val recordedKeys = layout.buildDirectory.dir("recorded-keys")
+val clearRecordedKeys = tasks.register<Delete>("clearRecordedKeys") {
+    delete(recordedKeys)
+}
 val smokeStandalone = tasks.register<JavaExec>("smokeTestStandalone") {
     group = "verification"
     description = "Smoke-tests the standalone SWT demo."
@@ -81,10 +91,26 @@ val smokeVisualization = tasks.register<JavaExec>("smokeTestVisualization") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization)
+smokeTasks.forEach { task ->
+    task.configure {
+        dependsOn(clearRecordedKeys)
+        systemProperty("zapthemes.recordKeys", recordedKeys.get().asFile.absolutePath)
+    }
+}
+// Every key the smoke tests read must be described by the PropertyCatalog.
+val checkCatalog = tasks.register<JavaExec>("checkCatalog") {
+    group = "verification"
+    description = "Checks that the property catalog describes every theme key the demo smoke tests read."
+    mainClass = "com.zapthemes.demo.CatalogCheck"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args(recordedKeys.get().asFile.absolutePath)
+    mustRunAfter(smokeTasks)
+}
 tasks.register("smokeTest") {
     group = "verification"
-    description = "Runs every demo smoke test."
-    dependsOn(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization)
+    description = "Runs every demo smoke test, then checks the property catalog against the keys they read."
+    dependsOn(smokeTasks, checkCatalog)
 }
 
 // The JFace Text source viewer demo.

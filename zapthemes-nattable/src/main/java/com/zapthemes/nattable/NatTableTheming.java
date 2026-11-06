@@ -11,6 +11,10 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Widget;
 
+import com.zapthemes.core.catalog.CatalogProvider;
+import com.zapthemes.core.catalog.PropertyCatalog;
+import com.zapthemes.core.catalog.PropertySpec;
+import com.zapthemes.core.catalog.TypeSpec;
 import com.zapthemes.core.style.DefaultStyler;
 import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.StylerProvider;
@@ -38,7 +42,7 @@ import com.zapthemes.core.style.ThemeContext;
  * that calls {@code configure()} on a table created with {@code autoConfigure} off after the theme
  * reached it.
  */
-public final class NatTableTheming implements StylerProvider {
+public final class NatTableTheming implements StylerProvider, CatalogProvider {
 
     /** Data key: {@code Boolean.TRUE} leaves the table's NatTable theme to the application. */
     public static final String MANUAL = "zapthemes.nattable.manual";
@@ -117,5 +121,19 @@ public final class NatTableTheming implements StylerProvider {
             table.setData(EXTENSIONS, new ArrayList<IThemeExtension>());
         }
         return (List<IThemeExtension>) table.getData(EXTENSIONS);
+    }
+
+    /** NatTable takes a Table's keys (its rule inherits Table's), plus what only NatTable has. */
+    @Override
+    public void describe(PropertyCatalog.Builder catalog) {
+        catalog.type(TypeSpec.of("NatTable", "NatTable", TypeSpec.Base.COMPOSITE).inheriting("Table")
+                .with(PropertySpec.font("headerFont", null, "Column and row header font; the font when not set"),
+                        PropertySpec.color("filterRowBackground", null, "The filter row; the header background when not set"),
+                        PropertySpec.color("summaryRowBackground", null, "The summary row; the header background when not set"),
+                        PropertySpec.color("freezeSeparatorColor", "border", "The line after frozen rows and columns"),
+                        PropertySpec.color("errorForeground", "error", "Cells failing validation"),
+                        PropertySpec.color("accentColor", "accent", "Sort, filter and tree icons' accent"))
+                .withStates("hover")
+                .described("Painted entirely by NatTable, from a ThemeConfiguration built from this rule"));
     }
 }
