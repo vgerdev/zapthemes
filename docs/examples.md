@@ -15,7 +15,7 @@ application would be moved over. Neither is edited by hand:
    forks use). The build fails if a themeable widget is still created directly; both report 0.
    `display.getSystemColor(...)` goes through the theme as well (`themeSystemColors()`).
 2. **The forked JFace** replaces `org.eclipse.jface` on the class path, and the forked
-   notifications replace `org.eclipse.jface.notifications`; the snippets use them as is.
+   notifications and JFace Text replace `org.eclipse.jface.notifications` and `org.eclipse.jface.text`; the snippets use them as is.
 3. **A theme without code changes.** Both programs create their own `Display` and never call
    `setTheme`. `-Dzapthemes.theme=<id>` (or `auto`, or the path of a theme file) themes them anyway:
    `zapthemes-themes` registers a `ThemeExtension` whose `initialTheme` reads the property when the
@@ -60,3 +60,7 @@ Every snippet is included. The two data binding snippets (064, 065) run on the o
 `jface.databinding` jar, which works on the forked JFace unchanged; the six notification snippets run
 on `zapthemes-jface-notifications` ([Phase 7](phase7-plan.md), step 2). `screenshotsSnippets` saves
 their popups as `<snippet>-2.png` next to the main window.
+
+The snippets browser also lists the two demos of `examples/org.eclipse.jface.text.examples`
+(`CodeMiningDemo`, `InlinedAnnotationDemo`, groups "text ..."), forked the same way and run on
+`zapthemes-jface-text` ([Phase 7](phase7-plan.md), step 3).

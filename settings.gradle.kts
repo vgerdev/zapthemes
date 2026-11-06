@@ -21,6 +21,8 @@ include(
     "zapthemes-widgets",
     "zapthemes-jface",
     "zapthemes-jface-notifications",
+    "zapthemes-jface-text",
+    "zapthemes-text",
     "zapthemes-nebula-fork",
     "zapthemes-nebula",
     "zapthemes-draw2d",

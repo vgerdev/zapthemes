@@ -10,7 +10,8 @@ builds against ZapThemes: a separate Gradle build that depends only on the publi
   bars.
 - **Editor form:** a title bound with JFace data binding (a validator, and
   `ControlDecorationSupport` showing its message), a notebook combo, tags with content assist
-  (Ctrl+Space), and a `StyledText` body.
+  (Ctrl+Space), and a JFace Text `SourceViewer` body with line numbers and Markdown highlighting
+  (headings, `` `code` ``, quotes) in the theme's syntax colors.
 - **Windows and dialogs:** any number of windows over one model (Window › New Window), a new-note
   wizard, Find, Rename, Delete, About, Preferences (theme and line wrapping) and an Export with a
   progress dialog and a JFace notification when it is done.

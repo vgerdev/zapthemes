@@ -1,0 +1,12 @@
+diff --git a/org/eclipse/jface/text/source/projection/SourceViewerInformationControl.java b/org/eclipse/jface/text/source/projection/SourceViewerInformationControl.java
+--- a/org/eclipse/jface/text/source/projection/SourceViewerInformationControl.java
++++ b/org/eclipse/jface/text/source/projection/SourceViewerInformationControl.java
+@@ -174,6 +174,8 @@
+ 
+ 			fStatusField.setBackground(com.zapthemes.core.SystemColors.get(display, SWT.COLOR_INFO_BACKGROUND));
+ 		}
++		// ZapThemes: the theme styles the folded-code hover (style class "popup", the status line also "muted").
++		com.zapthemes.jface.text.TextTheming.popup(fShell, fStatusField);
+ 
+ 		addDisposeListener(this);
+ 	}

@@ -31,13 +31,15 @@ import org.eclipse.swt.widgets.Label;
 import com.zapthemes.themes.SystemPropertyTheme;
 
 /**
- * The JFace snippets ({@code org.eclipse.jface.snippets}), grouped by package. Each snippet is a
+ * The JFace snippets ({@code org.eclipse.jface.snippets}), grouped by package, and the JFace Text
+ * examples' demos ({@code org.eclipse.jface.text.examples}, groups "text ..."). Each snippet is a
  * program of its own, with its own {@code Display}, so <b>Run</b> starts it in a new JVM on the same
  * class path, in the theme {@code theme} names at that moment ({@code -Dzapthemes.theme}).
  */
 public final class SnippetBrowser extends com.zapthemes.swt.widgets.Composite {
 
     static final String PACKAGE = "org.eclipse.jface.snippets";
+    static final String TEXT_PACKAGE = "org.eclipse.jface.text.examples";
 
     private final Supplier<String> theme;
     private final TreeViewer tree;
@@ -125,22 +127,34 @@ public final class SnippetBrowser extends com.zapthemes.swt.widgets.Composite {
         return (capture ? builder.redirectErrorStream(true) : builder.inheritIO()).start();
     }
 
-    /** Snippet class names by package, sorted. */
+    /** Snippet class names by package, sorted: the JFace snippets, then the JFace Text demos. */
     static Map<String, List<String>> snippets() {
         Map<String, List<String>> byPackage = new TreeMap<>();
-        URL root = SnippetBrowser.class.getClassLoader().getResource(PACKAGE.replace('.', '/'));
+        scan(byPackage, PACKAGE, "", "Snippet");
+        // Group names have no dot: the tree tells groups from class names by it.
+        scan(byPackage, TEXT_PACKAGE, "text ", "");
+        return byPackage;
+    }
+
+    /** Adds the top-level classes under {@code pkg} whose simple name starts with {@code prefix} ({@code ""}: ending in Demo). */
+    private static void scan(Map<String, List<String>> byPackage, String pkg, String groupPrefix, String prefix) {
+        URL root = SnippetBrowser.class.getClassLoader().getResource(pkg.replace('.', '/'));
         if (root == null) {
-            return byPackage;
+            return;
         }
         try (Classes classes = Classes.at(root.toURI())) {
             try (Stream<Path> files = Files.walk(classes.root())) {
                 files.map(p -> classes.root().relativize(p).toString().replace('\\', '/'))
-                        .filter(p -> p.endsWith(".class") && !p.contains("$") && p.substring(p.lastIndexOf('/') + 1).startsWith("Snippet"))
+                        .filter(p -> p.endsWith(".class") && !p.contains("$") && p.contains("/"))
+                        .filter(p -> {
+                            String simple = p.substring(p.lastIndexOf('/') + 1, p.length() - ".class".length());
+                            return prefix.isEmpty() ? simple.endsWith("Demo") : simple.startsWith(prefix);
+                        })
                         .sorted()
                         .forEach(p -> {
-                            String name = PACKAGE + "." + p.substring(0, p.length() - ".class".length()).replace('/', '.');
-                            String pkg = name.substring(PACKAGE.length() + 1, name.lastIndexOf('.'));
-                            byPackage.computeIfAbsent(pkg, k -> new ArrayList<>()).add(name);
+                            String name = pkg + "." + p.substring(0, p.length() - ".class".length()).replace('/', '.');
+                            String group = groupPrefix + name.substring(pkg.length() + 1, name.lastIndexOf('.'));
+                            byPackage.computeIfAbsent(group, k -> new ArrayList<>()).add(name);
                         });
             }
         } catch (IOException e) {
@@ -148,7 +162,6 @@ public final class SnippetBrowser extends com.zapthemes.swt.widgets.Composite {
         } catch (URISyntaxException e) {
             throw new IllegalStateException(e);
         }
-        return byPackage;
     }
 
     private static int count(Map<String, List<String>> snippets) {

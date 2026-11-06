@@ -84,7 +84,8 @@ final class Model {
         Model model = new Model();
         model.notebooks.addAll(List.of("Work", "Personal", "Reading"));
         Note release = note(model, "Release checklist", "Work", "release, ci",
-                "Everything that must be green before 1.0 ships: CI on Windows, Linux and macOS, the samples, the guide.",
+                "# Before 1.0\n\nEverything that must be green before 1.0 ships: CI on Windows, Linux and macOS, the samples, the guide.\n\n"
+                        + "> Run `./gradlew smokeTest` on every platform first.\n",
                 "Run the smoke tests", true, "Review the macOS screenshots", true, "Verify the namespace", false);
         note(model, "Theme ideas", "Work", "design, themes",
                 "A solarized pair, a sepia reading theme, and a theme that follows the desktop accent color.",

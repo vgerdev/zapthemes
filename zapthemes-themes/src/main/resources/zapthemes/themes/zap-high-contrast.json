@@ -76,6 +76,9 @@
     },
     "*.notification": {
       "background": "$border"
+    },
+    "*.ruler": {
+      "foreground": "$line"
     }
   },
   "platform": {
@@ -86,6 +89,10 @@
   },
   "registries": {
     "colors": {
+      "com.zapthemes.text.keyword": "#FFFF00",
+      "com.zapthemes.text.string": "#00FF00",
+      "com.zapthemes.text.comment": "#C8C8C8",
+      "com.zapthemes.text.number": "#00FFFF",
       "HYPERLINK_COLOR": "$link",
       "ACTIVE_HYPERLINK_COLOR": "$accent"
     },

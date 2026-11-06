@@ -316,6 +316,16 @@
     "*.notification": {
       "background": "$border"
     },
+    "*.ruler": {
+      "background": "$surface",
+      "foreground": "$qualifier"
+    },
+    "*.frame": {
+      "background": "$border"
+    },
+    "Table.popup": {
+      "alternateRowBackground": "$surface"
+    },
     "*.pane": {
       "background": "$surface"
     },
@@ -354,6 +364,10 @@
   },
   "registries": {
     "colors": {
+      "com.zapthemes.text.keyword": "#0033B3",
+      "com.zapthemes.text.string": "#067D17",
+      "com.zapthemes.text.comment": "#8C8C8C",
+      "com.zapthemes.text.number": "#1750EB",
       "ERROR_COLOR": "$error",
       "HYPERLINK_COLOR": "$accent",
       "ACTIVE_HYPERLINK_COLOR": "$accent",
