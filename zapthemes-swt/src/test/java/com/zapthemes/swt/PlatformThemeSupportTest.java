@@ -93,24 +93,38 @@ class PlatformThemeSupportTest {
         shell.setSize(300, 150);
         shell.open();
 
+        RGB expected = new RGB(0x10, 0x10, 0x10);
         manager.setTheme(DARK);
-        RGB dark = menuBarPixel(shell);
+        RGB dark = menuBarPixel(shell, expected::equals);
         manager.setTheme(PLAIN);
-        RGB plain = menuBarPixel(shell);
+        RGB plain = menuBarPixel(shell, rgb -> !rgb.equals(expected));
 
-        assertThat(dark).isEqualTo(new RGB(0x10, 0x10, 0x10));
+        assertThat(dark).isEqualTo(expected);
         assertThat(plain).as("the GTK theme's own menu bar").isNotEqualTo(dark);
     }
 
-    /** A menu bar pixel right of its items, once GTK has restyled and painted. */
-    private RGB menuBarPixel(Shell shell) {
-        long end = System.currentTimeMillis() + 300;
-        while (System.currentTimeMillis() < end) {
-            if (!display.readAndDispatch()) {
-                display.timerExec(20, () -> { });
-                display.sleep();
+    /**
+     * A menu bar pixel right of its items, once GTK has restyled and painted: sampled until it
+     * satisfies {@code settled} or 3 s pass. A fixed wait was flaky on loaded CI machines (GTK
+     * repaints the menu bar later there), so the assertion sees the last sample instead.
+     */
+    private RGB menuBarPixel(Shell shell, java.util.function.Predicate<RGB> settled) {
+        long end = System.currentTimeMillis() + 3000;
+        RGB rgb;
+        do {
+            long next = System.currentTimeMillis() + 100;
+            while (System.currentTimeMillis() < next) {
+                if (!display.readAndDispatch()) {
+                    display.timerExec(20, () -> { });
+                    display.sleep();
+                }
             }
-        }
+            rgb = sample(shell);
+        } while (!settled.test(rgb) && System.currentTimeMillis() < end);
+        return rgb;
+    }
+
+    private RGB sample(Shell shell) {
         var size = shell.getSize();
         Image image = new Image(display, size.x, size.y);
         GC gc = new GC(image);

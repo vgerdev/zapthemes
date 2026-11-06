@@ -79,6 +79,15 @@ val screenshotTasks = mapOf(
         args("--smoke", "--screenshots", screenshotDir.get().asFile.absolutePath)
     }
 }
+// macOS only: the JFace demo's window, dialogs and hovers as the screen shows them (screencapture),
+// since Control.print leaves Cocoa dialogs blank. Elsewhere it only runs the smoke check.
+tasks.register<JavaExec>("screenCapturesJFace") {
+    group = "documentation"
+    description = "Saves macOS screen captures of the JFace demo's window, dialogs and hovers in every theme."
+    mainClass = "com.zapthemes.demo.JFaceDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke", "--screen-captures", screenshotDir.get().dir("screen").asFile.absolutePath)
+}
 tasks.register("screenshots") {
     group = "documentation"
     description = "Saves screenshots of every demo in every theme."

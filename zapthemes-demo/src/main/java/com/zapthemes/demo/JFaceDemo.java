@@ -73,7 +73,9 @@ import com.zapthemes.themes.BundledThemes;
  * <p>{@code --smoke} opens every dialog, a tooltip and a field-decoration hover, checks that each
  * control is tagged and has the theme's background in every bundled theme, and exits non-zero on
  * failure. {@code --screenshots <dir>} saves the window (focus cell and a status-line error shown),
- * the dialogs and the hovers as PNG.
+ * the dialogs and the tooltip as PNG. {@code --screen-captures <dir>} also saves what the screen
+ * shows at each step, through macOS {@code screencapture}: Control.print leaves Cocoa dialogs blank
+ * and cannot capture hovers.
  */
 public final class JFaceDemo extends ApplicationWindow {
 
@@ -92,6 +94,7 @@ public final class JFaceDemo extends ApplicationWindow {
     private final List<Theme> available;
     private int current;
     private TableViewer table;
+    private Path screenCaptures;
 
     private JFaceDemo(ThemeManager themes, List<Theme> available) {
         super(null);
@@ -113,7 +116,9 @@ public final class JFaceDemo extends ApplicationWindow {
 
         JFaceDemo demo = new JFaceDemo(themes, available);
         int shots = options.indexOf("--screenshots");
-        if (options.contains("--smoke") || shots >= 0) {
+        int captures = options.indexOf("--screen-captures");
+        demo.screenCaptures = captures >= 0 ? Path.of(options.get(captures + 1)) : null;
+        if (options.contains("--smoke") || shots >= 0 || captures >= 0) {
             demo.setBlockOnOpen(false);
             demo.open();
             int exit = demo.verify(shots >= 0 ? Path.of(options.get(shots + 1)) : null);
@@ -365,6 +370,7 @@ public final class JFaceDemo extends ApplicationWindow {
             dispatch();
             checked += check("window", getShell(), problems);
             screenshot(getShell(), screenshots, "jface-window-" + theme.id());
+            capture(getShell(), "jface-window-" + theme.id());
             getStatusLineManager().setErrorMessage(null);
             checked += hovers(theme, screenshots, problems);
             for (var entry : dialogs.entrySet()) {
@@ -374,6 +380,7 @@ public final class JFaceDemo extends ApplicationWindow {
                 dispatch();
                 checked += check(entry.getKey(), dialog.getShell(), problems);
                 screenshot(dialog.getShell(), screenshots, "jface-" + entry.getKey().toLowerCase() + "-" + theme.id());
+                capture(dialog.getShell(), "jface-" + entry.getKey().toLowerCase() + "-" + theme.id());
                 dialog.close();
             }
         }
@@ -398,12 +405,14 @@ public final class JFaceDemo extends ApplicationWindow {
         Shell tipShell = opened(() -> tip.show(new Point(20, 40)));
         int checked = check("ToolTip", tipShell, problems);
         screenshot(tipShell, screenshots, "jface-tooltip-" + theme.id());
+        capture(tipShell, "jface-tooltip-" + theme.id());
         tip.hide();
 
         ControlDecoration decoration = new ControlDecoration(anchor, SWT.TOP | SWT.LEFT);
         decoration.setImage(FieldDecorationRegistry.getDefault().getFieldDecoration(FieldDecorationRegistry.DEC_ERROR).getImage());
         Shell hover = opened(() -> decoration.showHoverText("ControlDecoration hovers too."));
         checked += check("Decoration", hover, problems);
+        capture(hover, "jface-decoration-" + theme.id());
         decoration.dispose();
         return checked;
     }
@@ -443,6 +452,35 @@ public final class JFaceDemo extends ApplicationWindow {
     /** Runs pending Skin, layout and paint events; GTK restyles some parts (table headers) only after a frame. */
     private static void dispatch() {
         DemoSupport.settle(Display.getCurrent());
+    }
+
+    /**
+     * With {@code --screen-captures}, saves the whole screen with {@code shell} painted, through
+     * macOS {@code screencapture}; elsewhere it does nothing.
+     */
+    private void capture(Shell shell, String name) throws Exception {
+        if (screenCaptures == null || !SWT.getPlatform().equals("cocoa")) {
+            return;
+        }
+        Files.createDirectories(screenCaptures);
+        // The window server shows new drawing only once the event loop has run.
+        Display display = shell.getDisplay();
+        long end = System.currentTimeMillis() + 300;
+        while (System.currentTimeMillis() < end) {
+            if (!display.readAndDispatch()) {
+                display.timerExec(20, () -> { });
+                display.sleep();
+            }
+        }
+        if (shell.isDisposed() || !shell.isVisible()) {
+            System.out.println("Not captured, " + name + " closed while the screen updated");
+            return;
+        }
+        String file = screenCaptures.resolve(name + ".png").toString();
+        int exit = new ProcessBuilder("screencapture", "-x", file).inheritIO().start().waitFor();
+        if (exit != 0) {
+            System.out.println("screencapture failed (" + exit + ") for " + file);
+        }
     }
 
     /** Saves {@code shell}'s client area via {@link Control#print}, which needs no screen access. */
