@@ -4,6 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.nebula.widgets.nattable.NatTable;
+import org.eclipse.nebula.widgets.nattable.config.IConfigRegistry;
+import org.eclipse.nebula.widgets.nattable.config.NatTableConfigAttributes;
+import org.eclipse.nebula.widgets.nattable.layer.DefaultZoomDpiConverter;
+import org.eclipse.nebula.widgets.nattable.layer.IDpiConverter;
+import org.eclipse.nebula.widgets.nattable.layer.command.ConfigureScalingCommand;
+import org.eclipse.nebula.widgets.nattable.style.DisplayMode;
 import org.eclipse.nebula.widgets.nattable.style.theme.DefaultNatTableThemeConfiguration;
 import org.eclipse.nebula.widgets.nattable.style.theme.IThemeExtension;
 import org.eclipse.nebula.widgets.nattable.style.theme.ThemeConfiguration;
@@ -38,7 +44,12 @@ import com.zapthemes.core.style.ThemeContext;
  *       themed before NatTable's {@code DefaultNatTableThemeConfiguration}.</li>
  * </ul>
  *
- * The bridge applies the theme again on the table's first paint, so it survives an application
+ * <p>Row heights and column widths follow the {@linkplain com.zapthemes.core.ThemeManager#setZoom
+ * zoom}, through NatTable's own scaling ({@code ConfigureScalingCommand}): NatTable keeps the sizes
+ * unscaled, so zooming never drifts and sizes the user dragged stay in proportion. This is done
+ * for {@link #MANUAL} tables too.
+ *
+ * <p>The bridge applies the theme again on the table's first paint, so it survives an application
  * that calls {@code configure()} on a table created with {@code autoConfigure} off after the theme
  * reached it.
  */
@@ -51,6 +62,8 @@ public final class NatTableTheming implements StylerProvider, CatalogProvider {
     private static final String THEMED = "zapthemes.nattable.themed";
     private static final String FIRST_PAINT = "zapthemes.nattable.firstPaint";
     private static final String CURRENT = "zapthemes.nattable.configuration";
+    private static final String ZOOM = "zapthemes.nattable.zoom";
+    private static final String BASE_CONVERTERS = "zapthemes.nattable.dpiConverters";
 
     @Override
     public void register(StylerRegistry registry) {
@@ -59,6 +72,7 @@ public final class NatTableTheming implements StylerProvider, CatalogProvider {
             public void apply(Widget widget, ResolvedStyle style, ThemeContext context) {
                 super.apply(widget, style, context);
                 if (widget instanceof NatTable table) {
+                    zoom(table, context.resources().zoom());
                     theme(table, style, context);
                 }
             }
@@ -73,6 +87,32 @@ public final class NatTableTheming implements StylerProvider, CatalogProvider {
     /** The configuration the bridge builds for a table from {@code style}, the table's resolved theme style. */
     public static ThemeConfiguration configuration(ResolvedStyle style, ThemeContext context) {
         return new ZapNatTableThemeConfiguration(style, context);
+    }
+
+    /** Scales the table's sizes to {@code zoom} when it differs from the zoom applied last (100 % at first). */
+    static void zoom(NatTable table, double zoom) {
+        double applied = table.getData(ZOOM) instanceof Double z ? z : 1.0;
+        if (applied == zoom) {
+            return;
+        }
+        // NatTable's own converters for the monitor, from before the first zoom: NatTable registers
+        // the ones the command brings, so later zooms must not build on those.
+        IDpiConverter[] base = table.getData(BASE_CONVERTERS) instanceof IDpiConverter[] b ? b : baseConverters(table);
+        table.setData(BASE_CONVERTERS, base);
+        IDpiConverter horizontal = base[0];
+        IDpiConverter vertical = base[1];
+        table.doCommand(new ConfigureScalingCommand(new ZoomDpiConverter(horizontal, zoom), new ZoomDpiConverter(vertical, zoom)));
+        table.setData(ZOOM, zoom);
+        table.redraw();
+    }
+
+    private static IDpiConverter[] baseConverters(NatTable table) {
+        IConfigRegistry config = table.getConfigRegistry();
+        IDpiConverter horizontal = config.getConfigAttribute(NatTableConfigAttributes.HORIZONTAL_DPI_CONVERTER, DisplayMode.NORMAL);
+        IDpiConverter vertical = config.getConfigAttribute(NatTableConfigAttributes.VERTICAL_DPI_CONVERTER, DisplayMode.NORMAL);
+        // As NatTable creates them when none is registered.
+        return new IDpiConverter[] { horizontal != null ? horizontal : new DefaultZoomDpiConverter(table),
+                vertical != null ? vertical : new DefaultZoomDpiConverter(table) };
     }
 
     static void theme(NatTable table, ResolvedStyle style, ThemeContext context) {

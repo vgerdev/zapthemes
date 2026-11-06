@@ -48,6 +48,7 @@ public class PropertyStyler extends DefaultStyler {
                 ? (Map<String, Object>) m : new HashMap<>();
         Set<String> previous = widget.getData(APPLIED) instanceof Set<?> s ? (Set<String>) s : Set.of();
         Set<String> applied = new HashSet<>();
+        String owner = widget.getData(com.zapthemes.core.ThemeKeys.THEME_CONTROL_TYPE) instanceof String t ? t : null;
 
         for (String key : style.keys()) {
             if (RESERVED.contains(key) || (widget instanceof Control && DEFAULT_KEYS.contains(key))) {
@@ -59,7 +60,7 @@ public class PropertyStyler extends DefaultStyler {
             }
             Object value;
             try {
-                value = value(style, key, target.setter.getParameterTypes()[0], context);
+                value = value(style, key, target.setter.getParameterTypes()[0], owner, context);
             } catch (RuntimeException e) {
                 LOG.log(Level.WARNING, "Theme value of \"" + key + "\" does not fit " + target.setter, e);
                 continue;
@@ -89,7 +90,8 @@ public class PropertyStyler extends DefaultStyler {
         }
     }
 
-    private static Object value(ResolvedStyle style, String key, Class<?> type, ThemeContext context) {
+    /** {@code owner}: the theme type, so that sizes (by the catalog) follow the zoom. */
+    private static Object value(ResolvedStyle style, String key, Class<?> type, String owner, ThemeContext context) {
         if (type == Color.class) {
             return context.color(style, key);
         }
@@ -97,7 +99,7 @@ public class PropertyStyler extends DefaultStyler {
             return context.font(style, key);
         }
         if (type == int.class) {
-            return style.integer(key).orElse(null);
+            return context.integer(style, owner, key).orElse(null);
         }
         if (type == boolean.class) {
             return style.bool(key).orElse(null);

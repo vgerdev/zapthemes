@@ -109,7 +109,7 @@ public class FlatProgressBar extends Canvas {
     @Override
     public Point computeSize(int wHint, int hHint, boolean changed) {
         checkWidget();
-        return new Point(wHint == SWT.DEFAULT ? 160 : wHint, hHint == SWT.DEFAULT ? 8 : hHint);
+        return new Point(wHint == SWT.DEFAULT ? FlatPalette.px(this, 160) : wHint, hHint == SWT.DEFAULT ? FlatPalette.px(this, 8) : hHint);
     }
 
     private int percent() {
@@ -121,7 +121,7 @@ public class FlatProgressBar extends Canvas {
         gc.setAntialias(SWT.ON);
         Rectangle area = getClientArea();
         FlatPalette colors = FlatPalette.of(this, isEnabled() ? null : "disabled");
-        int arc = colors.integer("arc", area.height);
+        int arc = colors.sizeOr("arc", area.height);
 
         gc.setBackground(getParent().getBackground());
         gc.fillRectangle(area);

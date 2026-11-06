@@ -39,7 +39,7 @@ public final class GaugeStylers implements StylerProvider, CatalogProvider {
     public void describe(PropertyCatalog.Builder catalog) {
         catalog.type(TypeSpec.reflect("Gauge", "Samples", TypeSpec.Base.bySetters(Gauge.class), Gauge.class)
                 .defaults("trackColor=raised", "needleColor=accent", "labelColor=foreground")
-                .with(PropertySpec.integer("thickness", null, "Track thickness, in pixels"))
+                .with(PropertySpec.size("thickness", null, "Track thickness, in pixels"))
                 .described("The custom widget of CustomWidgetSample"));
     }
 }
