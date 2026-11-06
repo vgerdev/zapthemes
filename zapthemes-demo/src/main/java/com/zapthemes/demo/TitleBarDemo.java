@@ -560,13 +560,13 @@ public final class TitleBarDemo {
         String where = window.name + " in " + theme.id() + ": ";
         List<TitleBar.Part> expected = new ArrayList<>(List.of(TitleBar.Part.TITLE, TitleBar.Part.SEARCH, TitleBar.Part.AVATAR,
                 TitleBar.Part.CUSTOMIZE));
-        if (bar.getFrameMode() != TitleBar.FrameMode.EMBEDDED) {
+        // macOS keeps its traffic lights: the bar draws no window buttons or icon there.
+        boolean macNative = bar.getFrameMode() == TitleBar.FrameMode.NATIVE && "cocoa".equals(SWT.getPlatform());
+        if (bar.getFrameMode() != TitleBar.FrameMode.EMBEDDED && !macNative) {
             expected.add(TitleBar.Part.CLOSE);
             expected.add(TitleBar.Part.MAXIMIZE);
             expected.add(TitleBar.Part.MINIMIZE);
-            if (!"cocoa".equals(SWT.getPlatform())) {
-                expected.add(TitleBar.Part.SYSTEM_MENU);
-            }
+            expected.add(TitleBar.Part.SYSTEM_MENU);
         }
         for (TitleBar.Part part : expected) {
             Rectangle bounds = bar.getPartBounds(part);
