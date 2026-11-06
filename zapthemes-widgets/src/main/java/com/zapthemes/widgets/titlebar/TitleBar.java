@@ -634,6 +634,9 @@ public class TitleBar extends Canvas {
         boolean maximized = shell.getMaximized();
         GC gc = new GC(this);
         try {
+            // Measure as painting draws: antialiasing switches to advanced graphics, whose text is wider.
+            gc.setAntialias(SWT.ON);
+            gc.setTextAntialias(SWT.ON);
             gc.setFont(getFont());
             if (frame.resizesFromBar() && !maximized && resizable) {
                 int border = Math.max(4, px(5));
