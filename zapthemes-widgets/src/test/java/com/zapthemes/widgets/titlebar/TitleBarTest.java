@@ -233,8 +233,10 @@ class TitleBarTest {
             e.doit = false;
         });
 
+        // Cocoa doesn't maximize (zoom) a borderless window; macOS gets the native frame instead.
+        boolean zooms = !"cocoa".equals(SWT.getPlatform());
         click(bar.getPartBounds(Part.MAXIMIZE));
-        assertThat(shell.getMaximized()).isTrue();
+        assertThat(shell.getMaximized()).isEqualTo(zooms);
         click(bar.getPartBounds(Part.MAXIMIZE));
         assertThat(shell.getMaximized()).isFalse();
 
@@ -249,6 +251,7 @@ class TitleBarTest {
 
     @Test
     void doubleClickOnTheCaptionMaximizes() {
+        Assumptions.assumeFalse("cocoa".equals(SWT.getPlatform()), "Cocoa doesn't zoom borderless windows");
         shell.open();
         Rectangle customize = bar.getPartBounds(Part.CUSTOMIZE);
         Event event = mouse(customize.x + customize.width + 3, bar.getSize().y / 2);
@@ -311,9 +314,13 @@ class TitleBarTest {
         assertThat(texts(menu)).containsExactly("&Restore", "&Move", "&Size", "Mi&nimize", "Ma&ximize", "", "&Close\tAlt+F4");
         assertThat(menu.getItems()[0].getEnabled()).isFalse();
         assertThat(menu.getItems()[4].getEnabled()).isTrue();
-        assertThat(menu.getDefaultItem().getText()).startsWith("&Close");
+        if ("win32".equals(SWT.getPlatform())) {
+            // Only Windows menus have a default item.
+            assertThat(menu.getDefaultItem().getText()).startsWith("&Close");
+        }
         menu.dispose();
 
+        Assumptions.assumeFalse("cocoa".equals(SWT.getPlatform()), "Cocoa doesn't zoom borderless windows");
         shell.open();
         shell.setMaximized(true);
         menu = bar.createSystemMenu();
