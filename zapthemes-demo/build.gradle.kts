@@ -11,10 +11,18 @@ dependencies {
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-jface-notifications"))
     implementation(project(":zapthemes-jface-text"))
+    implementation(project(":zapthemes-nattable"))
     implementation(project(":zapthemes-widgets"))
     implementation(project(":zapthemes-nebula"))
     implementation(project(":zapthemes-nebula-incubation"))
     implementation(project(":zapthemes-themes"))
+}
+
+// NatTable's POM asks for the official JFace; the fork provides the same capability.
+configurations.all {
+    resolutionStrategy.capabilitiesResolution.withCapability("org.eclipse.platform:org.eclipse.jface") {
+        select(candidates.first { (it.id as? ProjectComponentIdentifier)?.projectPath == ":zapthemes-jface" })
+    }
 }
 
 application {
@@ -58,10 +66,17 @@ val smokeText = tasks.register<JavaExec>("smokeTestText") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeNatTable = tasks.register<JavaExec>("smokeTestNatTable") {
+    group = "verification"
+    description = "Smoke-tests the NatTable demo."
+    mainClass = "com.zapthemes.demo.NatTableDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
 tasks.register("smokeTest") {
     group = "verification"
     description = "Runs every demo smoke test."
-    dependsOn(smokeStandalone, smokeJFace, smokeNebula, smokeText)
+    dependsOn(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable)
 }
 
 // The JFace Text source viewer demo.
@@ -69,6 +84,14 @@ tasks.register<JavaExec>("runText") {
     group = "application"
     description = "Runs the JFace Text source viewer demo."
     mainClass = "com.zapthemes.demo.TextDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
+// The NatTable demo.
+tasks.register<JavaExec>("runNatTable") {
+    group = "application"
+    description = "Runs the NatTable demo."
+    mainClass = "com.zapthemes.demo.NatTableDemo"
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
@@ -88,6 +111,7 @@ val screenshotTasks = mapOf(
     "JFace" to "com.zapthemes.demo.JFaceDemo",
     "Nebula" to "com.zapthemes.demo.NebulaDemo",
     "Text" to "com.zapthemes.demo.TextDemo",
+    "NatTable" to "com.zapthemes.demo.NatTableDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"

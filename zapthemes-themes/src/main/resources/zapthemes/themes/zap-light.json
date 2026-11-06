@@ -52,6 +52,12 @@
     "Tree": {
       "inherit": "Table"
     },
+    "NatTable": {
+      "inherit": "Table",
+      "freezeSeparatorColor": "$border",
+      "errorForeground": "$error",
+      "accentColor": "$accent"
+    },
     "Link": {
       "linkForeground": "$accent"
     },

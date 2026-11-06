@@ -13,6 +13,7 @@ import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
@@ -47,6 +48,26 @@ final class DemoSupport {
     /** Saves the shell's client area as PNG; {@link org.eclipse.swt.widgets.Control#print} needs no screen access. */
     static void screenshot(Shell shell, Path dir, String name) {
         save(shell, dir, name, false);
+    }
+
+    /** Saves one control as PNG through {@link Control#print}. */
+    static void screenshot(Control control, Path dir, String name) {
+        try {
+            Files.createDirectories(dir);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Point size = control.getSize();
+        Image image = new Image(control.getDisplay(), size.x, size.y);
+        GC gc = new GC(image);
+        control.print(gc);
+        gc.dispose();
+        ImageLoader loader = new ImageLoader();
+        loader.data = new ImageData[] { image.getImageData() };
+        String file = dir.resolve(name + ".png").toString();
+        loader.save(file, SWT.IMAGE_PNG);
+        image.dispose();
+        System.out.println("Saved " + file);
     }
 
     /**

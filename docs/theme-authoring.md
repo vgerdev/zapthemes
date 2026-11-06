@@ -23,6 +23,7 @@ runnable program:
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
 | `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |
 | `zapthemes-jface-text` | JFace Text 3.31.100 fork: a drop-in `org.eclipse.jface.text` (`SourceViewer`, rulers, hovers, content assist), with `zapthemes-text`, `org.eclipse.text` 3.14.800 built from source |
+| `zapthemes-nattable` | NatTable bridge: every NatTable takes the theme as a NatTable `ThemeConfiguration`, switched live (NatTable 2.7.0 as published) |
 | `zapthemes-nebula`, `zapthemes-nebula-incubation` | Nebula proxies and stylers, with the forked widgets (`zapthemes-nebula-fork`, `zapthemes-nebula-incubation-fork`) and draw2d (`zapthemes-draw2d`) |
 
 Every module needs JDK 25 and depends on SWT 3.135.0. As with JFace on Maven Central, the POMs name the
@@ -80,6 +81,18 @@ Syntax colors stay the application's: the bundled themes set `com.zapthemes.text
 `.comment` and `.number` in JFace's `ColorRegistry` (constants in `TextTheming`), for scanners to use
 and to re-read when the registry changes. With a top margin on the text widget
 (`StyledText.setMargins`), upstream's line number column paints no numbers; use side margins.
+
+**NatTable.** NatTable paints its cells itself, so it is not forked: add `zapthemes-nattable`, which
+brings `org.eclipse.nebula.widgets.nattable:org.eclipse.nebula.widgets.nattable.core` 2.7.0. Its POM
+asks for the official JFace: the capability rule above resolves it to the fork. There is nothing to
+call. Every `NatTable` gets a NatTable `ThemeConfiguration` built from the theme's `NatTable` rule
+when it is created and on every switch; the bundled themes start that rule from `Table`
+(`"inherit": "Table"`), so headers, selection, focus cell (the selection anchor), stripes, grid
+lines and hover match the theme's tables. `ZapNatTableThemeConfiguration` lists the keys, including
+the NatTable-only `freezeSeparatorColor`, `summaryRowBackground`, `filterRowBackground`,
+`errorForeground` and `accentColor`. Styles for your own labels go in a NatTable `IThemeExtension`
+added with `NatTableTheming.addExtension(table, ...)`, so they survive theme switches;
+`table.setData(NatTableTheming.MANUAL, true)` leaves a table's NatTable theme to you.
 
 ## 2. Create widgets from the proxies
 
@@ -167,7 +180,7 @@ is the most complete reference.
 | `extends` | Id of the theme this one is layered on. Each block is merged key by key, so a theme can change only what differs. A palette entry replaced here also changes every rule of the parent that references it. |
 | `palette` | Named values referenced from anywhere as `"$name"`. Colors are `#RRGGBB` or `#RRGGBBAA`. Fonts are `{ "name": "Segoe UI", "height": 9, "style": "bold\|italic" }`; a missing name or height keeps the system font's. An entry may reference another. |
 | `defaults` | Properties for every widget, applied first |
-| `controls` | Rules by control type. Keys: `Type` (`"Button"`, `"Grid"`, `"FlatButton"`), or `Type[BIT\|BIT]` (`"Button[CHECK]"`, `"Text[MULTI\|WRAP]"`), which applies when the widget has all of those SWT style bits. `"inherit": "Other"` starts a rule from another type's rule. |
+| `controls` | Rules by control type. Keys: `Type` (`"Button"`, `"Grid"`, `"FlatButton"`, `"NatTable"`), or `Type[BIT\|BIT]` (`"Button[CHECK]"`, `"Text[MULTI\|WRAP]"`), which applies when the widget has all of those SWT style bits. `"inherit": "Other"` starts a rule from another type's rule. |
 | `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any. The JFace fork sets `banner`, `title`, `info` (tooltips and hovers), `popup` (`PopupDialog`; its info text also `muted`), `error` (status line errors), `plain` and `pane`; the notifications fork sets `notification` (the popup's frame) and `popup` (its content); the JFace Text fork sets `ruler`, `popup` (hovers, content assist; status lines also `muted`) and `frame` (context information): give them rules, as the bundled themes do |
 | `states` (inside a rule) | Overrides while a widget is `hover`, `pressed`, `selected`, `focused` or `disabled` |
 | `platform` | What the OS draws itself: `*` for all platforms, then `win32`, `gtk` or `cocoa` |

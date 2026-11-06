@@ -7,7 +7,7 @@ deployment. Central validates the deployment, but nothing becomes public until s
 
 ## Published modules
 
-`zapthemes-core`, `-swt`, `-widgets`, `-themes`, `-jface`, `-jface-notifications`, `-text`, `-jface-text`, `-nebula-fork`, `-nebula`,
+`zapthemes-core`, `-swt`, `-widgets`, `-themes`, `-jface`, `-jface-notifications`, `-text`, `-jface-text`, `-nattable`, `-nebula-fork`, `-nebula`,
 `-nebula-incubation-fork`, `-nebula-incubation` and `-draw2d`. The tools, demo and samples are not
 published.
 
