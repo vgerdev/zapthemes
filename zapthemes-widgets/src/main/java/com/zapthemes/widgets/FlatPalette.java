@@ -60,4 +60,19 @@ final class FlatPalette {
     int integer(String key, int fallback) {
         return style.integer(key).orElse(fallback);
     }
+
+    /** A size in pixels at the current zoom: the theme's, else {@code fallback} (a 100 % size) zoomed. */
+    int size(String key, int fallback) {
+        return context.size(style, key).orElseGet(() -> px(control, fallback));
+    }
+
+    /** A size the theme may set, at the current zoom, or {@code fallback} as is (already in pixels). */
+    int sizeOr(String key, int fallback) {
+        return context.size(style, key).orElse(fallback);
+    }
+
+    /** {@code pixels} (a 100 % size, such as padding) at the zoom of {@code control}'s display. */
+    static int px(Control control, int pixels) {
+        return ThemeManager.get(control.getDisplay()).resources().zoomedPixels(pixels);
+    }
 }

@@ -40,7 +40,7 @@ public final class FlatStylers implements StylerProvider, CatalogProvider {
     public void describe(PropertyCatalog.Builder catalog) {
         PropertySpec border = PropertySpec.color("borderColor", "disabled", "Outline");
         PropertySpec accent = PropertySpec.color("accentColor", "accent", "Accent (focus, check marks, default button)");
-        PropertySpec arc = PropertySpec.integer("arc", 6, "Corner radius, in pixels");
+        PropertySpec arc = PropertySpec.size("arc", 6, "Corner radius, in pixels");
         catalog.type(TypeSpec.of("FlatButton", GROUP, TypeSpec.Base.COMPOSITE).defaults("background=raised")
                 .with(border, accent, arc,
                         PropertySpec.color("boxBackground", "surface", "Check box and radio button box"),

@@ -177,18 +177,49 @@ themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100)
   JFace dialogs and viewers take their fonts from it. A value you `put` for a key the theme doesn't
   set becomes that key's original and is zoomed right away. At 100 % every key holds its original
   again.
-- **Fonts an app sets with `setFont`** are not scaled. As on a theme switch, a zoom applies the
-  theme again, so a control's font becomes its theme font again. To keep a font of your own
-  through zoom and theme switches, give the control a style class with a font
-  (`"*.mono": { "font": { "name": "Consolas", "height": 10 } }`). You can also use a JFace registry
-  key, or set `themes.resources().font(new FontSpec("Consolas", 10, SWT.NORMAL))` again from a
-  `ZoomListener`. `ThemeResources.font` returns fonts at the current zoom, and
-  `ThemeResources.zoomed(int)` scales a height you compute yourself.
+- **Fonts an app sets with `setFont`** are kept and scaled. The styler remembers the font it
+  left on each control, so a different font found there later is one the app set (a bold label,
+  a code editor's monospace font). From then on the control keeps
+  that family and style through theme switches and zooms, at its height times the zoom. The height
+  is taken at the zoom the font was set at, so a font derived from an already zoomed one (a bold
+  copy of the dialog font at 150 %) doesn't grow twice. At 100 % the control gets the app's own
+  `Font` object back.
+  - A font like the theme's (same family, height and style) counts as the theme's and keeps
+    following the theme. That covers JFace's dialog font, which the bundled themes set to their
+    default font.
+  - Whichever was set last wins. `setThemeClass` makes the control follow the theme's font again,
+    so a class with a font (`"*.mono": { "font": ... }`) replaces an app font set before it. An
+    app font set after the class wins. `themes.followThemeFont(control)` drops an app font without
+    changing classes.
+  - A JFace registry font set on a control (`label.setFont(JFaceResources.getBannerFont())`)
+    is such an app font. It scales with the zoom, but on a theme switch it keeps the family and
+    style it had. To follow the new theme's banner font, set it again from a
+    `ThemeChangeListener`.
+  - Only controls are covered. Fonts on table and tree items (a JFace `IFontProvider`) are left to
+    the app and the viewer, as before.
+  - `ThemeResources.font(name, style, baseHeight)` gives a font at the current zoom for code that
+    draws text itself.
 - **Owner-drawn widgets** (`FlatButton`, `FlatGroup`, Nebula's painters, NatTable, Visualization
   figures) take their fonts from the theme, so they scale as well. They must use
   `ThemeContext.font` or the control's font, not a font they made once.
-- Only fonts scale. Images, icons, borders, spacing and pixel sizes (for example table column
-  widths) stay as they are.
+- **Column widths** of tables and trees scale, JFace viewer columns and Nebula `GridColumn`s
+  included (any `...Column` item with `getWidth` / `setWidth`). Each column keeps its 100 % width
+  as a fraction, so zooming in and out many times ends at the exact original width. A width that
+  changed since the last zoom (the user dragged the column, or the app set or packed it) is taken
+  at the zoom it changed at, so a column dragged to 300 px at 200 % is 150 px at 100 %. Columns
+  created while zoomed keep the width the app gives them until the next zoom. Give them
+  `themes.resources().zoomedPixels(160)` to start at the current zoom.
+- **NatTable** row heights and column widths scale through NatTable's own scaling. NatTable keeps
+  the sizes unscaled, so there's no drift either, sizes the user dragged stay in proportion, and a
+  table created while zoomed starts at the current zoom.
+- **Sizes in the theme** scale: the integer keys the property catalog describes as pixel sizes
+  (`PropertySpec.size(...)`). Those are `arc` on the Flat widgets, CTabFolder's
+  `selectionBarThickness` and `tabHeight`, and the sample Gauge's `thickness`. Other integers (a
+  count, a style index) are left as they are. A library describes its own sizes the same way in
+  its `CatalogProvider`. `ThemeContext.size(style, key)` reads one at the current zoom, and the
+  generic setter styler (Nebula, your own widgets) and Visualization figures scale them on their
+  own. The Flat widgets' built-in padding, margins and check boxes scale too.
+- Images and icons stay as they are, and so do windows: Chrome doesn't resize its window either.
 
 **Turning it off.** `themes.setZoomShortcutsEnabled(false)` turns off the mouse and keyboard
 shortcuts for the display. `setZoom` and the other methods keep working, for a View menu of your

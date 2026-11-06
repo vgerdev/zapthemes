@@ -81,6 +81,22 @@ public final class ThemeResources {
         return zoom == 1 ? height : Math.max(1, (int) Math.round(height * zoom));
     }
 
+    /** {@code pixels} at the current zoom, rounded; 0 stays 0. For sizes such as corner radii. */
+    public int zoomedPixels(int pixels) {
+        return zoom == 1 ? pixels : (int) Math.round(pixels * zoom);
+    }
+
+    /**
+     * A font of {@code name} and {@code style} whose height at 100 % is {@code baseHeight}, at the
+     * current zoom; cached like theme fonts. Used for fonts an application set itself.
+     */
+    public Font font(String name, int style, double baseHeight) {
+        int height = Math.max(1, (int) Math.round(baseHeight * zoom));
+        FontSpec spec = new FontSpec(name, 0, style);
+        return fonts.computeIfAbsent(new FontKey(spec, height),
+                key -> new Font(display, family(spec, systemFontData().getName()), key.height(), style));
+    }
+
     void setZoom(double zoom) {
         this.zoom = zoom;
     }

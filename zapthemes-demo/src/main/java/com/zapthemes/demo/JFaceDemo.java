@@ -430,13 +430,14 @@ public final class JFaceDemo extends ApplicationWindow {
 
     /**
      * Zooms in three steps (to 150 %): the table's font, a dialog's font and JFace's dialog font must
-     * grow, the widgets must still pass {@link #check}, the tool bar must show the zoom, and a reset
-     * must bring the fonts back.
+     * grow, the first column must be 1.5 times as wide, the widgets must still pass {@link #check}, the
+     * tool bar must show the zoom, and a reset must bring the fonts and the column back.
      */
     private int verifyZoom(Path screenshots, List<String> problems) throws Exception {
         Control control = table.getControl();
         int before = control.getFont().getFontData()[0].getHeight();
         int dialogFontBefore = JFaceResources.getDialogFont().getFontData()[0].getHeight();
+        int columnBefore = table.getTable().getColumn(0).getWidth();
         for (int i = 0; i < 3; i++) {
             themes.zoomIn();
         }
@@ -448,6 +449,10 @@ public final class JFaceDemo extends ApplicationWindow {
         }
         if (JFaceResources.getDialogFont().getFontData()[0].getHeight() <= dialogFontBefore) {
             problems.add("zoom: JFace's dialog font did not grow");
+        }
+        int column = table.getTable().getColumn(0).getWidth();
+        if (column != Math.round(columnBefore * 1.5)) {
+            problems.add("zoom: at 150 % the first column is " + column + " px wide, was " + columnBefore);
         }
         if (!zoomReset.getText().equals("150 %")) {
             problems.add("zoom: the tool bar shows " + zoomReset.getText());
@@ -470,6 +475,10 @@ public final class JFaceDemo extends ApplicationWindow {
         int reset = control.getFont().getFontData()[0].getHeight();
         if (reset != before) {
             problems.add("zoom: after a reset the table font is " + reset + " pt, was " + before);
+        }
+        if (table.getTable().getColumn(0).getWidth() != columnBefore) {
+            problems.add("zoom: after a reset the first column is " + table.getTable().getColumn(0).getWidth()
+                    + " px wide, was " + columnBefore);
         }
         return checked;
     }

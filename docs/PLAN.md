@@ -190,7 +190,10 @@ public class Button extends org.eclipse.swt.widgets.Button {
   wheel and Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS), unless `setZoomShortcutsEnabled(false)`, or a
   control (or a parent) has `ThemeKeys.ZOOM_SHORTCUTS` = `false`. `JFaceThemeSync` scales every
   `FontRegistry` key, and fork patch 0008 makes the registry reuse its stale fonts, so repeated
-  zooming stays bounded. See the guide's Zoom section.
+  zooming stays bounded. Fonts the app set on a control (`DefaultStyler` notices one it did not
+  set) are kept and scaled. Column widths (`ColumnZoom`, a fractional 100 % width per column) and
+  NatTable sizes (its `ConfigureScalingCommand`) scale without drift. Integer keys the catalog marks
+  as sizes (`PropertySpec.size`) scale through `ThemeContext.size`. See the guide's Zoom section.
 - **Safety net:** a `Display` listener for `SWT.Skin` tags and themes widgets that were created without
   a proxy (code outside the forks, native-dialog children, third-party libraries).
 - **Performance:** skip a control whose resolved-style hash hasn't changed.

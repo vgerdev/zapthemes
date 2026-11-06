@@ -21,6 +21,7 @@ import org.eclipse.swt.widgets.Widget;
 
 import com.zapthemes.core.model.Theme;
 import com.zapthemes.core.platform.PlatformThemeSupport;
+import com.zapthemes.core.style.DefaultStyler;
 import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.StyleResolver;
 import com.zapthemes.core.style.StylerRegistry;
@@ -176,7 +177,7 @@ public final class ThemeManager {
             return;
         }
         resources.setZoom(clamped);
-        reapplyAll();
+        reapplyAll(previous);
         zoomListeners.forEach(listener -> listener.zoomChanged(previous, clamped));
     }
 
@@ -252,15 +253,20 @@ public final class ThemeManager {
     }
 
     private void reapplyAll() {
+        reapplyAll(0);
+    }
+
+    /** {@code previousZoom}: the zoom before, when the zoom changed (else 0); columns are rescaled. */
+    private void reapplyAll(double previousZoom) {
         platform.beforeTheme(display, resolver.platform(), resources);
         Set<Widget> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Shell shell : display.getShells()) {
-            reapplyTree(shell, visited);
+            reapplyTree(shell, visited, previousZoom);
         }
         platform.afterTheme(display, resolver.platform());
     }
 
-    private void reapplyTree(Shell shell, Set<Widget> visited) {
+    private void reapplyTree(Shell shell, Set<Widget> visited, double previousZoom) {
         if (shell.isDisposed() || !visited.add(shell)) {
             return;
         }
@@ -268,6 +274,9 @@ public final class ThemeManager {
         try {
             WidgetTree.walk(shell, widget -> {
                 if (widget == shell || visited.add(widget)) {
+                    if (previousZoom > 0) {
+                        ColumnZoom.rescale(widget, previousZoom, resources.zoom());
+                    }
                     apply(widget);
                 }
             });
@@ -283,7 +292,20 @@ public final class ThemeManager {
      */
     public void setThemeClass(Widget widget, String themeClasses) {
         widget.setData(ThemeKeys.THEME_CLASS, themeClasses);
+        if (widget instanceof Control control) {
+            // A class is a request for the theme's look, its font included.
+            DefaultStyler.followThemeFont(control);
+        }
         apply(widget);
+    }
+
+    /**
+     * Drops a font the application set on {@code control} ({@link ThemeKeys#APP_FONT}), so that it
+     * takes the theme's font, at the current zoom, again.
+     */
+    public void followThemeFont(Control control) {
+        DefaultStyler.followThemeFont(control);
+        apply(control);
     }
 
     /**

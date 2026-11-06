@@ -26,6 +26,14 @@ public final class ThemeKeys {
      */
     public static final String ZOOM_SHORTCUTS = "zapthemes.zoomShortcuts";
 
+    /**
+     * A font the application set on a control with {@code setFont}, a
+     * {@link com.zapthemes.core.style.DefaultStyler.AppFont}: kept through theme switches and scaled
+     * by the zoom instead of the theme's font. Set by the styler when it finds a font it did not set
+     * there. {@link ThemeManager#setThemeClass} and {@link ThemeManager#followThemeFont} clear it.
+     */
+    public static final String APP_FONT = "zapthemes.appFont";
+
     /** Which cell of a Table or Tree has the keyboard focus; see {@link #FOCUS_CELL}. */
     @FunctionalInterface
     public interface FocusCell {
