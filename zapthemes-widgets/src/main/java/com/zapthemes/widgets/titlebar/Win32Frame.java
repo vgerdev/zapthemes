@@ -34,7 +34,9 @@ import com.zapthemes.widgets.titlebar.TitleBar.Part;
  *       (Windows 11 snap layouts). Everything else is client area, handled by the bar.</li>
  *   <li>The maximize button's hover and press come as non-client mouse messages, which the bar
  *       paints and acts on.</li>
- *   <li>The icon and Alt+Space open the native system menu ({@code SC_KEYMENU}).</li>
+ *   <li>The icon and a right-click open the native system menu ({@code GetSystemMenu} and
+ *       {@code TrackPopupMenu}, its items enabled for the window's state); the chosen command comes
+ *       back as {@code WM_COMMAND} and goes on as {@code WM_SYSCOMMAND}. Alt+Space stays Windows'.</li>
  * </ul>
  *
  * Everything goes through reflection on {@code org.eclipse.swt.internal.win32.OS}, as
@@ -54,6 +56,15 @@ final class Win32Frame extends WindowFrame {
     static final int WM_NCMOUSELEAVE = 0x02A2;
     static final int WM_SYSCOMMAND = 0x0112;
     static final int SC_KEYMENU = 0xF100;
+    static final int WM_COMMAND = 0x0111;
+    static final int SC_SIZE = 0xF000;
+    static final int SC_MOVE = 0xF010;
+    static final int SC_MINIMIZE = 0xF020;
+    static final int SC_MAXIMIZE = 0xF030;
+    static final int SC_CLOSE = 0xF060;
+    static final int SC_RESTORE = 0xF120;
+    private static final int MF_GRAYED = 0x1;
+    private static final int TPM_RIGHTBUTTON = 0x2;
 
     static final int HTTRANSPARENT = -1;
     static final int HTCLIENT = 1;
@@ -165,6 +176,14 @@ final class Win32Frame extends WindowFrame {
     long shellProc(long hwnd, long msg, long wParam, long lParam) {
         try {
             switch ((int) msg) {
+                case WM_COMMAND -> {
+                    // A system menu command chosen in openSystemMenu: Windows carries it out.
+                    int id = (int) (wParam & 0xFFFF);
+                    if (lParam == 0 && (wParam >>> 16 & 0xFFFF) == 0 && id >= SC_SIZE) {
+                        api().postMessage(hwnd, WM_SYSCOMMAND, id, 0);
+                        return 0;
+                    }
+                }
                 case WM_NCCALCSIZE -> {
                     if (wParam != 0) {
                         return calcSize(hwnd, msg, wParam, lParam);
@@ -306,12 +325,37 @@ final class Win32Frame extends WindowFrame {
 
     // ------------------------------------------------------------------ system menu
 
-    /** The native system menu, through {@code SC_KEYMENU} as Alt+Space opens it: Windows sets its items' states. */
+    /**
+     * The native system menu at {@code location} (display coordinates). {@code SC_KEYMENU} would open
+     * it the way Alt+Space does, but not while a mouse button is down, so the bar tracks it itself and
+     * sets its items as Windows would.
+     */
     @Override
     void openSystemMenu(Point location) {
         try {
-            api().postMessage(shellHandle, WM_SYSCOMMAND, SC_KEYMENU, ' ');
-        } catch (ReflectiveOperationException e) {
+            Api os = api();
+            long menu = os.getSystemMenu(shellHandle);
+            if (menu == 0) {
+                throw new IllegalStateException("The shell has no system menu");
+            }
+            boolean maximized = shell.getMaximized();
+            boolean minimized = shell.getMinimized();
+            boolean normal = !maximized && !minimized;
+            os.enableMenuItem(menu, SC_RESTORE, !normal);
+            os.enableMenuItem(menu, SC_MOVE, normal);
+            os.enableMenuItem(menu, SC_SIZE, normal && (shell.getStyle() & SWT.RESIZE) != 0);
+            os.enableMenuItem(menu, SC_MINIMIZE, !minimized);
+            os.enableMenuItem(menu, SC_MAXIMIZE, !maximized);
+            os.enableMenuItem(menu, SC_CLOSE, true);
+            os.setMenuDefaultItem(menu, SC_CLOSE);
+            // Display coordinates are points; the menu wants screen pixels.
+            Point local = bar.toControl(location);
+            float scale = os.clientWidth(barHandle) / (float) Math.max(1, bar.getSize().x);
+            Point origin = os.screenToClient(barHandle, 0, 0);
+            int x = Math.round(local.x * scale) - origin.x;
+            int y = Math.round(local.y * scale) - origin.y;
+            os.trackPopupMenu(menu, TPM_RIGHTBUTTON, x, y, shellHandle);
+        } catch (ReflectiveOperationException | RuntimeException e) {
             logOnce(e);
             super.openSystemMenu(location);
         }
@@ -349,6 +393,10 @@ final class Win32Frame extends WindowFrame {
         private final MethodHandle postMessage;
         private final MethodHandle sendMessage;
         private final MethodHandle readInts;
+        private final MethodHandle getSystemMenu;
+        private final MethodHandle enableMenuItem;
+        private final MethodHandle setMenuDefaultItem;
+        private final MethodHandle trackPopupMenu;
         private final MethodHandle writeInts;
         private final Class<?> pointClass;
         private final Class<?> rectClass;
@@ -381,6 +429,11 @@ final class Win32Frame extends WindowFrame {
             sendMessage = lookup.findStatic(os, "SendMessage", MethodType.methodType(long.class, long.class, int.class, long.class, long.class));
             readInts = lookup.findStatic(os, "MoveMemory", MethodType.methodType(void.class, int[].class, long.class, int.class));
             writeInts = lookup.findStatic(os, "MoveMemory", MethodType.methodType(void.class, long.class, int[].class, int.class));
+            getSystemMenu = lookup.findStatic(os, "GetSystemMenu", MethodType.methodType(long.class, long.class, boolean.class));
+            enableMenuItem = lookup.findStatic(os, "EnableMenuItem", MethodType.methodType(boolean.class, long.class, int.class, int.class));
+            setMenuDefaultItem = lookup.findStatic(os, "SetMenuDefaultItem", MethodType.methodType(boolean.class, long.class, int.class, int.class));
+            trackPopupMenu = lookup.findStatic(os, "TrackPopupMenu",
+                    MethodType.methodType(boolean.class, long.class, int.class, int.class, int.class, int.class, long.class, rectClass));
             pointX = pointClass.getField("x");
             pointY = pointClass.getField("y");
             rectRight = rectClass.getField("right");
@@ -459,6 +512,23 @@ final class Win32Frame extends WindowFrame {
 
         long sendMessage(long hwnd, int msg, long wParam, long lParam) throws ReflectiveOperationException {
             return (long) invoke(sendMessage, hwnd, msg, wParam, lParam);
+        }
+
+        long getSystemMenu(long hwnd) throws ReflectiveOperationException {
+            return (long) invoke(getSystemMenu, hwnd, false);
+        }
+
+        void enableMenuItem(long menu, int id, boolean enabled) throws ReflectiveOperationException {
+            invoke(enableMenuItem, menu, id, enabled ? 0 : MF_GRAYED);
+        }
+
+        void setMenuDefaultItem(long menu, int id) throws ReflectiveOperationException {
+            invoke(setMenuDefaultItem, menu, id, 0);
+        }
+
+        /** Modal until the menu closes; the chosen item comes to {@code owner} as {@code WM_COMMAND}. */
+        void trackPopupMenu(long menu, int flags, int x, int y, long owner) throws ReflectiveOperationException {
+            invoke(trackPopupMenu, menu, flags, x, y, 0, owner, null);
         }
 
         void read(int[] into, long address) throws ReflectiveOperationException {

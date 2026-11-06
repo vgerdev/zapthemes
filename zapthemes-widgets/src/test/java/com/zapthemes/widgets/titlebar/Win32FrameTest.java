@@ -107,6 +107,107 @@ class Win32FrameTest {
     }
 
     @Test
+    void theSystemMenuOpensFromAClickAndClosesWithoutCrashing() throws Exception {
+        long hwnd = os.handle(shell);
+        boolean[] ran = new boolean[1];
+        // The menu loop is modal: end it from a timer that fires inside it.
+        display.timerExec(500, () -> {
+            ran[0] = true;
+            try {
+                os.postMessage(hwnd, 0x001F /* WM_CANCELMODE */, 0, 0);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        // Click the icon as the mouse does: down and up on the bar, in its client pixels.
+        long barHwnd = os.handle(bar);
+        Point icon = center(bar.getPartBounds(Part.SYSTEM_MENU));
+        float scale = os.clientWidth(barHwnd) / (float) bar.getSize().x;
+        long xy = (Math.round(icon.x * scale) & 0xFFFFL) | ((Math.round(icon.y * scale) & 0xFFFFL) << 16);
+        os.postMessage(barHwnd, 0x0201 /* WM_LBUTTONDOWN */, 1, xy);
+        os.postMessage(barHwnd, 0x0202 /* WM_LBUTTONUP */, 0, xy);
+        long end = System.currentTimeMillis() + 3000;
+        while (!ran[0] && System.currentTimeMillis() < end) {
+            if (!display.readAndDispatch()) {
+                display.sleep();
+            }
+        }
+        settle();
+        assertThat(ran[0]).isTrue();
+        assertThat(shell.isDisposed()).isFalse();
+    }
+
+    @Test
+    void closingTheWindowFromInsideTheSystemMenuDoesNotCrash() throws Exception {
+        boolean[] ran = new boolean[1];
+        display.timerExec(500, () -> {
+            ran[0] = true;
+            shell.dispose();
+        });
+        bar.openSystemMenu();
+        long end = System.currentTimeMillis() + 3000;
+        while (!ran[0] && System.currentTimeMillis() < end) {
+            if (!display.readAndDispatch()) {
+                display.sleep();
+            }
+        }
+        settle();
+        assertThat(shell.isDisposed()).isTrue();
+    }
+
+    @Test
+    void clickingTheIconOpensTheSystemMenuAndItsCommandsWork() {
+        // Real input (SendInput): a held mouse button kept SC_KEYMENU from opening the menu.
+        Assumptions.assumeTrue(System.getenv("CI") == null, "needs the interactive desktop");
+        shell.forceActive();
+        settle();
+        Point icon = bar.toDisplay(center(bar.getPartBounds(Part.SYSTEM_MENU)));
+        post(SWT.MouseMove, e -> {
+            e.x = icon.x;
+            e.y = icon.y;
+        });
+        settle();
+        post(SWT.MouseDown, e -> e.button = 1);
+        // The menu is modal: drive it from timers that fire inside its loop.
+        display.timerExec(300, () -> post(SWT.MouseUp, e -> e.button = 1));
+        display.timerExec(600, () -> {
+            // Up wraps to the last item, Close; Enter chooses it.
+            key(SWT.ARROW_UP);
+            key(SWT.CR);
+        });
+        long end = System.currentTimeMillis() + 3000;
+        while (!shell.isDisposed() && System.currentTimeMillis() < end) {
+            if (!display.readAndDispatch()) {
+                display.timerExec(20, () -> { });
+                display.sleep();
+            }
+        }
+        assertThat(shell.isDisposed()).isTrue();
+    }
+
+    @Test
+    void systemMenuCommandsComeBackAsSystemCommands() throws Exception {
+        os.sendMessage(os.handle(shell), Win32Frame.WM_COMMAND, Win32Frame.SC_MAXIMIZE, 0);
+        settle();
+        assertThat(shell.getMaximized()).isTrue();
+        os.sendMessage(os.handle(shell), Win32Frame.WM_COMMAND, Win32Frame.SC_RESTORE, 0);
+        settle();
+        assertThat(shell.getMaximized()).isFalse();
+    }
+
+    private void post(int type, java.util.function.Consumer<org.eclipse.swt.widgets.Event> setup) {
+        org.eclipse.swt.widgets.Event event = new org.eclipse.swt.widgets.Event();
+        event.type = type;
+        setup.accept(event);
+        display.post(event);
+    }
+
+    private void key(int code) {
+        post(SWT.KeyDown, e -> e.keyCode = code);
+        post(SWT.KeyUp, e -> e.keyCode = code);
+    }
+
+    @Test
     void hitCodesPerPart() {
         assertThat(Win32Frame.hitCode(Part.CAPTION, true, false)).isEqualTo(Win32Frame.HTCAPTION);
         assertThat(Win32Frame.hitCode(Part.TITLE, false, false)).isEqualTo(Win32Frame.HTCLIENT);
