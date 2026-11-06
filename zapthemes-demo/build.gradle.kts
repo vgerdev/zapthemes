@@ -189,6 +189,14 @@ tasks.register<JavaExec>("screenCapturesJFace") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke", "--screen-captures", screenshotDir.get().dir("screen").asFile.absolutePath)
 }
+// The title bar demo's windows as the screen shows them, native frame included (needs a desktop).
+tasks.register<JavaExec>("screenCapturesTitleBar") {
+    group = "documentation"
+    description = "Saves screen captures of the title bar demo's windows, frame included, in every theme."
+    mainClass = "com.zapthemes.demo.TitleBarDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke", "--screen-captures", screenshotDir.get().dir("screen").asFile.absolutePath)
+}
 tasks.register("screenshots") {
     group = "documentation"
     description = "Saves screenshots of every demo in every theme."

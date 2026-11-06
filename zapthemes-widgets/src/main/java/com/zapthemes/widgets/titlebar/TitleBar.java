@@ -623,6 +623,9 @@ public class TitleBar extends Canvas {
     }
 
     void computeLayout() {
+        if (frame == null) {
+            return; // Still in the constructor: children are being created.
+        }
         hits.clear();
         items.forEach(item -> {
             item.bounds.x = item.bounds.y = item.bounds.width = item.bounds.height = 0;
@@ -814,6 +817,18 @@ public class TitleBar extends Canvas {
         }
         Point size = slot.computeSize(SWT.DEFAULT, SWT.DEFAULT);
         return new Point(size.x, Math.min(size.y, rowHeight()));
+    }
+
+    /** Whether the title is part of the caption (it has no menu): dragging it moves the window. */
+    boolean titleIsCaption() {
+        return !hasTitleMenu();
+    }
+
+    /** Hover and press of a part the native frame tracks (the maximize button on Windows). */
+    void setFrameState(Part hoverPart, Part pressedPart) {
+        hover = hoverPart != null ? find(hoverPart) : null;
+        pressed = pressedPart != null ? find(pressedPart) : null;
+        redraw();
     }
 
     private boolean hasTitleMenu() {
