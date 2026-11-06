@@ -96,14 +96,26 @@ final class ProfilePopup {
             Rectangle area = popup.getClientArea();
             e.gc.drawRectangle(area.x, area.y, area.width - 1, area.height - 1);
         });
+        org.eclipse.swt.widgets.Listener outside = e -> {
+            if (!popup.isDisposed() && e.widget instanceof org.eclipse.swt.widgets.Control control
+                    && control.getShell() != popup) {
+                popup.close();
+            }
+        };
+        popup.getDisplay().addFilter(SWT.MouseDown, outside);
+        popup.addListener(SWT.Dispose, e -> popup.getDisplay().removeFilter(SWT.MouseDown, outside));
         popup.addListener(SWT.Traverse, e -> {
             if (e.detail == SWT.TRAVERSE_ESCAPE) {
                 e.doit = false;
                 popup.close();
             }
         });
+        // Close when the user goes elsewhere, but only once the pop-up was active: a desktop that
+        // never activates it (CI, a focus-stealing guard) would otherwise close it at once.
+        boolean[] wasActive = { false };
+        popup.addListener(SWT.Activate, e -> wasActive[0] = true);
         popup.addListener(SWT.Deactivate, e -> popup.getDisplay().asyncExec(() -> {
-            if (!popup.isDisposed()) {
+            if (!popup.isDisposed() && wasActive[0]) {
                 popup.close();
             }
         }));
