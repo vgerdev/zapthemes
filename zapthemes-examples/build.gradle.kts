@@ -15,15 +15,12 @@ zapthemesFork {
     // The examples paint with display.getSystemColor(...): route those through the theme.
     themeSystemColors()
     upstream("controlexample", swtExamples, otherSwtExamples)
-    // Left out: snippets for JFace notifications, which ZapThemes does not ship yet.
-    upstream("jfacesnippets", jfaceSnippets, listOf(
-        "org/eclipse/jface/snippets/notifications/**",
-        "org/eclipse/jface/snippets/dialogs/Snippet081NotificationPopup.java",
-    ))
+    upstream("jfacesnippets", jfaceSnippets)
 }
 
 dependencies {
     implementation(project(":zapthemes-jface"))
+    implementation(project(":zapthemes-jface-notifications"))
     implementation(project(":zapthemes-themes"))
     // The official data binding jars run on the forked JFace: they observe widgets, never create them.
     implementation(libs.jface.databinding)

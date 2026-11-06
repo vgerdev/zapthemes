@@ -15,6 +15,8 @@ jface-databinding = "1.16.0"
 # Nebula Timeline
 emf-ecore = "2.43.0"
 core-jobs = "3.15.900"
+# JFace notifications 0.8.100 (R4_41) requires core.runtime (Phase 7)
+core-runtime = "3.35.0"
 assertj = "3.27.7"
 
 [libraries]
@@ -25,6 +27,7 @@ jface-databinding = { module = "org.eclipse.platform:org.eclipse.jface.databindi
 eclipse-osgi = { module = "org.eclipse.platform:org.eclipse.osgi", version.ref = "eclipse-osgi" }
 swt-svg = { module = "org.eclipse.platform:org.eclipse.swt.svg", version.ref = "swt-svg" }
 emf-ecore = { module = "org.eclipse.emf:org.eclipse.emf.ecore", version.ref = "emf-ecore" }
+core-runtime = { module = "org.eclipse.platform:org.eclipse.core.runtime", version.ref = "core-runtime" }
 core-jobs = { module = "org.eclipse.platform:org.eclipse.core.jobs", version.ref = "core-jobs" }
 pde-annotations = { module = "org.eclipse.pde:org.eclipse.pde.api.tools.annotations", version.ref = "pde-annotations" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }

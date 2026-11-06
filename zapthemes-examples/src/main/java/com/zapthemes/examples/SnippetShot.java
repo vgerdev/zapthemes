@@ -20,7 +20,7 @@ import com.zapthemes.core.ThemeManager;
 /**
  * Test-only: with {@code -Dzapthemes.examples.shot=<file.png>}, shortly after a snippet's first
  * widget it prints {@code SNIPPET <tagged>/<controls>} for every open shell, saves the largest one
- * as {@code file.png}, and closes them all, so the snippet's event loop ends. Used by
+ * as {@code file.png} (the others as {@code file-2.png}, ...), and closes them all, so the snippet's event loop ends. Used by
  * {@link SnippetShots}; without the property it does nothing.
  */
 public final class SnippetShot implements ThemeExtension {
@@ -57,7 +57,11 @@ public final class SnippetShot implements ThemeExtension {
         int[] counts = new int[2];
         shells.forEach(shell -> count(shell, counts));
         System.out.println("SNIPPET " + counts[0] + "/" + counts[1] + " controls tagged in " + shells.size() + " shells");
-        shells.stream().max((a, b) -> Integer.compare(area(a), area(b))).ifPresent(shell -> save(shell, file));
+        // The largest shell as file.png; the others (popups such as notifications) as file-2.png, ...
+        shells.sort((a, b) -> Integer.compare(area(b), area(a)));
+        for (int i = 0; i < shells.size(); i++) {
+            save(shells.get(i), i == 0 ? file : file.substring(0, file.length() - 4) + "-" + (i + 1) + ".png");
+        }
         for (Shell shell : display.getShells()) {
             shell.dispose();
         }

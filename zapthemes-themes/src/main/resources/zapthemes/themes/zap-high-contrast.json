@@ -73,6 +73,9 @@
   "classes": {
     "Label.muted": {
       "foreground": "$qualifier"
+    },
+    "*.notification": {
+      "background": "$border"
     }
   },
   "platform": {

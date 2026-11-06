@@ -20,6 +20,7 @@ include(
     "zapthemes-swt",
     "zapthemes-widgets",
     "zapthemes-jface",
+    "zapthemes-jface-notifications",
     "zapthemes-nebula-fork",
     "zapthemes-nebula",
     "zapthemes-draw2d",

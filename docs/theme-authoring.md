@@ -21,6 +21,7 @@ runnable program:
 | `zapthemes-themes` | The bundled themes: `zap-light`, `zap-dark`, `zap-high-contrast` |
 | `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar` |
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
+| `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |
 | `zapthemes-nebula`, `zapthemes-nebula-incubation` | Nebula proxies and stylers, with the forked widgets (`zapthemes-nebula-fork`, `zapthemes-nebula-incubation-fork`) and draw2d (`zapthemes-draw2d`) |
 
 Every module needs JDK 25 and depends on SWT 3.135.0. As with JFace on Maven Central, the POMs name the
@@ -61,6 +62,11 @@ Eclipse 4.41) works on the fork unchanged: it observes widgets and never creates
 for the official JFace, which the capability rule above replaces with the fork. The
 `*ObservableValue` classes of Nebula DateChooser and FormattedText are included; add
 `jface.databinding` yourself to use them, as with upstream Nebula.
+
+**Notifications.** `zapthemes-jface-notifications` replaces `org.eclipse.jface.notifications` and
+declares its capability, like `zapthemes-jface`. Its popup takes the theme's `notification` class
+(frame) and `popup` class (content area) instead of upstream's white content; it brings
+`org.eclipse.core.runtime`, as upstream does.
 
 ## 2. Create widgets from the proxies
 
@@ -149,7 +155,7 @@ is the most complete reference.
 | `palette` | Named values referenced from anywhere as `"$name"`. Colors are `#RRGGBB` or `#RRGGBBAA`. Fonts are `{ "name": "Segoe UI", "height": 9, "style": "bold\|italic" }`; a missing name or height keeps the system font's. An entry may reference another. |
 | `defaults` | Properties for every widget, applied first |
 | `controls` | Rules by control type. Keys: `Type` (`"Button"`, `"Grid"`, `"FlatButton"`), or `Type[BIT\|BIT]` (`"Button[CHECK]"`, `"Text[MULTI\|WRAP]"`), which applies when the widget has all of those SWT style bits. `"inherit": "Other"` starts a rule from another type's rule. |
-| `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any. The JFace fork sets `banner`, `title`, `info` (tooltips and hovers), `popup` (`PopupDialog`; its info text also `muted`), `error` (status line errors), `plain` and `pane`: give them rules, as the bundled themes do |
+| `classes` | Rules a widget opts into with `themes.setThemeClass(widget, "danger large")`: `Type.cls` for one type, `*.cls` for any. The JFace fork sets `banner`, `title`, `info` (tooltips and hovers), `popup` (`PopupDialog`; its info text also `muted`), `error` (status line errors), `plain` and `pane`; the notifications fork sets `notification` (the popup's frame) and `popup` (its content): give them rules, as the bundled themes do |
 | `states` (inside a rule) | Overrides while a widget is `hover`, `pressed`, `selected`, `focused` or `disabled` |
 | `platform` | What the OS draws itself: `*` for all platforms, then `win32`, `gtk` or `cocoa` |
 | `registries` | Named resources of other toolkits: JFace `colors` and `fonts`, and `systemColors`, which replaces `Display.getSystemColor` constants inside the Nebula forks |

@@ -1,0 +1,13 @@
+diff --git a/org/eclipse/jface/notifications/AbstractNotificationPopup.java b/org/eclipse/jface/notifications/AbstractNotificationPopup.java
+index d2d41c7..0cea75d 100644
+--- a/org/eclipse/jface/notifications/AbstractNotificationPopup.java
++++ b/org/eclipse/jface/notifications/AbstractNotificationPopup.java
+@@ -408,6 +408,8 @@ public abstract class AbstractNotificationPopup extends Window {
+ 		/* Content Area */
+ 		createContentArea(innerContent);
+ 		addWindowActivationHelper(innerContent);
++		// ZapThemes: style classes instead of the white content and dark-shadow title.
++		com.zapthemes.jface.notifications.NotificationTheming.apply(this.shell, titleCircle, outerContentCircle, middleContentCircle);
+ 		return outerCircle;
+ 	}
+ 
