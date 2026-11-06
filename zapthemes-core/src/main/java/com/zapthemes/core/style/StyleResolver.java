@@ -86,7 +86,7 @@ public final class StyleResolver {
                 }
             }
             props.remove(INHERIT);
-            return new ResolvedStyle(props, names);
+            return new ResolvedStyle(props, names, type);
         });
     }
 
@@ -98,7 +98,7 @@ public final class StyleResolver {
         if (platform == null) {
             Map<String, JsonElement> settings = new LinkedHashMap<>(theme.platformSettings("*"));
             settings.putAll(theme.platformSettings(SWT.getPlatform()));
-            platform = new ResolvedStyle(settings, names);
+            platform = new ResolvedStyle(settings, names, "platform");
         }
         return platform;
     }
@@ -112,7 +112,7 @@ public final class StyleResolver {
         Map<String, JsonElement> props = new LinkedHashMap<>();
         mergeType(type, props, new LinkedHashSet<>());
         props.remove(INHERIT);
-        return new ResolvedStyle(props, names);
+        return new ResolvedStyle(props, names, type);
     }
 
     /**
@@ -120,7 +120,7 @@ public final class StyleResolver {
      * resolved on read; empty if the theme has none.
      */
     public ResolvedStyle registry(String name) {
-        return new ResolvedStyle(theme.registries().getOrDefault(name, Map.of()), names);
+        return new ResolvedStyle(theme.registries().getOrDefault(name, Map.of()), names, "registries." + name);
     }
 
     private void mergeType(String type, Map<String, JsonElement> into, Set<String> seen) {

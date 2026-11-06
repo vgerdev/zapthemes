@@ -26,9 +26,6 @@
     "Link": {
       "linkForeground": "$link"
     },
-    "Button[PUSH]": {
-      "borderColor": "$border"
-    },
     "CTabFolder": {
       "selectionForeground": "$accent",
       "selectionBarThickness": 3

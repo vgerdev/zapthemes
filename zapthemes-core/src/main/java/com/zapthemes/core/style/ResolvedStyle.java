@@ -19,15 +19,23 @@ public final class ResolvedStyle {
 
     private final Map<String, JsonElement> props;
     private final ThemeNames names;
+    /** What the style is for, for {@link KeyRecorder}: a control type, registries.x or platform. */
+    private final String owner;
 
     ResolvedStyle(Map<String, JsonElement> props, ThemeNames names) {
+        this(props, names, null);
+    }
+
+    ResolvedStyle(Map<String, JsonElement> props, ThemeNames names, String owner) {
         this.props = props;
         this.names = names;
+        this.owner = owner;
     }
     /** Key of the per-state overrides: {@code "states": { "hover": { ... }, "disabled": { ... } }}. */
     public static final String STATES = "states";
 
     public boolean has(String key) {
+        KeyRecorder.record(owner, key);
         return props.containsKey(key);
     }
 
@@ -58,17 +66,19 @@ public final class ResolvedStyle {
         Map<String, JsonElement> merged = new LinkedHashMap<>(props);
         merged.remove(STATES);
         overrides.getAsJsonObject().entrySet().forEach(e -> merged.put(e.getKey(), e.getValue()));
-        return new ResolvedStyle(merged, names);
+        return new ResolvedStyle(merged, names, owner);
     }
 
     /** {@code "#RRGGBB"} or {@code "#RRGGBBAA"}, directly or via a swatch or a name's color. */
     public Optional<RGBA> color(String key) {
+        KeyRecorder.record(owner, key);
         JsonElement value = props.get(key);
         return value == null ? Optional.empty() : Optional.of(names.color(value, key));
     }
 
     /** A font object, directly or via a name's font. */
     public Optional<FontSpec> font(String key) {
+        KeyRecorder.record(owner, key);
         JsonElement value = props.get(key);
         return value == null ? Optional.empty() : Optional.of(names.font(value, key));
     }
@@ -87,6 +97,7 @@ public final class ResolvedStyle {
 
     /** The raw value with references resolved: a name's color if it has one, else its font. */
     public Optional<JsonElement> value(String key) {
+        KeyRecorder.record(owner, key);
         JsonElement value = props.get(key);
         return value == null ? Optional.empty() : Optional.of(names.resolve(value, ThemeNames.Part.ANY, key));
     }
