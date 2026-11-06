@@ -25,7 +25,7 @@ public final class BaseNames {
             name("stripe", "Surfaces", COLOR, "Alternate table rows"),
             name("hover", "Surfaces", COLOR, "Under the mouse"),
             name("selection", "Surfaces", COLOR, "Selected rows and text"),
-            name("chrome", "Surfaces", COLOR, "Window chrome: title bars and the ribbon's tab row"),
+            name("chrome", "Surfaces", COLOR, "Window chrome around the content: the ribbon's tab row (title bars have their own names)"),
 
             name("foreground", "Text", BOTH, "Text; its font is the default font", "background", "surface", "raised"),
             name("muted", "Text", COLOR, "Secondary text: qualifiers, hints, line numbers", "background", "surface"),
