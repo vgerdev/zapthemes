@@ -351,7 +351,7 @@ class RibbonTest {
         ribbon.activate(hot, false, null);
         assertThat(ran).containsExactly("home.color=RGB {255, 0, 0}");
         ribbon.activate(hot, true, null);
-        settle();
+        // Opens at once; no event loop here, as a window manager-less X server (CI) can deactivate it.
         assertThat(ribbon.popups()).hasSize(1).first().isInstanceOf(ColorPalettePopup.class);
         ColorPalettePopup palette = (ColorPalettePopup) ribbon.popups().getFirst();
         palette.palette().choose(0);
@@ -520,6 +520,7 @@ class RibbonTest {
 
     @Test
     void accessibilityPathsNameTheKeys() {
+        ribbon.setKeyTipsEnabled(true);
         Hot paste = ribbon.hotOf(ribbon.getSelection().group("home.clipboard").items().getFirst());
         assertThat(ribbon.keyTips().pathOf(ribbon, paste)).isEqualTo("Alt, H, V");
     }
@@ -566,6 +567,7 @@ class RibbonTest {
 
     @Test
     void ctrlF1AltAndDoubleClickWork() {
+        ribbon.setKeyTipsEnabled(true);
         ribbon.filter(key(SWT.KeyDown, SWT.F1, SWT.CTRL));
         assertThat(ribbon.isCollapsed()).isTrue();
         ribbon.tabDoubleClicked(ribbon.hotsOf(Hot.Kind.TAB).getFirst());
