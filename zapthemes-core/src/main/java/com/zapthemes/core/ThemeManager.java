@@ -125,10 +125,6 @@ public final class ThemeManager {
     public static void applyOnCreate(Widget widget, String type) {
         widget.setData(ThemeKeys.THEME_CONTROL_TYPE, type);
         ThemeManager manager = get(widget.getDisplay());
-        if (manager.getZoom() != 1 && ImageZoom.handles(widget)) {
-            // The application sets the image after the constructor; zoom it once construction is over.
-            manager.display.asyncExec(() -> manager.rescaleImage(widget));
-        }
         try {
             manager.apply(widget);
         } catch (RuntimeException e) {
@@ -236,6 +232,20 @@ public final class ThemeManager {
             WidgetTree.walk(shell, this::rescaleImage);
         }
         images.sweep();
+    }
+
+    /**
+     * The image {@code widget} should show for {@code image} at the current zoom: a zoomed copy, or
+     * {@code image} itself at 100 %, when images are off, or for a widget left out. Proxies call it
+     * from {@code setImage}, so a widget sizes itself around the zoomed image from the start.
+     */
+    public static org.eclipse.swt.graphics.Image zoomedImage(Widget widget, org.eclipse.swt.graphics.Image image) {
+        ThemeManager manager = MANAGERS.get(widget.getDisplay());
+        if (manager == null) {
+            return image;
+        }
+        double zoom = manager.zoomImages && ImageZoom.allowed(widget) ? manager.resources.zoom() : 1;
+        return manager.images.forSet(widget, image, zoom);
     }
 
     /** Number of zoomed image copies held; used by leak tests. */

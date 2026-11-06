@@ -133,6 +133,13 @@ public final class ProxyGenerator {
             appendConstructor(src, original, simpleName, constructor);
         }
 
+        if (zoomsImage(original)) {
+            // The zoomed image is set right away, so a dialog sizes itself around it.
+            src.append("\n    @Override\n");
+            src.append("    public void setImage(org.eclipse.swt.graphics.Image image) {\n");
+            src.append("        super.setImage(com.zapthemes.core.ThemeManager.zoomedImage(this, image));\n");
+            src.append("    }\n");
+        }
         if (!checkSubclassIsFinal(original)) {
             src.append("\n    @Override\n");
             src.append("    protected void checkSubclass() {\n");
@@ -212,6 +219,25 @@ public final class ProxyGenerator {
     }
 
     /** A widget library may forbid overriding {@code checkSubclass}; then the proxy must not. */
+    /**
+     * Whether the proxy passes images through {@code ThemeManager.zoomedImage}: widgets with a public,
+     * overridable {@code setImage(Image)}, except shells (their window icon), carets, and table and
+     * tree items, whose native image lists keep the size of their first image.
+     */
+    static boolean zoomsImage(Class<?> type) {
+        if (org.eclipse.swt.widgets.Decorations.class.isAssignableFrom(type) || org.eclipse.swt.widgets.Caret.class.isAssignableFrom(type)
+                || org.eclipse.swt.widgets.TableItem.class.isAssignableFrom(type)
+                || org.eclipse.swt.widgets.TreeItem.class.isAssignableFrom(type)) {
+            return false;
+        }
+        try {
+            Method setter = type.getMethod("setImage", org.eclipse.swt.graphics.Image.class);
+            return !Modifier.isFinal(setter.getModifiers()) && !Modifier.isStatic(setter.getModifiers());
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
     static boolean checkSubclassIsFinal(Class<?> type) {
         for (Class<?> k = type; k != null && k != Widget.class; k = k.getSuperclass()) {
             try {

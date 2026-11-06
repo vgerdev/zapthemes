@@ -30,7 +30,9 @@ import org.eclipse.swt.widgets.Widget;
  * back.
  *
  * <p>Left out: shell icons, carets, and table and tree items, whose native image lists keep the
- * size of their first image. An image the application sets is taken as a 100 % image. The
+ * size of their first image. An image the application sets is taken as a 100 % image. Proxies
+ * zoom it in {@code setImage} ({@link ThemeManager#zoomedImage}), so widgets size themselves
+ * around the zoomed image; other widgets get it once SWT's {@code Skin} event themes them. The
  * copies are owned here: one per original and zoom level, disposed with the display or once their
  * original is disposed.
  */
@@ -44,6 +46,8 @@ final class ImageZoom {
 
     private final Display display;
     private final Map<Image, Map<Integer, Image>> copies = new IdentityHashMap<>();
+    /** Every copy made here, so a copy passed back to {@code setImage} is not zoomed again. */
+    private final Map<Image, Boolean> own = new IdentityHashMap<>();
 
     ImageZoom(Display display) {
         this.display = display;
@@ -83,6 +87,25 @@ final class ImageZoom {
         }
     }
 
+    /**
+     * What a proxy's {@code setImage(image)} sets: {@code image} at {@code zoom}, remembered as the
+     * widget's 100 % image. A copy made here passes through unchanged.
+     */
+    Image forSet(Widget widget, Image image, double zoom) {
+        if (image != null && own.containsKey(image)) {
+            return image;
+        }
+        if (image == null || image.isDisposed() || !handles(widget)) {
+            widget.setData(ORIGINAL, null);
+            widget.setData(APPLIED, null);
+            return image;
+        }
+        Image target = zoom == 1 ? image : copy(image, zoom);
+        widget.setData(ORIGINAL, image);
+        widget.setData(APPLIED, target);
+        return target;
+    }
+
     /** Whether {@code widget} and its parents let images follow the zoom. */
     static boolean allowed(Widget widget) {
         if (Boolean.FALSE.equals(widget.getData(ThemeKeys.ZOOM_IMAGES))) {
@@ -117,7 +140,9 @@ final class ImageZoom {
                 }
                 return fallback.scaledTo(Math.max(1, fallback.width * wanted / 100), Math.max(1, fallback.height * wanted / 100));
             };
-            return new Image(display, provider);
+            Image copy = new Image(display, provider);
+            own.put(copy, Boolean.TRUE);
+            return copy;
         });
     }
 
@@ -126,7 +151,10 @@ final class ImageZoom {
         for (Iterator<Map.Entry<Image, Map<Integer, Image>>> it = copies.entrySet().iterator(); it.hasNext();) {
             Map.Entry<Image, Map<Integer, Image>> entry = it.next();
             if (entry.getKey().isDisposed()) {
-                entry.getValue().values().forEach(Image::dispose);
+                entry.getValue().values().forEach(copy -> {
+                    own.remove(copy);
+                    copy.dispose();
+                });
                 it.remove();
             }
         }
@@ -140,6 +168,7 @@ final class ImageZoom {
     void dispose() {
         copies.values().forEach(byZoom -> byZoom.values().forEach(Image::dispose));
         copies.clear();
+        own.clear();
     }
 
     private static Optional<Method[]> accessors(Class<?> type) {
