@@ -66,7 +66,9 @@ public class TitleBar extends Canvas {
         CAPTION,
         SYSTEM_MENU, ITEM, CUSTOMIZE, TITLE, SEARCH, SLOT, AVATAR, MINIMIZE, MAXIMIZE, CLOSE,
         /** The top edge, which resizes the window. */
-        RESIZE_TOP, RESIZE_TOP_LEFT, RESIZE_TOP_RIGHT
+        RESIZE_TOP, RESIZE_TOP_LEFT, RESIZE_TOP_RIGHT,
+        /** Empty space of the quick access toolbar's own row, when it is shown below the bar. */
+        TOOLBAR
     }
 
     /** How the bar and the window frame get along on this platform. */
@@ -88,6 +90,9 @@ public class TitleBar extends Canvas {
     private static final String RESTORE_TEXT = "Restore Down";
     private static final String CLOSE_TEXT = "Close";
     private static final String CUSTOMIZE_TEXT = "Customize Quick Access Toolbar";
+    static final String MORE_COMMANDS_TEXT = "&More Commands...";
+    static final String SHOW_BELOW_TEXT = "Show &Below the Title Bar";
+    static final String SHOW_ABOVE_TEXT = "Show &Above the Title Bar";
 
     private final Shell shell;
     private final WindowFrame frame;
@@ -120,6 +125,10 @@ public class TitleBar extends Canvas {
     private int focusIndex = -1;
     private Menu customizeMenu;
     private Menu systemMenu;
+    private boolean quickAccessBelow;
+    private java.nio.file.Path preferences;
+    private boolean loadingPreferences;
+    private TitleBarCustomization defaults;
     private int focusKey = SWT.F6;
     private boolean focusRequested;
     private Control focusReturn;
@@ -399,11 +408,108 @@ public class TitleBar extends Canvas {
         notifyCustomized();
     }
 
-    /** Hook for customization listeners (step 3); fires {@link SWT#Settings} on the bar. */
+    /**
+     * The user changed the quick access toolbar: saves the preferences file, if any, and fires
+     * {@link SWT#Settings} on the bar so an app keeping the state elsewhere can store it.
+     */
     void notifyCustomized() {
-        if (!isDisposed()) {
-            notifyListeners(SWT.Settings, new Event());
+        if (isDisposed() || loadingPreferences) {
+            return;
         }
+        if (preferences != null) {
+            try {
+                getCustomization().save(preferences);
+            } catch (java.io.IOException e) {
+                System.getLogger(TitleBar.class.getName()).log(System.Logger.Level.WARNING,
+                        "Could not save the title bar preferences to " + preferences, e);
+            }
+        }
+        notifyListeners(SWT.Settings, new Event());
+    }
+
+    /** Whether the quick access toolbar shows on its own row below the bar. */
+    public boolean isQuickAccessBelow() {
+        checkWidget();
+        return quickAccessBelow;
+    }
+
+    public void setQuickAccessBelow(boolean below) {
+        checkWidget();
+        if (quickAccessBelow != below) {
+            quickAccessBelow = below;
+            relayout();
+            if (!shell.isDisposed()) {
+                shell.layout(new Control[] { this });
+            }
+            notifyCustomized();
+        }
+    }
+
+    /** What users have customized: the shown commands in their order, and the toolbar's position. */
+    public TitleBarCustomization getCustomization() {
+        checkWidget();
+        return TitleBarCustomization.of(this);
+    }
+
+    /** Applies a customization, e.g. one the app kept in its own preferences. */
+    public void setCustomization(TitleBarCustomization customization) {
+        checkWidget();
+        boolean was = loadingPreferences;
+        loadingPreferences = true;
+        try {
+            customization.applyTo(this);
+        } finally {
+            loadingPreferences = was;
+        }
+        notifyCustomized();
+    }
+
+    public java.nio.file.Path getPreferences() {
+        checkWidget();
+        return preferences;
+    }
+
+    /**
+     * The file users' customizations are kept in: loaded now if it exists (commands it doesn't know
+     * keep the app's defaults, ids the app no longer has are ignored), and saved on every change.
+     * Call it after creating the items. {@code null} stops saving.
+     */
+    public void setPreferences(java.nio.file.Path file) {
+        checkWidget();
+        this.preferences = file;
+        defaults();
+        if (file == null || !java.nio.file.Files.isRegularFile(file)) {
+            return;
+        }
+        loadingPreferences = true;
+        try {
+            TitleBarCustomization.load(file).applyTo(this);
+        } catch (java.io.IOException | RuntimeException e) {
+            System.getLogger(TitleBar.class.getName()).log(System.Logger.Level.WARNING,
+                    "Could not read the title bar preferences from " + file, e);
+        } finally {
+            loadingPreferences = false;
+        }
+    }
+
+    /** The app's own toolbar, before users changed it: taken when the preferences file is set, or on first use. */
+    TitleBarCustomization defaults() {
+        if (defaults == null) {
+            defaults = TitleBarCustomization.of(this);
+        }
+        return defaults;
+    }
+
+    /** Puts the quick access toolbar back as the app made it. */
+    public void resetCustomization() {
+        checkWidget();
+        setCustomization(defaults());
+    }
+
+    /** Opens the "More Commands..." dialog: add, remove and reorder the quick access commands. */
+    public void openCustomizeDialog() {
+        checkWidget();
+        new QuickAccessDialog(this).open();
     }
 
     // ------------------------------------------------------------------ window buttons
@@ -489,6 +595,7 @@ public class TitleBar extends Canvas {
 
     /** Builds the customize menu without showing it. */
     org.eclipse.swt.widgets.Menu createCustomizeMenu() {
+        defaults();
         if (customizeMenu != null && !customizeMenu.isDisposed()) {
             customizeMenu.dispose();
         }
@@ -507,8 +614,11 @@ public class TitleBar extends Canvas {
         return customizeMenu;
     }
 
-    /** More entries for the customize menu; the customization step adds its own. */
+    /** The customize menu's entries after the command list. */
     void fillCustomizeMenu(org.eclipse.swt.widgets.Menu menu) {
+        new MenuItem(menu, SWT.SEPARATOR);
+        menuItem(menu, MORE_COMMANDS_TEXT, true, this::openCustomizeDialog);
+        menuItem(menu, quickAccessBelow ? SHOW_ABOVE_TEXT : SHOW_BELOW_TEXT, true, () -> setQuickAccessBelow(!quickAccessBelow));
     }
 
     /** The open customize menu, or {@code null}. */
@@ -541,7 +651,10 @@ public class TitleBar extends Canvas {
             return Part.NONE;
         }
         Hit hit = hitAt(x, y);
-        return hit != null ? hit.part : Part.CAPTION;
+        if (hit != null) {
+            return hit.part;
+        }
+        return y >= rowHeight() ? Part.TOOLBAR : Part.CAPTION;
     }
 
     /** The bounds of the first part of this kind, or {@code null} when the bar doesn't show it. */
@@ -578,6 +691,11 @@ public class TitleBar extends Canvas {
         return rowHeight() / 32f;
     }
 
+    /** The quick access toolbar's own row, when it is below the bar. */
+    int belowHeight() {
+        return px(34);
+    }
+
     int rowHeight() {
         if (rowHeight == 0) {
             GC gc = new GC(this);
@@ -594,7 +712,7 @@ public class TitleBar extends Canvas {
     @Override
     public Point computeSize(int wHint, int hHint, boolean changed) {
         checkWidget();
-        int height = rowHeight();
+        int height = rowHeight() + (quickAccessBelow ? belowHeight() : 0);
         return new Point(wHint == SWT.DEFAULT ? Math.round(640 * unit()) : wHint, hHint == SWT.DEFAULT ? height : hHint);
     }
 
@@ -637,6 +755,9 @@ public class TitleBar extends Canvas {
         boolean maximized = shell.getMaximized();
         GC gc = new GC(this);
         try {
+            // Measure as painting draws: antialiasing switches to advanced graphics, whose text is wider.
+            gc.setAntialias(SWT.ON);
+            gc.setTextAntialias(SWT.ON);
             gc.setFont(getFont());
             if (frame.resizesFromBar() && !maximized && resizable) {
                 int border = Math.max(4, px(5));
@@ -702,7 +823,17 @@ public class TitleBar extends Canvas {
             boolean hasCustomize = customizable && !getQuickAccessItems().isEmpty();
             int customizeWidth = hasCustomize ? px(22) : 0;
             int minimumMiddle = px(searchHint != null ? 40 : 8);
-            while (!quick.isEmpty() && quickStart + quickWidth(gc, quick) + customizeWidth + px(8) + minimumMiddle > middleRight) {
+            int rowTop = 0;
+            int rowHeight = height;
+            int rowEnd = middleRight - minimumMiddle - px(8);
+            int afterQuick = quickStart;
+            if (quickAccessBelow) {
+                quickStart = px(6);
+                rowTop = height;
+                rowHeight = belowHeight();
+                rowEnd = width - px(6);
+            }
+            while (!quick.isEmpty() && quickStart + quickWidth(gc, quick) + customizeWidth > rowEnd) {
                 quick.removeLast();
             }
             x = quickStart;
@@ -710,7 +841,7 @@ public class TitleBar extends Canvas {
             for (TitleBarItem item : quick) {
                 int w = quickItemWidth(gc, item);
                 item.bounds.x = x;
-                item.bounds.y = (height - itemHeight) / 2;
+                item.bounds.y = rowTop + (rowHeight - itemHeight) / 2;
                 item.bounds.width = w;
                 item.bounds.height = itemHeight;
                 item.arrowWidth = item.isDropDown() ? px(14) : 0;
@@ -718,10 +849,10 @@ public class TitleBar extends Canvas {
                 x += w + px(2);
             }
             if (hasCustomize) {
-                hits.add(new Hit(Part.CUSTOMIZE, new Rectangle(x, (height - itemHeight) / 2, customizeWidth, itemHeight), null));
+                hits.add(new Hit(Part.CUSTOMIZE, new Rectangle(x, rowTop + (rowHeight - itemHeight) / 2, customizeWidth, itemHeight), null));
                 x += customizeWidth;
             }
-            int middleLeft = x + px(8);
+            int middleLeft = (quickAccessBelow ? afterQuick : x) + px(8);
 
             layoutMiddle(gc, width, height, middleLeft, middleRight);
         } finally {
@@ -890,6 +1021,13 @@ public class TitleBar extends Canvas {
         }
     }
 
+    /** The toolbar row below the bar takes the window's colors, as Office's does the ribbon's. */
+    TitleBarColors belowColors() {
+        RGB background = shell.getBackground().getRGB();
+        RGB foreground = shell.getForeground().getRGB();
+        return TitleBarColors.plain(background, foreground);
+    }
+
     TitleBarColors colors() {
         if (active) {
             if (activeColors == null) {
@@ -969,16 +1107,25 @@ public class TitleBar extends Canvas {
         Color foreground = new Color(display, colors.foreground());
         gc.setBackground(background);
         gc.fillRectangle(area);
+        TitleBarColors below = null;
+        if (quickAccessBelow) {
+            below = belowColors();
+            gc.setBackground(new Color(display, below.background()));
+            gc.fillRectangle(0, rowHeight(), area.width, area.height - rowHeight());
+            gc.setForeground(new Color(display, below.itemBorder()));
+            gc.drawLine(0, area.height - 1, area.width, area.height - 1);
+        }
         gc.setFont(getFont());
         List<Hit> focusable = focusables();
         Hit focused = isFocusControl() && focusIndex >= 0 && focusIndex < focusable.size() ? focusable.get(focusIndex) : null;
         for (Hit hit : hits) {
             switch (hit.part) {
                 case SYSTEM_MENU -> paintIcon(gc, hit);
-                case ITEM -> paintItem(gc, hit, colors);
+                case ITEM -> paintItem(gc, hit, below != null && hit.bounds.y >= rowHeight() ? below : colors);
                 case CUSTOMIZE -> {
-                    paintHover(gc, hit, colors);
-                    gc.setForeground(foreground);
+                    TitleBarColors c = below != null && hit.bounds.y >= rowHeight() ? below : colors;
+                    paintHover(gc, hit, c);
+                    gc.setForeground(new Color(display, c.foreground()));
                     paintChevron(gc, hit.bounds.x + hit.bounds.width / 2, hit.bounds.y + hit.bounds.height / 2, px(4));
                     gc.drawLine(hit.bounds.x + hit.bounds.width / 2 - px(4), hit.bounds.y + hit.bounds.height / 2 - px(5),
                             hit.bounds.x + hit.bounds.width / 2 + px(4), hit.bounds.y + hit.bounds.height / 2 - px(5));
@@ -1291,7 +1438,7 @@ public class TitleBar extends Canvas {
 
     private static boolean isInteractive(Hit hit) {
         return switch (hit.part) {
-            case CAPTION, SLOT, RESIZE_TOP, RESIZE_TOP_LEFT, RESIZE_TOP_RIGHT, NONE -> false;
+            case CAPTION, SLOT, RESIZE_TOP, RESIZE_TOP_LEFT, RESIZE_TOP_RIGHT, TOOLBAR, NONE -> false;
             default -> true;
         };
     }
@@ -1301,6 +1448,9 @@ public class TitleBar extends Canvas {
             return;
         }
         Hit hit = hitAt(event.x, event.y);
+        if (hit == null && event.y >= rowHeight()) {
+            return;
+        }
         if (hit == null || hit.part == Part.TITLE && !hasTitleMenu()) {
             frame.captionPressed(event);
             return;
@@ -1355,6 +1505,9 @@ public class TitleBar extends Canvas {
             return;
         }
         Hit hit = hitAt(event.x, event.y);
+        if (hit == null && event.y >= rowHeight()) {
+            return;
+        }
         if (hit == null || hit.part == Part.TITLE && !hasTitleMenu()) {
             frame.captionDoubleClicked();
         } else if (hit.part == Part.SYSTEM_MENU && frame.mode() != FrameMode.EMBEDDED) {
@@ -1365,7 +1518,7 @@ public class TitleBar extends Canvas {
     private void menuDetect(Event event) {
         Point point = toControl(event.x, event.y);
         Hit hit = hitAt(point.x, point.y);
-        if (frame.mode() != FrameMode.EMBEDDED && (hit == null || hit.part == Part.TITLE || hit.part == Part.SYSTEM_MENU)) {
+        if (frame.mode() != FrameMode.EMBEDDED && point.y < rowHeight() && (hit == null || hit.part == Part.TITLE || hit.part == Part.SYSTEM_MENU)) {
             event.doit = false;
             frame.openSystemMenu(new Point(event.x, event.y));
         }

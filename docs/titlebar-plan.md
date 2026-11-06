@@ -161,6 +161,7 @@ then toolbar items from the end into the customize menu.
   ```properties
   # ZapThemes title bar
   quickAccess.shown=autosave,save,undo,redo
+  quickAccess.known=autosave,email,new,open,print,redo,save,undo
   quickAccess.below=false
   ```
 
@@ -254,7 +255,7 @@ the slot (`TitleBarSlot`) are typed so that they take the bar's colors rather th
 |---|---|---|
 | 1 ✅ | **Title bar widget, drawn frame, theming** | `TitleBar`, `TitleBarItem`, `TitleBarProfile` and its pop-up; layout, painting, hit testing, the window buttons, the drawn system menu; the drawn frame (drag, double-click, resize edges); the new base names, catalog entries and bundled theme values; accent override and inactive dimming; accessibility; `TitleBarDemo` (Word and Excel looks) with a smoke test and screenshots in every theme. Tests: hit testing, button actions, theme and accent switching, profile pop-up. |
 | 2 ✅ | **Windows native frame** | Window procedure subclassing, `WM_NCCALCSIZE`, `WM_NCHITTEST` with snap layouts, the native system menu, maximized insets, DPI; FFM `DwmExtendFrameIntoClientArea`. Tests: the hit-test codes per part, the client area covering the caption, buttons through the native path. Checked by hand: snap, drag, resize, maximize, shake. |
-| 3 | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
+| 3 ✅ | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
 | 4 | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
 | 5 | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
 
@@ -329,3 +330,34 @@ included.
 
 Not verified by hand in this step: dragging, Aero snap and shake, the snap-layout flyout and the
 shadow were not exercised with a real mouse; the hit codes that drive them are tested.
+
+## Step 3 in detail
+
+`TitleBarCustomization` (a record: shown ids in order, known ids, below) is the state; `of(bar)`,
+`store`/`load` with `Properties`, and `save`/`load` with a file. `known` is what makes upgrades
+work: a command the app added after the file was saved isn't known, so it keeps the app's default,
+while a known command missing from `shown` was hidden by the user. Saving keeps the file's other
+keys (an app can share its own preferences file) and writes through a temporary file and a move.
+
+On `TitleBar`: `setPreferences(Path)` (loads now, saves on every change), `getCustomization()` and
+`setCustomization()` for apps that keep the state themselves (every change also fires
+`SWT.Settings` on the bar), `resetCustomization()` (back to the app's toolbar as it was when the
+preferences were set or the customize menu first opened), `setQuickAccessBelow()` and
+`openCustomizeDialog()`. The customize menu now ends with "More Commands..." and "Show Below the
+Title Bar" / "Show Above the Title Bar". Below, the toolbar gets its own 34 px row in the window's
+colors (its empty space is `Part.TOOLBAR`, client area, not caption), and the caption row keeps
+only the icon, title, search, right side and window buttons. `QuickAccessDialog` lists the
+available commands and the toolbar with Add, Remove, Move Up, Move Down, Reset and the below check
+box; OK applies and saves.
+
+`TitleBarDemo` keeps each window's toolbar in `~/.zapthemes/titlebar-demo-<window>.properties` (a
+temporary directory in smoke runs); its smoke test checks that a second bar reads back a hidden
+command and the below position, and the screenshots add the toolbar below the bar.
+
+Tests (`TitleBarCustomizationTest`, 8): the round trip through a file, new commands keeping their
+defaults and unknown ids ignored, other keys kept, `Properties` round trip, the `Settings` event and
+`setCustomization`, the customize menu's entries, the below row's layout and hit testing, and the
+dialog's add, move, remove, below, OK (saved) and reset.
+
+Also fixed here and in step 1: text is measured with antialiasing on, as it is painted, since GDI+
+text is wider than GDI's (titles were ellipsized with room to spare).
