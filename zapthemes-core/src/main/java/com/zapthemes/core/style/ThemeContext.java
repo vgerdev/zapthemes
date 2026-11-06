@@ -1,5 +1,7 @@
 package com.zapthemes.core.style;
 
+import java.util.List;
+
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
@@ -10,7 +12,7 @@ import com.zapthemes.core.model.FontSpec;
 /** What a {@link ControlStyler} needs besides the style: the current theme's resources. */
 public record ThemeContext(ThemeResources resources) {
 
-    private static final FontSpec SYSTEM_FONT = new FontSpec(null, 0, SWT.NORMAL);
+    private static final FontSpec SYSTEM_FONT = new FontSpec(List.of(), 0, SWT.NORMAL);
 
     /** The color for {@code key}, or {@code null} (platform default) if the theme has none. */
     public Color color(ResolvedStyle style, String key) {
