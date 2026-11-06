@@ -28,15 +28,32 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 xvfb
       - name: Build and test (Linux, under Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest --console=plain
+        run: xvfb-run -a ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest :zapthemes-examples:smokeTest --console=plain
       - name: Build and test
         if: runner.os != 'Linux'
         shell: bash
-        run: ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest --console=plain
+        run: ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest :zapthemes-examples:smokeTest --console=plain
       # Screenshots of every demo in every theme, to review GTK and Cocoa rendering by eye.
       - name: Screenshots (Linux, under Xvfb)
         if: runner.os == 'Linux'
         run: xvfb-run -a -s "-screen 0 1600x1200x24" ./gradlew :zapthemes-demo:screenshots --console=plain
+      # ZapNotes builds on the staged artifacts only, as an outside application would.
+      - name: ZapNotes on the staged artifacts (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: ./gradlew publishToStaging --console=plain && xvfb-run -a ./gradlew -p apps/zapnotes smokeTest --console=plain
+      - name: ZapNotes on the staged artifacts
+        if: runner.os != 'Linux'
+        shell: bash
+        run: ./gradlew publishToStaging --console=plain && ./gradlew -p apps/zapnotes smokeTest --console=plain
+      # Every JFace snippet in its own JVM: tagged, closes, a PNG each (Control.print is reliable here).
+      - name: JFace snippets (Linux, under Xvfb)
+        if: matrix.os == 'ubuntu-latest'
+        run: xvfb-run -a -s "-screen 0 1600x1200x24" ./gradlew :zapthemes-examples:screenshotsSnippets --console=plain
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: snippets-${{ matrix.os }}
+          path: zapthemes-examples/build/screenshots/snippets/
       - name: Screenshots
         if: runner.os == 'macOS'
         run: ./gradlew :zapthemes-demo:screenshots --console=plain

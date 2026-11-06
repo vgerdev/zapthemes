@@ -5,6 +5,9 @@ set -euo pipefail
 
 JFACE_REPO=https://github.com/eclipse-platform/eclipse.platform.ui
 JFACE_REF=R4_41
+# SWT's ControlExample, for zapthemes-examples (same release as the SWT 3.135.0 binaries).
+SWT_REPO=https://github.com/eclipse-platform/eclipse.platform.swt
+SWT_REF=R4_41
 NEBULA_REPO=https://github.com/eclipse/nebula
 NEBULA_COMMIT=5d0bcbb9c6e3a118685a5ec91c6f5d8eb7833893
 # draw2d (GEF Classic), needed by Nebula Timeline; not on Maven Central.
@@ -28,7 +31,8 @@ fetch() { # dir repo ref sparse-patterns...
 }
 
 fetch "$root/third_party/jface-upstream" "$JFACE_REPO" "$JFACE_REF" \
-    '/bundles/org.eclipse.jface/*'
+    '/bundles/org.eclipse.jface/*' '/examples/org.eclipse.jface.snippets/*'
+fetch "$root/third_party/swt-upstream" "$SWT_REPO" "$SWT_REF"     '/examples/org.eclipse.swt.examples/*'
 fetch "$root/third_party/nebula-upstream" "$NEBULA_REPO" "$NEBULA_COMMIT" \
     '/widgets/*/*/src/' '/widgets/*/*/src-gen/' '/widgets/*/*/META-INF/' '/widgets/*/*/*/src/' '/widgets/*/*/*/META-INF/'
 
