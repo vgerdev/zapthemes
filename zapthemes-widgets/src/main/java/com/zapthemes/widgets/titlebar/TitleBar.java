@@ -131,6 +131,7 @@ public class TitleBar extends Canvas {
     private TitleBarCustomization defaults;
     private int focusKey = SWT.F6;
     private boolean focusRequested;
+    private boolean keyboardFocus;
     private Control focusReturn;
 
     @SuppressWarnings("this-escape")
@@ -163,7 +164,10 @@ public class TitleBar extends Canvas {
         addListener(SWT.KeyDown, this::keyDown);
         addListener(SWT.Traverse, this::traverse);
         addListener(SWT.FocusIn, e -> focusIn());
-        addListener(SWT.FocusOut, e -> redraw());
+        addListener(SWT.FocusOut, e -> {
+            keyboardFocus = false;
+            redraw();
+        });
         addListener(SWT.Dispose, e -> disposed());
         search.addListener(SWT.DefaultSelection, e -> searchSubmitted());
         search.addListener(SWT.Modify, e -> {
@@ -1117,7 +1121,8 @@ public class TitleBar extends Canvas {
         }
         gc.setFont(getFont());
         List<Hit> focusable = focusables();
-        Hit focused = isFocusControl() && focusIndex >= 0 && focusIndex < focusable.size() ? focusable.get(focusIndex) : null;
+        // The ring shows only for keyboard focus: a platform may give the bar the focus on its own.
+        Hit focused = isFocusControl() && keyboardFocus && focusIndex >= 0 && focusIndex < focusable.size() ? focusable.get(focusIndex) : null;
         for (Hit hit : hits) {
             switch (hit.part) {
                 case SYSTEM_MENU -> paintIcon(gc, hit);
@@ -1565,6 +1570,7 @@ public class TitleBar extends Canvas {
             focusReturn = focus;
         }
         focusRequested = true;
+        keyboardFocus = true;
         try {
             forceFocus();
         } finally {
@@ -1670,6 +1676,7 @@ public class TitleBar extends Canvas {
     }
 
     private void moveFocus(List<Hit> list, int delta) {
+        keyboardFocus = true;
         focusIndex = Math.floorMod(Math.max(0, focusIndex) + delta, list.size());
         redraw();
         getAccessible().setFocus(focusIndex);
