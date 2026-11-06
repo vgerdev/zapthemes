@@ -376,13 +376,14 @@ public final class TitleBarDemo {
         word.shell.forceActive();
         DemoSupport.settle(display);
         org.eclipse.swt.widgets.Shell popup = word.bar.openProfile();
-        DemoSupport.settle(display);
+        // Checked at once: under Xvfb without a window manager, late focus events can close it.
         if (popup == null || popup.isDisposed() || !popup.isVisible()) {
             problems.add("the profile pop-up did not open");
         } else {
             checked += check(popup, problems);
             popup.close();
         }
+        DemoSupport.settle(display);
         word.bar.getItem("print").setShown(true);
         if (word.bar.getItem("print").getBounds().isEmpty()) {
             problems.add("a command shown from the customize menu has no bounds");
