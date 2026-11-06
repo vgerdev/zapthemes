@@ -28,8 +28,9 @@ Status (2026-11-04): done and checked on Windows x86_64. Linux and macOS run in 
   (`org.eclipse.draw2d_3.23.100`). `scripts/fetch-upstream.sh` downloads it into `third_party/gef/`
   and checks its SHA-256, so the build fails if the jar changes. EMF ecore 2.43.0 and core.jobs
   come from Maven Central.
-- **Data binding is left out:** `**/*ObservableValue.java` in DateChooser and FormattedText.
-  So are the `ui.forms` toolkits (`**/forms/*.java` in RadioGroup, Picture and Pagination), which
+- **Data binding** (`*ObservableValue.java` in DateChooser and FormattedText) was left out here
+  and is included since Phase 7, compiled against `jface.databinding` as an optional dependency.
+- **Left out:** the `ui.forms` toolkits (`**/forms/*.java` in RadioGroup, Picture and Pagination), which
   would pull in the workbench. The fork tooling gained `exclude` globs for this.
 
 ## Patches

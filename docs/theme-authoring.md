@@ -56,6 +56,12 @@ configurations.all {
 }
 ```
 
+**Data binding.** The official `org.eclipse.platform:org.eclipse.jface.databinding` (1.16.0 for
+Eclipse 4.41) works on the fork unchanged: it observes widgets and never creates them. Its POM asks
+for the official JFace, which the capability rule above replaces with the fork. The
+`*ObservableValue` classes of Nebula DateChooser and FormattedText are included; add
+`jface.databinding` yourself to use them, as with upstream Nebula.
+
 ## 2. Create widgets from the proxies
 
 A proxy is a subclass of the SWT widget that tags itself with its control type

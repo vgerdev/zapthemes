@@ -8,8 +8,9 @@ builds against ZapThemes: a separate Gradle build that depends only on the publi
 - **Views:** a navigator of notebooks and notes, an editor area with a tab per open note (dirty
   `*`, close asks about unsaved changes), Properties and Tasks (checkbox) views, IDE-style title
   bars.
-- **Editor form:** a title with a required-field decoration, a notebook combo, tags with content
-  assist (Ctrl+Space), and a `StyledText` body.
+- **Editor form:** a title bound with JFace data binding (a validator, and
+  `ControlDecorationSupport` showing its message), a notebook combo, tags with content assist
+  (Ctrl+Space), and a `StyledText` body.
 - **Windows and dialogs:** any number of windows over one model (Window › New Window), a new-note
   wizard, Find, Rename, Delete, About, Preferences (theme and line wrapping) and an Export with a
   progress dialog.

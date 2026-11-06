@@ -15,18 +15,25 @@ zapthemesFork {
     // The examples paint with display.getSystemColor(...): route those through the theme.
     themeSystemColors()
     upstream("controlexample", swtExamples, otherSwtExamples)
-    // Left out: snippets for bundles ZapThemes does not ship yet (JFace notifications, data binding).
+    // Left out: snippets for JFace notifications, which ZapThemes does not ship yet.
     upstream("jfacesnippets", jfaceSnippets, listOf(
         "org/eclipse/jface/snippets/notifications/**",
         "org/eclipse/jface/snippets/dialogs/Snippet081NotificationPopup.java",
-        "org/eclipse/jface/snippets/viewers/Snippet064TreeViewerReplacingElements.java",
-        "org/eclipse/jface/snippets/viewers/Snippet065TableViewerReplacingElements.java",
     ))
 }
 
 dependencies {
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-themes"))
+    // The official data binding jars run on the forked JFace: they observe widgets, never create them.
+    implementation(libs.jface.databinding)
+}
+
+// jface.databinding's POM asks for the official JFace; the fork provides the same capability.
+configurations.all {
+    resolutionStrategy.capabilitiesResolution.withCapability("org.eclipse.platform:org.eclipse.jface") {
+        select(candidates.first { (it.id as? ProjectComponentIdentifier)?.projectPath == ":zapthemes-jface" })
+    }
 }
 
 // Upstream code: its warnings are upstream's to fix.
