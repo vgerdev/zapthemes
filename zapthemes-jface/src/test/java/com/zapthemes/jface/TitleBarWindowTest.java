@@ -147,6 +147,26 @@ class TitleBarWindowTest {
     }
 
     @Test
+    void sizesSetBeforeOpeningAreKept() {
+        open(false);
+        assertThat(window.getShell().getSize()).isEqualTo(new org.eclipse.swt.graphics.Point(900, 500));
+    }
+
+    @Test
+    void theInitialSizeIsUsedAlthoughTheFrameChanged() {
+        window = new TitleBarWindow(null) {
+            @Override
+            protected org.eclipse.swt.graphics.Point getInitialSize() {
+                return new org.eclipse.swt.graphics.Point(720, 410);
+            }
+        };
+        window.setBlockOnOpen(false);
+        window.open();
+        settle();
+        assertThat(window.getShell().getSize()).isEqualTo(new org.eclipse.swt.graphics.Point(720, 410));
+    }
+
+    @Test
     void quickAccessItemsFollowTheirActions() {
         open(false);
         TitleBarItem saveItem = item("save");

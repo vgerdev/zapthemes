@@ -374,6 +374,16 @@ public final class TitleBarDemo {
             }
 
             @Override
+            protected org.eclipse.swt.graphics.Point getInitialSize() {
+                return new org.eclipse.swt.graphics.Point(1000, 620);
+            }
+
+            @Override
+            protected org.eclipse.swt.graphics.Point getInitialLocation(org.eclipse.swt.graphics.Point size) {
+                return new org.eclipse.swt.graphics.Point(220, 200);
+            }
+
+            @Override
             protected Control createContents(org.eclipse.swt.widgets.Composite parent) {
                 Label slide = new Label(parent, SWT.CENTER);
                 slide.setText("Click to add title");
@@ -383,7 +393,6 @@ public final class TitleBarDemo {
         };
         window.setBlockOnOpen(false);
         window.open();
-        window.getShell().setBounds(220, 200, 1000, 620);
         window.setStatus("Slide 1 of 1");
         TitleBar bar = window.getTitleBar();
         bar.getItem("save").setGlyph(TitleBarGlyph.SAVE);
@@ -512,13 +521,14 @@ public final class TitleBarDemo {
         word.shell.forceActive();
         DemoSupport.settle(display);
         org.eclipse.swt.widgets.Shell popup = word.bar.openProfile();
-        DemoSupport.settle(display);
+        // Checked at once: under Xvfb without a window manager, late focus events can close it.
         if (popup == null || popup.isDisposed() || !popup.isVisible()) {
             problems.add("the profile pop-up did not open");
         } else {
             checked += check(popup, problems);
             popup.close();
         }
+        DemoSupport.settle(display);
         word.bar.getItem("print").setShown(true);
         if (word.bar.getItem("print").getBounds().isEmpty()) {
             problems.add("a command shown from the customize menu has no bounds");

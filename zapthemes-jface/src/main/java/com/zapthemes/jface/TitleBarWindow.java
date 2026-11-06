@@ -112,6 +112,10 @@ public class TitleBarWindow extends ApplicationWindow {
 
     @Override
     protected void createTrimWidgets(Shell shell) {
+        // Installing the native frame resizes the client area, which would make Window skip
+        // initializeBounds (it keeps sizes set before opening); ApplicationWindow does the same for
+        // its menu bar.
+        boolean resized = resizeHasOccurred;
         titleBar = new TitleBar(shell, SWT.NONE);
         for (IAction action : pendingQuickAccess) {
             TitleBarItem item = ActionTitleBarItem.create(titleBar, action, SWT.NONE).item();
@@ -136,6 +140,7 @@ public class TitleBarWindow extends ApplicationWindow {
         if (preferences != null) {
             titleBar.setPreferences(preferences);
         }
+        resizeHasOccurred = resized;
     }
 
     private void installTitleMenu() {
