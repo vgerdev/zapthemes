@@ -499,8 +499,12 @@ public final class RibbonDemo {
                 DemoSupport.screenCopy(shell, screenshots, "ribbon-" + theme.id() + "-window");
             }
             Map<String, Size> wide = ribbon.groupSizes();
-            if (!Size.LARGE.equals(wide.get("home.clipboard"))) {
-                problems.add(theme.id() + ": Clipboard is " + wide.get("home.clipboard") + " at 1400 px");
+            // Windows keeps a window within the screen, so on a narrow screen (CI) 1400 px isn't reached.
+            int reached = ribbon.getSize().x;
+            if (reached < 1300) {
+                System.out.println("SMOKE NOTE: " + theme.id() + ": the screen allows only " + reached + " px; Clipboard (" + wide.get("home.clipboard") + ") not checked at full width");
+            } else if (!Size.LARGE.equals(wide.get("home.clipboard"))) {
+                problems.add(theme.id() + ": Clipboard is " + wide.get("home.clipboard") + " at " + reached + " px");
             }
 
             // KeyTips: Alt shows the tabs' badges, H the Home tab's, Esc goes back.

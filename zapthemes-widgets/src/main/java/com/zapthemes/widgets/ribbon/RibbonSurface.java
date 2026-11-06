@@ -626,6 +626,19 @@ abstract class RibbonSurface extends Canvas {
 
     // ------------------------------------------------------------------ keyboard
 
+    /**
+     * Also picks the first focused part right away: in a window that isn't active (macOS delivers
+     * no FocusIn until it is) the keyboard position is still known.
+     */
+    @Override
+    public boolean setFocus() {
+        boolean taken = super.setFocus();
+        if (focus == null) {
+            focus = initialFocus(hots());
+        }
+        return taken;
+    }
+
     private void focusIn() {
         if (focus == null) {
             focus = initialFocus(hots());
