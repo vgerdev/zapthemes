@@ -1,16 +1,20 @@
 {
+  "formatVersion": 2,
   "id": "acme-dark",
   "name": "Acme Dark",
   "extends": "zap-dark",
-  "palette": {
-    "accent": "#E8590C",
-    "danger": "#C62828",
-    "dangerHover": "#E53935",
-    "onDanger": "#FFFFFF",
-    "font.headline": {
-      "height": 14,
-      "style": "bold"
-    }
+  "swatches": {
+    "orange": "#E8590C",
+    "red": "#C62828",
+    "lightRed": "#E53935",
+    "white": "#FFFFFF"
+  },
+  "names": {
+    "accent": { "color": "$orange" },
+    "danger": { "color": "$red" },
+    "dangerHover": { "color": "$lightRed" },
+    "onDanger": { "color": "$white" },
+    "headline": { "color": "$accent", "font": { "height": 14, "style": "bold" } }
   },
   "controls": {
     "Label[WRAP]": {
@@ -19,8 +23,8 @@
   },
   "classes": {
     "Label.headline": {
-      "font": "$font.headline",
-      "foreground": "$accent"
+      "font": "$headline",
+      "foreground": "$headline"
     },
     "Button.danger": {
       "background": "$danger",

@@ -18,7 +18,7 @@ class SystemPropertyThemeTest {
 
         assertThat(theme.id()).isEqualTo("zap-high-contrast");
         // From zap-dark and zap-base, which it extends.
-        assertThat(theme.palette()).containsKeys("bg", "selection");
+        assertThat(theme.names()).containsKeys("bg", "selection");
     }
 
     @Test
@@ -29,8 +29,8 @@ class SystemPropertyThemeTest {
         var theme = SystemPropertyTheme.resolve(file.toString(), null);
 
         assertThat(theme.id()).isEqualTo("acme");
-        assertThat(theme.palette().get("accent").getAsString()).isEqualTo("#FF8800");
-        assertThat(theme.palette()).containsKey("surface");
+        assertThat(com.zapthemes.core.style.ThemeNames.of(theme).color("accent")).contains(new org.eclipse.swt.graphics.RGBA(0xFF, 0x88, 0, 255));
+        assertThat(theme.names()).containsKey("surface");
     }
 
     @Test

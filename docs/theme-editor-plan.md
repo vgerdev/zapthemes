@@ -183,7 +183,7 @@ haven't set yourself.
 
 | # | Step | What | Why this order |
 |---|---|---|---|
-| 1 | **Theme format v2** | `formatVersion`; `swatches`, `names` with color + font, references resolved by key type, chained references with cycle errors, font fallback lists and `inherit`, the `editor` section, `dark`; v1 → v2 upgrade on load; the schema, `ThemeJson.write`, and validator messages. Old themes keep loading. | Everything else is built on this format. |
+| 1 ✅ | **Theme format v2** | `formatVersion`; `swatches`, `names` with color + font, references resolved by key type, chained references with cycle errors, font fallback lists and `inherit`, the `editor` section, `dark`; v1 → v2 upgrade on load; the schema, `ThemeJson.write`, and validator messages. Old themes keep loading. | Everything else is built on this format. |
 | 2 | **Property catalog + default map** | `PropertySpec`, registration in every styler provider and `FigureTheming`, variants, classes and states per type; the catalog coverage tests above. | Step 4 of the wizard and upgrades on load both need it. |
 | 3 | **Bundled themes on common names** | Rewrite the four bundled themes as v2 with the base names, turning literals into names where one fits. **Equivalence test:** every catalog type, variant, class and state resolves to the same colors and fonts before and after, and screenshot diffs show no change. | Shows that the format and names are enough for real themes before any UI exists. |
 | 4 | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
@@ -217,3 +217,27 @@ haven't set yourself.
 - No machine-learning suggestions (Colormind-style) and no community gallery (Color Hunt-style) in
   the first version.
 
+## Step 1 in detail
+
+`Theme` is now format 2: `formatVersion`, `dark`, `swatches`, `names` (each `{ "color", "font" }`)
+and `editor` replace `palette`. `ThemeJson.read` parses to a JSON tree, refuses a newer format with a
+message to update, and runs `ThemeUpgrades` a step per version; v1 → v2 makes each palette entry a
+name with one part (a font if the entry is a font object or refers to one, else a color; a reference
+to an entry of a parent theme is a font when its name starts with `font`) and takes `dark` from
+`darkThemePreferred`. `ThemeJson.write` always writes the current format, `formatVersion` first.
+
+`ThemeNames` resolves `$name` for the part a read asks for (`ResolvedStyle.color`, `font`, or
+`value` for any other key: the color, else the font), through swatches and chains of names, with
+errors for an unknown name, a name without the part, a swatch read as a font, and cycles
+(`$a -> $b -> $a`). `StyleResolver.names()` and `ThemeNames.of(theme)` read a name's color or font
+directly. Fonts take a family list (`ThemeResources` uses the first installed one; a single family is
+passed through as before) and `inherit`. `extends` merges names by part. The validator checks
+swatches (plain colors, no clash with a name), names (only `color` and `font`, both resolve) and
+every reference; the schema documents the new sections and is now valid JSON.
+
+The bundled themes stay version 1 until step 3, so every test, demo and smoke test runs them through
+the upgrader. `ThemeFormatTest` covers the format, and checks that every reference in the bundled
+themes resolves after the upgrade to the same value as under version 1's rules (over 300
+references) and that the upgraded themes write and read back unchanged; it also checks that the
+schema documents every section of `Theme`. The sample `acme-dark.json` and the authoring guide use
+format 2.

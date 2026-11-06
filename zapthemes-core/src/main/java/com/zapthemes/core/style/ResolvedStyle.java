@@ -8,25 +8,22 @@ import java.util.Set;
 import org.eclipse.swt.graphics.RGBA;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.zapthemes.core.model.FontSpec;
 
 /**
- * The merged properties that apply to one widget. Values may reference the theme palette with
- * {@code "$name"}; references are resolved when a value is read.
+ * The merged properties that apply to one widget. Values may refer to the theme's swatches and
+ * common names with {@code "$name"}; references are resolved when a value is read, for the part
+ * the read asks for ({@link ThemeNames}).
  */
 public final class ResolvedStyle {
 
-    private static final int MAX_REFERENCE_DEPTH = 16;
-
     private final Map<String, JsonElement> props;
-    private final Map<String, JsonElement> palette;
+    private final ThemeNames names;
 
-    ResolvedStyle(Map<String, JsonElement> props, Map<String, JsonElement> palette) {
+    ResolvedStyle(Map<String, JsonElement> props, ThemeNames names) {
         this.props = props;
-        this.palette = palette;
+        this.names = names;
     }
-
     /** Key of the per-state overrides: {@code "states": { "hover": { ... }, "disabled": { ... } }}. */
     public static final String STATES = "states";
 
@@ -61,26 +58,19 @@ public final class ResolvedStyle {
         Map<String, JsonElement> merged = new LinkedHashMap<>(props);
         merged.remove(STATES);
         overrides.getAsJsonObject().entrySet().forEach(e -> merged.put(e.getKey(), e.getValue()));
-        return new ResolvedStyle(merged, palette);
+        return new ResolvedStyle(merged, names);
     }
 
-    /** {@code "#RRGGBB"} or {@code "#RRGGBBAA"}, directly or via a palette reference. */
+    /** {@code "#RRGGBB"} or {@code "#RRGGBBAA"}, directly or via a swatch or a name's color. */
     public Optional<RGBA> color(String key) {
-        return value(key).map(value -> parseColor(key, value.getAsString()));
+        JsonElement value = props.get(key);
+        return value == null ? Optional.empty() : Optional.of(names.color(value, key));
     }
 
-    /** A font object, directly or via a palette reference. */
+    /** A font object, directly or via a name's font. */
     public Optional<FontSpec> font(String key) {
-        return value(key).map(value -> {
-            if (!value.isJsonObject()) {
-                throw new IllegalArgumentException("Font \"" + key + "\" must be an object, got: " + value);
-            }
-            JsonObject font = value.getAsJsonObject();
-            String name = font.has("name") ? font.get("name").getAsString() : null;
-            int height = font.has("height") ? font.get("height").getAsInt() : 0;
-            String style = font.has("style") ? font.get("style").getAsString() : null;
-            return new FontSpec(name, height, FontSpec.parseStyle(style));
-        });
+        JsonElement value = props.get(key);
+        return value == null ? Optional.empty() : Optional.of(names.font(value, key));
     }
 
     public Optional<Boolean> bool(String key) {
@@ -95,40 +85,10 @@ public final class ResolvedStyle {
         return value(key).map(JsonElement::getAsString);
     }
 
-    /** The raw value with palette references resolved. */
+    /** The raw value with references resolved: a name's color if it has one, else its font. */
     public Optional<JsonElement> value(String key) {
         JsonElement value = props.get(key);
-        for (int depth = 0; value != null && isReference(value); depth++) {
-            if (depth == MAX_REFERENCE_DEPTH) {
-                throw new IllegalStateException("Palette reference cycle at \"" + key + "\"");
-            }
-            String ref = value.getAsString().substring(1);
-            value = palette.get(ref);
-            if (value == null) {
-                throw new IllegalArgumentException("Unknown palette entry \"$" + ref + "\" in \"" + key + "\"");
-            }
-        }
-        return Optional.ofNullable(value);
-    }
-
-    private static boolean isReference(JsonElement value) {
-        return value.isJsonPrimitive() && value.getAsJsonPrimitive().isString() && value.getAsString().startsWith("$");
-    }
-
-    static RGBA parseColor(String key, String text) {
-        String hex = text.startsWith("#") ? text.substring(1) : text;
-        if (hex.length() != 6 && hex.length() != 8) {
-            throw new IllegalArgumentException("Color \"" + key + "\" must be #RRGGBB or #RRGGBBAA, got: " + text);
-        }
-        try {
-            int r = Integer.parseInt(hex.substring(0, 2), 16);
-            int g = Integer.parseInt(hex.substring(2, 4), 16);
-            int b = Integer.parseInt(hex.substring(4, 6), 16);
-            int a = hex.length() == 8 ? Integer.parseInt(hex.substring(6, 8), 16) : 255;
-            return new RGBA(r, g, b, a);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Color \"" + key + "\" is not hex: " + text, e);
-        }
+        return value == null ? Optional.empty() : Optional.of(names.resolve(value, ThemeNames.Part.ANY, key));
     }
 
     @Override

@@ -23,6 +23,7 @@ public final class ThemeResources {
 
     private final Display display;
     private final Map<FontSpec, Font> fonts = new HashMap<>();
+    private final Map<String, Boolean> installed = new HashMap<>();
 
     ThemeResources(Display display) {
         this.display = display;
@@ -35,10 +36,30 @@ public final class ThemeResources {
     public Font font(FontSpec spec) {
         return fonts.computeIfAbsent(spec, key -> {
             FontData system = display.getSystemFont().getFontData()[0];
-            String name = key.name() != null ? key.name() : system.getName();
+            String name = family(key, system.getName());
             int height = key.height() > 0 ? key.height() : system.getHeight();
             return new Font(display, name, height, key.style());
         });
+    }
+
+    /**
+     * The first of {@code spec}'s families that is installed. A single family is used as given (the
+     * platform substitutes a missing one, as it always has); when none of several is installed, the
+     * first.
+     */
+    private String family(FontSpec spec, String system) {
+        if (spec.names().isEmpty()) {
+            return system;
+        }
+        if (spec.names().size() > 1) {
+            for (String candidate : spec.names()) {
+                if (installed.computeIfAbsent(candidate,
+                        n -> display.getFontList(n, true).length > 0 || display.getFontList(n, false).length > 0)) {
+                    return candidate;
+                }
+            }
+        }
+        return spec.name();
     }
 
     /** Number of fonts held; used by leak tests. */

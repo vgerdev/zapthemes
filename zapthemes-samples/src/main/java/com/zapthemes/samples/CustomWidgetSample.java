@@ -19,7 +19,7 @@ import com.zapthemes.themes.BundledThemes;
 /**
  * A custom {@link Gauge} next to standard widgets. The app's themes {@code gauge-light} and
  * {@code gauge-dark} extend the bundled ones with a {@code "Gauge"} rule written against the
- * bundled palette, so the gauge follows every theme switch like the rest of the UI.
+ * bundled common names, so the gauge follows every theme switch like the rest of the UI.
  */
 public final class CustomWidgetSample {
 
