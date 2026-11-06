@@ -17,6 +17,12 @@ import com.zapthemes.swt.widgets.Shell;
  */
 abstract class PopupShell {
 
+    /**
+     * Whether a popup closes when its window loses activation. Tests turn it off: without a window
+     * manager (CI), activation comes and goes on its own.
+     */
+    static boolean closeOnDeactivate = true;
+
     final Ribbon ribbon;
     final RibbonSurface origin;
     final Shell shell;
@@ -86,7 +92,7 @@ abstract class PopupShell {
     }
 
     private void closeIfInactive() {
-        if (shell.isDisposed()) {
+        if (shell.isDisposed() || !closeOnDeactivate) {
             return;
         }
         org.eclipse.swt.widgets.Shell active = shell.getDisplay().getActiveShell();

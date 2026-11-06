@@ -54,6 +54,7 @@ class RibbonTest {
     @BeforeAll
     static void loadThemes() {
         display = Display.getDefault();
+        PopupShell.closeOnDeactivate = false;
         ThemeRegistry registry = new ThemeRegistry();
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
         light = registry.resolve("zap-light");
@@ -351,7 +352,7 @@ class RibbonTest {
         ribbon.activate(hot, false, null);
         assertThat(ran).containsExactly("home.color=RGB {255, 0, 0}");
         ribbon.activate(hot, true, null);
-        // Opens at once; no event loop here, as a window manager-less X server (CI) can deactivate it.
+        settle();
         assertThat(ribbon.popups()).hasSize(1).first().isInstanceOf(ColorPalettePopup.class);
         ColorPalettePopup palette = (ColorPalettePopup) ribbon.popups().getFirst();
         palette.palette().choose(0);
