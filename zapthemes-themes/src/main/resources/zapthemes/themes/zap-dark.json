@@ -3,6 +3,10 @@
   "name": "Zap Dark",
   "extends": "zap-base",
   "palette": {
+    "titleBar": "#2B2D30",
+    "titleBarForeground": "#DFE1E5",
+    "titleBarInactive": "#25262A",
+    "titleBarInactiveForeground": "#8C8F94",
     "bg": "#1E1F22",
     "surface": "#2B2D30",
     "fg": "#DFE1E5",
@@ -22,6 +26,20 @@
     "foreground": "$fg"
   },
   "controls": {
+    "TitleBar": {
+      "background": "$titleBar",
+      "foreground": "$titleBarForeground",
+      "inactiveBackground": "$titleBarInactive",
+      "inactiveForeground": "$titleBarInactiveForeground",
+      "hoverBackground": "$hover",
+      "pressedBackground": "$muted",
+      "searchBackground": "$bg",
+      "searchBorderColor": "$border",
+      "avatarBackground": "#CA5010",
+      "avatarForeground": "#FFFFFF",
+      "focusColor": "$accent",
+      "useAccent": false
+    },
     "Text": {
       "background": "$surface"
     },

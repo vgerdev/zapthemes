@@ -192,10 +192,10 @@ A new catalog type `TitleBar` (group "Flat widgets"):
 | `useAccent` | boolean | `true` | whether `setAccent` applies |
 | `focusColor` | color | `focus` | keyboard focus ring |
 
-The profile pop-up is a `Shell` with class `popup` plus the type `TitleBarProfile`
-(`nameFont` → `strong`, `emailForeground` → `muted`). The search `Text` has the class `titleBar`, so a
-theme can give `Text.titleBar` a rule. `:zapthemes-demo:checkCatalog` covers all of it through
-`TitleBarDemo`'s smoke test.
+The profile pop-up is a `Shell` with the class `popup`, like other ZapThemes pop-ups; its name label
+has the classes `popup strong` and its email `popup muted`. The search field (`TitleBarSearch`) and
+the slot (`TitleBarSlot`) are typed so that they take the bar's colors rather than `Text`'s and
+`Composite`'s. `:zapthemes-demo:checkCatalog` covers all of it through `TitleBarDemo`'s smoke test.
 
 ## JFace integration
 
@@ -214,9 +214,12 @@ theme can give `Text.titleBar` a rule. `:zapthemes-demo:checkCatalog` covers all
 ## Accessibility
 
 - **Keyboard:** Alt+Space opens the system menu everywhere (native on Windows, our menu elsewhere).
-  The bar is one tab stop: Tab moves in (to the first item), arrow keys move between items, title,
-  avatar and the window buttons, Enter or Space activates, Escape leaves; the search `Text` and slot
-  controls are their own tab stops in visual order. F6 is left to the app.
+  Like a native caption, the bar is not a tab stop and doesn't take the focus when the window opens
+  (the document keeps it, as in Office). F6 (`setFocusKey`, `focusBar()`) moves the focus to the
+  bar and back; there, arrow keys move between the icon, items, title, search, avatar and window
+  buttons, Home and End jump, Enter or Space activates, Alt+Down opens a drop-down, and Escape goes
+  back to where the focus was. The search `Text` (once shown) and slot controls are ordinary tab
+  stops; `focusSearch()` is for the app's search shortcut.
 - **Screen readers:** the bar is `ROLE_TOOLBAR` named after the title; each painted part is an
   accessible child (`getChildCount`, `getChildAtPoint`, `getLocation`, `getName`, `getRole`,
   `getState`): items as push buttons or check buttons with their text, the title as a push button
@@ -249,8 +252,42 @@ theme can give `Text.titleBar` a rule. `:zapthemes-demo:checkCatalog` covers all
 
 | # | Step | What |
 |---|---|---|
-| 1 | **Title bar widget, drawn frame, theming** | `TitleBar`, `TitleBarItem`, `TitleBarProfile` and its pop-up; layout, painting, hit testing, the window buttons, the drawn system menu; the drawn frame (drag, double-click, resize edges); the new base names, catalog entries and bundled theme values; accent override and inactive dimming; accessibility; `TitleBarDemo` (Word and Excel looks) with a smoke test and screenshots in every theme. Tests: hit testing, button actions, theme and accent switching, profile pop-up. |
+| 1 ✅ | **Title bar widget, drawn frame, theming** | `TitleBar`, `TitleBarItem`, `TitleBarProfile` and its pop-up; layout, painting, hit testing, the window buttons, the drawn system menu; the drawn frame (drag, double-click, resize edges); the new base names, catalog entries and bundled theme values; accent override and inactive dimming; accessibility; `TitleBarDemo` (Word and Excel looks) with a smoke test and screenshots in every theme. Tests: hit testing, button actions, theme and accent switching, profile pop-up. |
 | 2 | **Windows native frame** | Window procedure subclassing, `WM_NCCALCSIZE`, `WM_NCHITTEST` with snap layouts, the native system menu, maximized insets, DPI; FFM `DwmExtendFrameIntoClientArea`. Tests: the hit-test codes per part, the client area covering the caption, buttons through the native path. Checked by hand: snap, drag, resize, maximize, shake. |
 | 3 | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
 | 4 | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
 | 5 | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
+
+## Step 1 in detail
+
+`com.zapthemes.widgets.titlebar` in `zapthemes-widgets` (which now uses the `zapthemes-swt` proxies
+for the search field, slot, menus and pop-up). `TitleBar` is a double-buffered `Canvas` that paints
+everything except the search `Text` and the slot `Composite`; its layout produces a list of hit
+rectangles that painting, the mouse, the keyboard, accessibility and `getPart(x, y)` all read. The
+row is 2.1 font heights tall (32 px for Segoe UI 9 pt) and every size scales with it. When the middle
+is too narrow the search box shrinks to 180 px, then becomes a magnifier button (clicking it expands
+the box over the title), then the title is ellipsized and dropped, then toolbar items drop from the
+end (they stay in the customize menu). `TitleBarItem` is an `Item` (`PUSH`, `CHECK` drawn as the
+AutoSave switch, `DROP_DOWN`, and `TRAIL` for outlined buttons like "Upgrade your plan"), with
+`TitleBarGlyph` line icons (new, open, save, undo, redo, print, email, search, share, comment) drawn in
+the bar's foreground. The search hint is painted (the `Text` shows once clicked or typed in, so the
+hint follows the bar's colors on every platform); `SWT.Modify` and `SWT.DefaultSelection` on the bar
+report the search text.
+
+`WindowFrame` chooses the frame: a `NO_TRIM` shell gets `DrawnFrame` (drag with restore-from-maximized,
+double-click, a display filter that gives all four edges resize cursors and drags, keyboard Move and
+Size from the drawn system menu, Alt+Space); a trimmed shell gets the native frame where step 2 or 5
+provides one, else `EMBEDDED` (no icon, no window buttons). `TitleBar.shellStyle` picks `NO_TRIM`
+until a native frame exists. `TitleBarColors` derives everything from the theme rule, the accent
+(`useAccent`), the active state (inactive accent bars are 70% accent over the window background) or
+the OS high-contrast colors. The bundled themes define the four new names and a `TitleBar` rule; the
+light theme lets the accent in, dark and high contrast keep their bar.
+
+Tests (`TitleBarTest`, 22): frame modes, hit testing of every part, left-to-right order and the
+centered search box, narrowing, scaling, drawn-frame edges and resizing, the window buttons,
+double-click, items (push, check, drop-down arrow, disabled), the customize menu, ordering, the
+system menu's states, keyboard focus and activation, screen-reader names, theme and accent switching
+live, inactive dimming, painted pixels, catalog coverage, initials and the profile pop-up. The demo
+(`TitleBarDemo`: Word-like and Excel-like windows) has a smoke test that checks every part, the
+colors in each theme, every widget's tag and the pop-up, and screenshots of both windows in each
+theme plus a narrow bar.

@@ -91,7 +91,14 @@ val smokeVisualization = tasks.register<JavaExec>("smokeTestVisualization") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
-val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization)
+val smokeTitleBar = tasks.register<JavaExec>("smokeTestTitleBar") {
+    group = "verification"
+    description = "Smoke-tests the Office-style title bar demo."
+    mainClass = "com.zapthemes.demo.TitleBarDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
+val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeTitleBar)
 smokeTasks.forEach { task ->
     task.configure {
         dependsOn(clearRecordedKeys)
@@ -137,6 +144,14 @@ tasks.register<JavaExec>("runNatTable") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
+// The Office-style title bar demo (Word-like and Excel-like windows).
+tasks.register<JavaExec>("runTitleBar") {
+    group = "application"
+    description = "Runs the Office-style title bar demo."
+    mainClass = "com.zapthemes.demo.TitleBarDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 // The Nebula widgets demo.
 tasks.register<JavaExec>("runNebula") {
     group = "application"
@@ -155,6 +170,7 @@ val screenshotTasks = mapOf(
     "Text" to "com.zapthemes.demo.TextDemo",
     "NatTable" to "com.zapthemes.demo.NatTableDemo",
     "Visualization" to "com.zapthemes.demo.VisualizationDemo",
+    "TitleBar" to "com.zapthemes.demo.TitleBarDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"
