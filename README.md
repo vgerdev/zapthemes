@@ -22,6 +22,7 @@ scripts/fetch-upstream.sh       # pristine JFace/Nebula/SWT-example sources into
 ./gradlew :zapthemes-demo:run             # JFace ApplicationWindow demo (forked JFace)
 ./gradlew :zapthemes-demo:runStandalone   # plain Display/Shell SWT demo
 ./gradlew :zapthemes-demo:runNebula       # Nebula released + incubation widgets demo
+./gradlew :zapthemes-demo:runTitleBar     # Office-style title bars: Word-like and Excel-like windows
 ./gradlew :zapthemes-samples:runHello     # the samples: runHello, runCustomTheme, runCustomWidget, runJFace
 ./gradlew :zapthemes-examples:runExamples # Eclipse's SWT ControlExample and JFace snippets, on ZapThemes
 ./gradlew -p apps/zapnotes run            # ZapNotes, an editor-style JFace app on the staged artifacts (publishToStaging first)
