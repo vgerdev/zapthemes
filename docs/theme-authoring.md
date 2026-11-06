@@ -154,8 +154,10 @@ painters. To react after a switch (for example to refresh content that shows col
 
 Like Chrome, an app can be zoomed: **Ctrl + mouse wheel** (Cmd on macOS) makes every themed font
 bigger or smaller, one step per wheel notch, and **Ctrl+=** (or Ctrl++), **Ctrl+-** and **Ctrl+0**
-zoom in, zoom out and reset. The steps are Chrome's: 25, 33, 50, 67, 75, 80, 90, 100, 110, 125,
-150, 175, 200, 250, 300, 400 and 500 %.
+zoom in, zoom out and reset. A **trackpad pinch** zooms too: the zoom when the pinch began, times
+the pinch, snapped to the nearest step. Windows precision touchpads often send a pinch as
+Ctrl + wheel, which zooms the same way. The steps are Chrome's: 25, 33, 50, 67, 75, 80, 90, 100,
+110, 125, 150, 175, 200, 250, 300, 400 and 500 %.
 
 ```java
 themes.zoomIn();                       // 100 % -> 110 %
@@ -202,6 +204,12 @@ themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100)
 - **Owner-drawn widgets** (`FlatButton`, `FlatGroup`, Nebula's painters, NatTable, Visualization
   figures) take their fonts from the theme, so they scale as well. They must use
   `ThemeContext.font` or the control's font, not a font they made once.
+- **Visualization figures' own fonts** scale even when the theme sets none: XYGraph's 12 pt bold
+  title, its axes' titles and scales, the gauges' labels. That's every font property of a figure
+  (`font`, `titleFont`, ...). A figure's own font is taken as a 100 % size. One the app sets later
+  (`graph.setTitleFont(...)`) is taken at the zoom it is set at, like an app font on a control, and
+  at 100 % the figure gets that exact font back. Sizes in pixels inside the figures (line widths,
+  markers, the XYGraph toolbar's icons) stay as they are.
 - **Column widths** of tables and trees scale, JFace viewer columns and Nebula `GridColumn`s
   included (any `...Column` item with `getWidth` / `setWidth`). Each column keeps its 100 % width
   as a fraction, so zooming in and out many times ends at the exact original width. A width that
@@ -219,14 +227,31 @@ themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100)
   its `CatalogProvider`. `ThemeContext.size(style, key)` reads one at the current zoom, and the
   generic setter styler (Nebula, your own widgets) and Visualization figures scale them on their
   own. The Flat widgets' built-in padding, margins and check boxes scale too.
-- Images and icons stay as they are, and so do windows: Chrome doesn't resize its window either.
+- **Images** on widgets follow the zoom: any widget with `getImage` / `setImage` (Label, Button,
+  CLabel, ToolItem, CTabItem, Nebula widgets) gets a copy of its image made for the zoom.
+  - The copy asks the original for its pixels at that zoom (`Image.getImageData(zoom)`). An image
+    loaded with zoom variants (`icon.png` next to `icon@1.5x.png` and `icon@2x.png`, through JFace's
+    `ImageDescriptor.createFromURL` or an `ImageFileNameProvider`) therefore shows the sharp
+    variant at 150 % and 200 %, and any other image is scaled smoothly. Ship `@2x` icons for the
+    best results.
+  - At 100 % the widget gets its own image back. An image the app sets is taken as a 100 % image,
+    and one set while zoomed is zoomed once construction is over (new widgets) or on the next zoom.
+  - The copies belong to ZapThemes: one per image and zoom level, disposed once the app disposes
+    the original, or with the display. Don't dispose an image you get from a zoomed widget's
+    `getImage()`.
+  - Left out: shell icons, carets, table and tree item images (their native image lists keep the
+    size of their first image), menu item images, a ToolItem's hot and disabled images, and
+    images painted directly in paint listeners. Images reach a zoom only through `setImage`.
+  - `themes.setZoomImagesEnabled(false)` gives every widget its own image back, and
+    `setData(ThemeKeys.ZOOM_IMAGES, Boolean.FALSE)` does that for one widget and its children.
+- **Windows keep their size.** As in Chrome, the zoom reflows the contents inside the window.
 
-**Turning it off.** `themes.setZoomShortcutsEnabled(false)` turns off the mouse and keyboard
-shortcuts for the display. `setZoom` and the other methods keep working, for a View menu of your
+**Turning it off.** `themes.setZoomShortcutsEnabled(false)` turns off the mouse, keyboard and
+pinch shortcuts for the display. `setZoom` and the other methods keep working, for a View menu of your
 own. The system property `-Dzapthemes.zoomShortcuts=false` starts every display with them turned
 off. A control that uses Ctrl + wheel itself, such as a chart that zooms its plot, keeps it with
-`chart.setData(ThemeKeys.ZOOM_SHORTCUTS, Boolean.FALSE)`. That covers its children too, and its
-listeners then get the events as usual. Elsewhere the shortcuts consume the event, so the widget
+`chart.setData(ThemeKeys.ZOOM_SHORTCUTS, Boolean.FALSE)`. That covers its children and pinches over
+them too, and its listeners then get the events as usual. Elsewhere the shortcuts consume the event, so the widget
 under the mouse doesn't scroll. If your menus have their own Ctrl+= / Ctrl+- / Ctrl+0 accelerators,
 turn the shortcuts off, or leave the accelerators out of the menu items, so a key doesn't zoom
 twice.

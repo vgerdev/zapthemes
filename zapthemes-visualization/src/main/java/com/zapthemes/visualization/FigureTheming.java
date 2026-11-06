@@ -17,12 +17,14 @@ import org.eclipse.draw2d.IFigure;
 import org.eclipse.draw2d.LayoutListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
+import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.SWTException;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 
 import com.zapthemes.core.ThemeChangeListener;
 import com.zapthemes.core.ThemeManager;
+import com.zapthemes.core.ThemeResources;
 import com.zapthemes.core.ZoomListener;
 import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.ThemeContext;
@@ -44,6 +46,11 @@ import com.zapthemes.core.style.ThemeContext;
  * ({@code titleLabel.font} calls {@code getTitleLabel().setFont(...)}). Only what the theme says
  * for a figure type applies, never the theme's {@code defaults}. A value a later theme no longer
  * sets is restored to what the figure had before the first theme.
+ *
+ * <p>Fonts the theme does not set follow the {@linkplain ThemeManager#setZoom zoom} too: every
+ * font property of a figure ({@code font}, {@code titleFont}, ...) keeps its family and style at
+ * its height times the zoom. A figure's own font, such as XYGraph's 12 pt bold title, is taken as
+ * a 100 % size; one the application sets later is taken at the zoom it is set at.
  *
  * <p>Nothing to call for Nebula Visualization: its graphs and widget figures {@link #attach}
  * themselves when shown, which keeps them in step with the theme now, on every theme switch and
@@ -74,7 +81,25 @@ public final class FigureTheming {
         final Map<String, Object> originals = new HashMap<>();
         Set<String> applied = Set.of();
         Object theme;
+        /** Per font property the theme does not set: the font at 100 % and what the last pass set. */
+        final Map<String, ZoomedFont> zoomed = new HashMap<>();
     }
+
+    /** A figure's own font: family, style, height at 100 %, the font itself, and what was set last at which zoom. */
+    private record ZoomedFont(String name, int style, double baseHeight, Font original, Font applied, double zoom) {
+    }
+
+    /** A font property of a figure class: its key, getter and setter. */
+    private record FontProperty(String key, Method getter, Method setter) {
+    }
+
+    private static final Map<Class<?>, List<FontProperty>> FONT_PROPERTIES = new ConcurrentHashMap<>();
+    /**
+     * Fonts seen as a figure's own 100 % font, with that height: the same font often sits on two
+     * properties (XYGraph's {@code titleFont} is its title label's {@code font}), and must not be
+     * taken as zoomed when the other one puts it back.
+     */
+    private static final Map<Font, Double> ORIGINAL_HEIGHTS = new java.util.IdentityHashMap<>();
 
     private static final Map<IFigure, Runnable> ATTACHED = new WeakHashMap<>();
 
@@ -206,6 +231,77 @@ public final class FigureTheming {
             }
         }
         state.applied = applied;
+        zoomFonts(figure, state, manager, applied);
+    }
+
+    /** Gives each font property the theme did not set this pass the figure's own font at the zoom. */
+    private static void zoomFonts(IFigure figure, State state, ThemeManager manager, Set<String> themed) {
+        ORIGINAL_HEIGHTS.keySet().removeIf(Font::isDisposed);
+        ThemeResources resources = manager.resources();
+        double zoom = resources.zoom();
+        for (FontProperty property : fontProperties(figure.getClass())) {
+            if (themed.contains(property.key())) {
+                state.zoomed.remove(property.key());
+                continue;
+            }
+            Font current;
+            try {
+                current = (Font) property.getter().invoke(figure);
+            } catch (ReflectiveOperationException | ClassCastException e) {
+                continue;
+            }
+            if (current == null || current.isDisposed()) {
+                continue;
+            }
+            ZoomedFont known = state.zoomed.get(property.key());
+            if (known == null || current != known.applied()) {
+                // First seen, restored to its original, or set by the application since the last pass.
+                FontData data = current.getFontData()[0];
+                boolean ownDefault = known == null || current == state.originals.get(property.key());
+                Double original = ORIGINAL_HEIGHTS.get(current);
+                double base = original != null ? original : resources.baseHeight(current)
+                        .orElse(ownDefault ? data.getHeight() : data.getHeight() / known.zoom());
+                known = new ZoomedFont(data.getName(), data.getStyle(), base, current, current, zoom);
+                if (resources.baseHeight(current).isEmpty()) {
+                    ORIGINAL_HEIGHTS.put(current, base);
+                }
+            }
+            Font target = zoom == 1 && known.original().getFontData()[0].getHeight() == Math.round(known.baseHeight())
+                    ? known.original() : resources.font(known.name(), known.style(), known.baseHeight());
+            if (target != current) {
+                invoke(property.setter(), figure, target);
+            }
+            state.zoomed.put(property.key(), new ZoomedFont(known.name(), known.style(), known.baseHeight(), known.original(),
+                    target, zoom));
+        }
+    }
+
+    /** {@code font} (the figure's own, not inherited) and every {@code getFooFont()} with a {@code setFooFont(Font)}. */
+    private static List<FontProperty> fontProperties(Class<?> type) {
+        return FONT_PROPERTIES.computeIfAbsent(type, t -> {
+            List<FontProperty> properties = new ArrayList<>();
+            for (Method getter : t.getMethods()) {
+                String name = getter.getName();
+                if (getter.getParameterCount() != 0 || getter.getReturnType() != Font.class || !name.startsWith("get")
+                        || !name.endsWith("Font") || Modifier.isStatic(getter.getModifiers())) {
+                    continue;
+                }
+                Method setter = method(t, "set" + name.substring(3), Font.class);
+                if (setter == null) {
+                    continue;
+                }
+                String key = Character.toLowerCase(name.charAt(3)) + name.substring(4);
+                if (key.equals("font")) {
+                    if (LOCAL_FONT == null) {
+                        continue;
+                    }
+                    getter = LOCAL_FONT;
+                }
+                properties.add(new FontProperty(key, getter, setter));
+            }
+            properties.sort(java.util.Comparator.comparing(FontProperty::key));
+            return List.copyOf(properties);
+        });
     }
 
     /** Simple names of {@code type} and its Nebula Visualization superclasses, most general first. */

@@ -90,7 +90,8 @@ public class DefaultStyler implements ControlStyler {
                 // The application set a font since the last pass, at the zoom of that pass. One like
                 // the font the theme gave, then or now, follows the theme.
                 Font theme = themed != null ? themed : control.getDisplay().getSystemFont();
-                app = sameFont(current, applied.font()) || sameFont(current, theme) ? null : appFont(current, applied.zoom());
+                app = sameFont(current, applied.font()) || sameFont(current, theme) ? null
+                        : appFont(current, context.resources().baseHeight(current).orElse(current.getFontData()[0].getHeight() / applied.zoom()));
                 control.setData(ThemeKeys.APP_FONT, app);
             }
         }
@@ -113,9 +114,9 @@ public class DefaultStyler implements ControlStyler {
         }
     }
 
-    private static AppFont appFont(Font font, double zoom) {
+    private static AppFont appFont(Font font, double baseHeight) {
         FontData data = font.getFontData()[0];
-        return new AppFont(data.getName(), data.getStyle(), data.getHeight() / zoom, font);
+        return new AppFont(data.getName(), data.getStyle(), baseHeight, font);
     }
 
     private static boolean sameFont(Font a, Font b) {
