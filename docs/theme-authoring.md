@@ -318,7 +318,7 @@ name in brackets, so a theme on common names only sets what it wants different.
 | `RibbonBackstage` | `background`, `foreground`, `navBackground` (accent), `navForeground` (onAccent), `navHoverBackground`, `navSelectedBackground`, `navSelectedForeground`, `navFont`, `titleFont` (heading1), `useAppAccent`; its pages use the style classes `backstage` (Composite) and `backstageTitle` (Label) |
 | `RibbonMessageBar` | `background`, `foreground`, `borderColor`, `iconColor`, `titleFont`, and the states `info`, `warning`, `error`, `success` |
 
-`chrome` (window chrome: the tab row, title bars), `badge` and `onBadge` are common names for
+`chrome` (the ribbon's tab row; title bars have names of their own), `badge` and `onBadge` are common names for
 these. An app's brand color (`Ribbon.setAccentColor`, Word blue or Excel green) replaces the
 accent keys unless the theme sets `useAppAccent: false`, as zap-high-contrast does.
 
