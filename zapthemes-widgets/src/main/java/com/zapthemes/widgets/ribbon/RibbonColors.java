@@ -94,7 +94,7 @@ final class RibbonColors {
         Font font = ribbon.getFont();
         tabFont = or(context.font(style, "tabFont"), font);
         groupLabelFont = or(context.font(style, "groupLabelFont"), font);
-        arc = style.integer("arc").orElse(4);
+        arc = context.size(style, "arc").orElse(context.resources().zoomedPixels(4));
     }
 
     private static <T> T or(T value, T fallback) {

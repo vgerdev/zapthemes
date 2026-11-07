@@ -211,6 +211,10 @@ themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100)
   (`graph.setTitleFont(...)`) is taken at the zoom it is set at, like an app font on a control, and
   at 100 % the figure gets that exact font back. Sizes in pixels inside the figures (line widths,
   markers, the XYGraph toolbar's icons) stay as they are.
+- **The ribbon** follows the zoom as a whole: tabs, groups, items, galleries, KeyTips, popups,
+  super tooltips, the File page (backstage) and the message bar. Its icons are asked for at the
+  zoomed size, 32 and 64 px at 200 % and exact multiples of 16 / 32 px at other levels, so give
+  the commands' `Images` large variants for a sharp result. Its `arc` is a size.
 - **Column widths** of tables and trees scale, JFace viewer columns and Nebula `GridColumn`s
   included (any `...Column` item with `getWidth` / `setWidth`). Each column keeps its 100 % width
   as a fraction, so zooming in and out many times ends at the exact original width. A width that

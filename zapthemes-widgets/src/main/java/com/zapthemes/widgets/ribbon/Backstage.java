@@ -30,6 +30,7 @@ import org.eclipse.swt.widgets.Layout;
 import org.eclipse.swt.widgets.Listener;
 
 import com.zapthemes.core.ThemeManager;
+import com.zapthemes.core.ZoomListener;
 import com.zapthemes.swt.widgets.Label;
 import com.zapthemes.widgets.command.Command;
 import com.zapthemes.widgets.command.Images;
@@ -96,7 +97,12 @@ public final class Backstage extends Composite {
         content.setLayout(stack);
         content.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         setVisible(false);
-        addListener(SWT.Dispose, e -> getDisplay().removeFilter(SWT.Traverse, escape));
+        ZoomListener zoom = (previous, current) -> zoomChanged();
+        ThemeManager.get(getDisplay()).addZoomListener(zoom);
+        addListener(SWT.Dispose, e -> {
+            getDisplay().removeFilter(SWT.Traverse, escape);
+            ThemeManager.get(getDisplay()).removeZoomListener(zoom);
+        });
     }
 
     public Ribbon ribbon() {
@@ -236,10 +242,8 @@ public final class Backstage extends Composite {
         Composite composite = new com.zapthemes.swt.widgets.Composite(content, SWT.NONE);
         ThemeManager.get(getDisplay()).setThemeClass(composite, "backstage");
         GridLayout layout = new GridLayout(1, false);
-        layout.marginWidth = 32;
-        layout.marginHeight = 20;
-        layout.verticalSpacing = 12;
         composite.setLayout(layout);
+        zoomMargins(layout);
         Label heading = new Label(composite, SWT.NONE);
         ThemeManager.get(getDisplay()).setThemeClass(heading, "backstageTitle");
         heading.setText(page.label());
@@ -249,6 +253,26 @@ public final class Backstage extends Composite {
         }
         page.factory().accept(composite);
         return composite;
+    }
+
+    /** A page's margins at the zoom. */
+    private void zoomMargins(GridLayout layout) {
+        layout.marginWidth = Themed.px(this, 32);
+        layout.marginHeight = Themed.px(this, 20);
+        layout.verticalSpacing = Themed.px(this, 12);
+    }
+
+    private void zoomChanged() {
+        if (isDisposed()) {
+            return;
+        }
+        for (Composite page : pages.values()) {
+            if (!page.isDisposed() && page.getLayout() instanceof GridLayout layout) {
+                zoomMargins(layout);
+            }
+        }
+        nav.redraw();
+        layout(true, true);
     }
 
     void redrawAll() {
@@ -339,8 +363,12 @@ public final class Backstage extends Composite {
             initAccessible();
         }
 
+        private int px(int at100) {
+            return Themed.px(this, at100);
+        }
+
         private int rowHeight(GC gc) {
-            return gc.getFontMetrics().getHeight() + 18;
+            return gc.getFontMetrics().getHeight() + px(18);
         }
 
         private Font navFont() {
@@ -352,9 +380,9 @@ public final class Backstage extends Composite {
             GC gc = new GC(this);
             try {
                 gc.setFont(navFont());
-                int width = 160;
+                int width = px(160);
                 for (Entry entry : entries) {
-                    width = Math.max(width, gc.textExtent(label(entry)).x + 64);
+                    width = Math.max(width, gc.textExtent(label(entry)).x + px(64));
                 }
                 int height = rowHeight(gc) * (entries.size() + 2);
                 return new Point(wHint == SWT.DEFAULT ? width : wHint, hHint == SWT.DEFAULT ? height : hHint);
@@ -375,13 +403,13 @@ public final class Backstage extends Composite {
             int row = rowHeight(gc);
             int width = getClientArea().width;
             if (index == 0) {
-                return new Rectangle(0, 8, width, row);
+                return new Rectangle(0, px(8), width, row);
             }
-            int y = 8 + row + 8;
+            int y = px(8) + row + px(8);
             for (int i = 0; i < index - 1; i++) {
-                y += entries.get(i) instanceof Separator ? 17 : row;
+                y += entries.get(i) instanceof Separator ? px(17) : row;
             }
-            return new Rectangle(0, y, width, entries.get(index - 1) instanceof Separator ? 17 : row);
+            return new Rectangle(0, y, width, entries.get(index - 1) instanceof Separator ? px(17) : row);
         }
 
         int indexAt(int y) {
@@ -468,7 +496,7 @@ public final class Backstage extends Composite {
                 Entry entry = i == 0 ? null : entries.get(i - 1);
                 if (entry instanceof Separator) {
                     gc.setForeground(RibbonColors.mix(navBackground, navForeground, 0.35));
-                    gc.drawLine(16, b.y + b.height / 2, area.width - 16, b.y + b.height / 2);
+                    gc.drawLine(px(16), b.y + b.height / 2, area.width - px(16), b.y + b.height / 2);
                     continue;
                 }
                 boolean isSelected = entry instanceof Page page && page.id().equals(selected);
@@ -488,22 +516,25 @@ public final class Backstage extends Composite {
                 if (i == 0) {
                     int cy = b.y + b.height / 2;
                     int r = height / 2;
-                    gc.setLineWidth(2);
-                    gc.drawOval(16, cy - r, 2 * r, 2 * r);
-                    gc.drawLine(16 + r / 2, cy, 16 + r + r / 2 + 1, cy);
-                    gc.drawPolyline(new int[] { 16 + r, cy - r / 2, 16 + r / 2, cy, 16 + r, cy + r / 2 });
+                    int left = px(16);
+                    gc.setLineWidth(Math.max(1, px(2)));
+                    gc.drawOval(left, cy - r, 2 * r, 2 * r);
+                    gc.drawLine(left + r / 2, cy, left + r + r / 2 + 1, cy);
+                    gc.drawPolyline(new int[] { left + r, cy - r / 2, left + r / 2, cy, left + r, cy + r / 2 });
                     gc.setLineWidth(1);
                     continue;
                 }
-                int x = 20;
+                int x = px(20);
+                int icon = px(16);
                 Images images = entry instanceof Page page ? page.image()
                         : entry instanceof CommandEntry command ? command.command().images() : Images.NONE;
-                org.eclipse.swt.graphics.Image image = images.image(16);
+                org.eclipse.swt.graphics.Image image = images.image(icon);
                 if (image != null) {
                     Rectangle ib = image.getBounds();
-                    gc.drawImage(image, 0, 0, ib.width, ib.height, x, b.y + (b.height - 16) / 2, 16, 16);
+                    gc.setInterpolation(SWT.HIGH);
+                    gc.drawImage(image, 0, 0, ib.width, ib.height, x, b.y + (b.height - icon) / 2, icon, icon);
                 }
-                x += 26;
+                x += px(26);
                 gc.drawText(label(entry), x, textY, SWT.DRAW_TRANSPARENT);
                 if (i == focus && isFocusControl()) {
                     gc.setForeground(navForeground);

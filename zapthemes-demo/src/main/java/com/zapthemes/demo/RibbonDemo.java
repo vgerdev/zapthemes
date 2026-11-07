@@ -563,13 +563,34 @@ public final class RibbonDemo {
             }
             messageBar.setKind(Boolean.TRUE.equals(theme.dark()) ? MessageBar.Kind.INFO : MessageBar.Kind.WARNING);
         }
+        zoomCheck(problems);
         if (problems.isEmpty()) {
-            System.out.println("SMOKE OK: the ribbon reduces through " + widths.length + " widths, KeyTips, backstage, contextual tabs and"
-                    + " collapse work, in " + available.size() + " themes");
+            System.out.println("SMOKE OK: the ribbon reduces through " + widths.length + " widths, KeyTips, backstage, contextual tabs,"
+                    + " collapse and zoom work, in " + available.size() + " themes");
             return 0;
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));
         return 1;
+    }
+
+    /** At 200 % the ribbon is about twice as tall, the window keeps its size, and 100 % gives the same ribbon back. */
+    private void zoomCheck(List<String> problems) {
+        int at100 = ribbon.getSize().y;
+        Rectangle window = shell.getBounds();
+        themes.setZoom(2);
+        DemoSupport.settle(display);
+        int at200 = ribbon.getSize().y;
+        if (Math.abs((double) at200 / at100 - 2) > 0.25) {
+            problems.add("zoom: the ribbon is " + at200 + " px at 200 %, " + at100 + " px at 100 %");
+        }
+        if (!shell.getBounds().equals(window)) {
+            problems.add("zoom: the window changed from " + window + " to " + shell.getBounds());
+        }
+        themes.resetZoom();
+        DemoSupport.settle(display);
+        if (ribbon.getSize().y != at100) {
+            problems.add("zoom: the ribbon is " + ribbon.getSize().y + " px after the reset, not " + at100);
+        }
     }
 
     private void shot(Path screenshots, Theme theme, String name) {
