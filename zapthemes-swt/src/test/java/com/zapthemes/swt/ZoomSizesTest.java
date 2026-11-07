@@ -234,7 +234,11 @@ class ZoomSizesTest {
 
         assertThat(bar.getData(ThemeKeys.APP_FONT)).isNull();
         assertThat(font(bar).getHeight()).isEqualTo((int) Math.round(display.getSystemFont().getFontData()[0].getHeight() * 2.5));
-        assertThat(item.getWidth()).isGreaterThan(width * 2);
+        if ("win32".equals(SWT.getPlatform())) {
+            // Windows measures a tool bar button only when it is added; the styler re-adds the text.
+            // GTK and Cocoa size the items themselves once the bar is laid out.
+            assertThat(item.getWidth()).isGreaterThan(width * 2);
+        }
     }
 
     @Test

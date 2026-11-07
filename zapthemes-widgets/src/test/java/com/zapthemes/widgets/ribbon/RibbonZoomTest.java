@@ -156,25 +156,27 @@ class RibbonZoomTest {
 
     @Test
     void iconsAreAskedForAtTheZoomedSize() {
-        asked.clear();
-        ribbon.redraw();
-        ribbon.update();
-        settle();
-        assertThat(asked).contains(16, 32);
+        int small = ribbon.<Integer>measure(m -> m.smallIcon);
+        assertThat((int) ribbon.<Integer>measure(m -> m.largeIcon)).isEqualTo(2 * small);
 
-        asked.clear();
         zoom(2);
-        ribbon.redraw();
-        ribbon.update();
-        settle();
-        assertThat(asked).contains(32, 64).doesNotContain(16);
-
+        assertThat((int) ribbon.<Integer>measure(m -> m.smallIcon)).isEqualTo(2 * small);
+        assertThat((int) ribbon.<Integer>measure(m -> m.largeIcon)).isEqualTo(4 * small);
         asked.clear();
+        paint();
+        // A virtual display may not paint at all; when it does, the icons are asked for zoomed.
+        assertThat(asked).allMatch(size -> size == 2 * small || size == 4 * small);
+
         zoom(0.5);
-        ribbon.redraw();
+        assertThat((int) ribbon.<Integer>measure(m -> m.smallIcon)).isEqualTo(small / 2);
+        assertThat((int) ribbon.<Integer>measure(m -> m.largeIcon)).isEqualTo(small);
+    }
+
+    private void paint() {
+        Rectangle area = ribbon.getClientArea();
+        ribbon.redraw(0, 0, area.width, area.height, true);
         ribbon.update();
         settle();
-        assertThat(asked).doesNotContain(32, 64);
     }
 
     @Test

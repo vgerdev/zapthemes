@@ -498,8 +498,10 @@ public final class JFaceDemo extends ApplicationWindow {
             if (size.x < image.width || size.y < image.height) {
                 problems.add("zoom: a " + image.width + "x" + image.height + " icon in a " + size.x + "x" + size.y + " label");
             }
-            if (image.width <= 32) {
-                problems.add("zoom: the dialog icon is still " + image.width + " px wide at 150 %");
+            // The 100 % image ZapThemes keeps for the label (24 px on GTK, 32 px on Windows).
+            if (!(label.getData("zapthemes.originalImage") instanceof org.eclipse.swt.graphics.Image original)
+                    || image.width < original.getBounds().width * 1.4) {
+                problems.add("zoom: the dialog icon is " + image.width + " px wide at 150 %, not zoomed");
             }
         }
         if (control instanceof Composite composite) {
