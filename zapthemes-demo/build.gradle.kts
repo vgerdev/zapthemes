@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":zapthemes-swt"))
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-jface-notifications"))
+    implementation(project(":zapthemes-jface-ribbon"))
     implementation(project(":zapthemes-jface-text"))
     implementation(project(":zapthemes-nattable"))
     implementation(project(":zapthemes-visualization"))
