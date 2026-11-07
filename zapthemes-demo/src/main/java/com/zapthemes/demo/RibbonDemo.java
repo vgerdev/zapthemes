@@ -69,6 +69,7 @@ public final class RibbonDemo {
     private MessageBar messageBar;
     private Label status;
     private RibbonContextualTabSet tableTools;
+    private org.eclipse.jface.action.Action marksAction;
     private final List<String> log = new ArrayList<>();
 
     private RibbonDemo(Display display) {
@@ -210,8 +211,21 @@ public final class RibbonDemo {
         cmd("home.outdent", "&Decrease Indent", "<", slate, "Home");
         cmd("home.indent", "&Increase Indent", ">", slate, "Home");
         cmd("home.sort", "&Sort", "AZ", slate, "Home").description("Sort the selection alphabetically or numerically.");
-        cmd("home.marks", "Show/&Hide ¶", "¶", slate, "Home").style(Command.Style.TOGGLE).shortcut(SWT.MOD1 | '*')
-                .description("Show paragraph marks and other hidden formatting symbols.");
+        // A JFace action as a command: the ribbon button follows the action and runs it.
+        marksAction = new org.eclipse.jface.action.Action("Show/&Hide ¶", org.eclipse.jface.action.IAction.AS_CHECK_BOX) {
+            @Override
+            public void run() {
+                status.setText("  Paragraph marks " + (isChecked() ? "shown" : "hidden") + " (a JFace action)");
+            }
+        };
+        marksAction.setId("home.marks");
+        marksAction.setAccelerator(SWT.MOD1 | '*');
+        marksAction.setToolTipText("Show paragraph marks and other hidden formatting symbols.");
+        Images marks = icons.of("¶", slate);
+        marksAction.setImageDescriptor(org.eclipse.jface.resource.ImageDescriptor.createFromImage(marks.image(16)));
+        com.zapthemes.jface.ribbon.ActionCommands.setLargeImage(marksAction,
+                org.eclipse.jface.resource.ImageDescriptor.createFromImage(marks.image(32)));
+        com.zapthemes.jface.ribbon.ActionCommands.register(commands, marksAction, shell).category("Home");
         cmd("home.alignLeft", "Align &Left", "L", slate, "Home").style(Command.Style.TOGGLE).shortcut(SWT.MOD1 | 'L');
         cmd("home.center", "&Center", "C", slate, "Home").style(Command.Style.TOGGLE).shortcut(SWT.MOD1 | 'E');
         cmd("home.alignRight", "Align &Right", "R", slate, "Home").style(Command.Style.TOGGLE).shortcut(SWT.MOD1 | 'R');
@@ -311,6 +325,8 @@ public final class RibbonDemo {
                 customize.setText("Customize the Ribbon...");
                 customize.addListener(SWT.Selection, e -> ribbon.openCustomizeDialog());
             });
+            // KeyTips over the entries are picked from their labels; Office uses T for Options.
+            backstage.setKeyTip("options", "T");
         });
 
         RibbonTab home = ribbon.addTab("home", "Home").setKeyTip("H");
@@ -522,6 +538,13 @@ public final class RibbonDemo {
             shot(screenshots, theme, "keytips-home");
             ribbon.hideKeyTips();
 
+            // A JFace action and its command stay in step.
+            marksAction.setChecked(true);
+            if (!commands.get("home.marks").isChecked()) {
+                problems.add(theme.id() + ": the ¶ command did not follow its JFace action");
+            }
+            marksAction.setChecked(false);
+
             // Backstage.
             ribbon.openBackstage();
             DemoSupport.settle(display);
@@ -534,6 +557,23 @@ public final class RibbonDemo {
             if (!editor.isVisible()) {
                 problems.add(theme.id() + ": the editor did not come back after the backstage");
             }
+
+            // The backstage's KeyTips: Alt, F opens it with badges on its entries; O picks Open.
+            ribbon.showKeyTips();
+            ribbon.typeKeyTips("F");
+            DemoSupport.settle(display);
+            Map<String, String> backstageTips = ribbon.visibleKeyTips();
+            if (!ribbon.getBackstage().isOpen() || !"T".equals(backstageTips.get("Options")) || !"O".equals(backstageTips.get("Open"))) {
+                problems.add(theme.id() + ": the backstage's KeyTips are " + backstageTips);
+            }
+            shot(screenshots, theme, "backstage-keytips", ribbon.getBackstage());
+            ribbon.typeKeyTips("O");
+            if (!"open".equals(ribbon.getBackstage().selectedPage()) || ribbon.isShowingKeyTips()) {
+                problems.add(theme.id() + ": the backstage's O KeyTip did not open the Open page");
+            }
+            ribbon.getBackstage().select("info");
+            ribbon.getBackstage().close();
+            DemoSupport.settle(display);
 
             // Contextual tabs.
             run("insert.table");

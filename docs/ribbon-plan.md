@@ -263,7 +263,11 @@ ribbon.setFileTab("File", backstage -> {
   area and hides its siblings, and swaps it back when it closes, so it works with any layout and
   with JFace's `ApplicationWindow`.
 - **Esc**, the back arrow, or running a command entry closes it. Up and Down move in the nav
-  list; Tab moves into the page. (KeyTips over the nav entries are not done yet.)
+  list; Tab moves into the page.
+- **KeyTips:** Alt or F10 while it is open, or reaching the File tab by its KeyTip, shows a badge
+  on each entry, a free letter of its label unless `setKeyTip(id, tip)` sets one. A page's KeyTip
+  selects it and moves the focus into it; a command's runs it. Esc hides the badges first, then
+  closes the backstage.
 
 ## Message bar
 
@@ -277,7 +281,8 @@ error, success) picks the theme colors. It is optional and small.
   structure; every change made through the dialog saves it.
 - **What is stored:** the tabs in order, each with its id, a label when renamed, `hidden`, and
   its groups in order, each with id, label when renamed, and its items as command ids when
-  changed (`null` when the group's items are the app's, so app updates to a group still show).
+  changed (`null` when the group's items are the app's, so app updates to a group still show),
+  and `labels`: users' names for commands in that group, by item id.
   User tabs and groups have ids `custom.tab.N` and `custom.group.N` and `"custom": true`.
 - **Merging with app updates:** ids the app no longer defines are dropped; tabs and groups the
   app added since are inserted at their default positions; commands are looked up by id.
@@ -285,7 +290,8 @@ error, success) picks the theme colors. It is optional and small.
   on the ribbon, or by the app): *Choose commands from* (all commands, by category, or those not
   in the ribbon) with a filter, a list of commands, *Add >>* and *<< Remove*, a tree of tabs,
   groups and commands with check boxes to hide tabs, *Up* and *Down*, *New Tab*, *New Group*,
-  *Rename…*, *Reset* (all, or the selected tab), *OK* and *Cancel*. OK applies and saves.
+  *Rename…* (tabs, groups, and commands in a group: the new name shows in that group only, as
+  `RibbonButton.setLabel`; combos and galleries keep theirs), *Reset* (all, or the selected tab), *OK* and *Cancel*. OK applies and saves.
 - Only command items can be added by users: combos and galleries keep their place in app groups
   and can be removed, but the dialog adds them back only through *Reset*. (Office has the same
   limit for most controls.)
@@ -310,7 +316,10 @@ of its own, because Office paints the two differently), `badge` and `onBadge` (K
 them; zap-light and zap-dark keep the ribbon close to Office's light and dark looks.
 
 - States: items paint `hover`, `pressed`, `checked`, `disabled` and `focused` from the keys
-  above (per-state overrides through a `states` block are not read yet).
+  above, and a `states` block in the `Ribbon` rule overrides them per state with `background`,
+  `foreground` and `borderColor` (zap-high-contrast outlines hovered items and inverts pressed
+  ones). A state key wins over its flat key (`states.hover.background` over
+  `itemHoverBackground`); the app accent still wins for the checked outline.
 - **The app's accent:** `ribbon.setAccentColor(rgb)` overrides `fileTabBackground`,
   `tabIndicatorColor`, `selectedTabForeground`, `emphasisBackground` and the backstage nav, unless
   the theme sets `useAppAccent: false` (zap-high-contrast does). The demo switches Word blue and
@@ -378,7 +387,7 @@ New module `zapthemes-jface-ribbon` (depends on `zapthemes-jface` and `zapthemes
 |---|---|---|
 | 1–5 ✅ | **Commands and the ribbon** (PR 1) | The command model and `CustomizationStore`; `Ribbon` with tabs, groups, every button kind, combos, color buttons, labels, dialog launchers, right commands; super tooltips; galleries; adaptive resizing and collapsed groups; KeyTips; collapse, overlay and pin; contextual tab sets; the backstage and `MessageBar`; customization with `CustomizeRibbonDialog`; theming (types, catalog, base names, bundled themes); accessibility; `RibbonDemo` with its smoke test and screenshots |
 | 6 ✅ | **JFace** (PR 2, on PR 1) | `zapthemes-jface-ribbon`: action commands, contribution items, `RibbonApplicationWindow`; the demo's ¶ button is a JFace action |
-| 7 | **Follow-ups** | ~~Zoom~~ (done); the GTK and macOS checks; KeyTips in the backstage; renaming items in the dialog; per-state theme overrides |
+| 7 ✅ | **Follow-ups** | ✅ KeyTips in the backstage; ✅ renaming commands in the dialog; ✅ per-state theme overrides (PR 3, on PR 2); ✅ zoom (icons, paddings, backstage and message bar follow `ThemeManager.getZoom()`, `RibbonZoomTest`). Still open: the GTK and macOS checks by hand |
 
 Steps 1 to 5 landed as one PR instead of five: they share one surface, hit-test and popup model
 (galleries, KeyTips, collapsed groups and the overlay are all `Hot`s of a `RibbonSurface`), so
@@ -410,5 +419,5 @@ and saves screenshots in every theme.
   update adds are inserted at their default places while ones the user removed stay removed.
 - **`CommandMenu.Popup`** (added for JFace) lets a command's menu be a ready popup menu created for
   the bar's control: `IMenuCreator.getMenu(Control)`, `MenuManager.createContextMenu`.
-- **Tests:** `RibbonTest` (39, in `zapthemes-widgets`) and `JFaceRibbonTest` (5); the demo's smoke
+- **Tests:** `RibbonTest` (42, in `zapthemes-widgets`) and `JFaceRibbonTest` (5); the demo's smoke
   test and `checkCatalog`.

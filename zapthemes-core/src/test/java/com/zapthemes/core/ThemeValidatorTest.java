@@ -138,6 +138,11 @@ class ThemeValidatorTest {
         assertThat(button.state("hover").color("background")).contains(new RGBA(0x22, 0x22, 0x22, 255));
         assertThat(button.state("hover").color("foreground")).contains(new RGBA(0xEE, 0xEE, 0xEE, 255));
         assertThat(button.state("pressed")).isSameAs(button);
+
+        ResolvedStyle own = button.overridesOf("hover");
+        assertThat(own.color("background")).contains(new RGBA(0x22, 0x22, 0x22, 255));
+        assertThat(own.color("foreground")).as("only the state's own keys").isEmpty();
+        assertThat(button.overridesOf("pressed")).isNull();
     }
 
     @Test

@@ -25,6 +25,10 @@
   "controls": {
     "Ribbon": {
       "useAppAccent": false,
+      "states": {
+        "hover": { "borderColor": "$accent" },
+        "pressed": { "background": "$accent", "foreground": "$onAccent", "borderColor": "$accent" }
+      },
       "itemCheckedBackground": "$bg",
       "itemCheckedBorderColor": "$accent",
       "keyTipBorderColor": "$onBadge",
