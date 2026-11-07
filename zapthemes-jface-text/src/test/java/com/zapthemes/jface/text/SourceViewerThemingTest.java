@@ -341,12 +341,16 @@ class SourceViewerThemingTest {
     private static Shell opened(Runnable open) {
         Set<Shell> before = Set.of(display.getShells());
         open.run();
-        dispatch();
-        for (Shell candidate : display.getShells()) {
-            if (!before.contains(candidate) && candidate.isVisible()) {
-                return candidate;
+        // A busy CI machine can take a while to show the popup: look for it for up to 2 s.
+        long end = System.currentTimeMillis() + 2000;
+        do {
+            dispatch();
+            for (Shell candidate : display.getShells()) {
+                if (!before.contains(candidate) && candidate.isVisible()) {
+                    return candidate;
+                }
             }
-        }
+        } while (System.currentTimeMillis() < end);
         throw new AssertionError("nothing opened");
     }
 

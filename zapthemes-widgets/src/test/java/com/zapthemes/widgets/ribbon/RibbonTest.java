@@ -174,9 +174,26 @@ class RibbonTest {
         ribbon.addRightCommand("share.share", true);
     }
 
+    /**
+     * Sizes the window and waits until the ribbon has the new width: under X without a window
+     * manager (CI) the resize can arrive late.
+     */
     private void width(int width) {
         shell.setSize(width, 500);
         settle();
+        long end = System.currentTimeMillis() + 2000;
+        while (!sized(width) && System.currentTimeMillis() < end) {
+            shell.setSize(width, 500);
+            shell.layout(true, true);
+            display.timerExec(20, () -> { });
+            display.sleep();
+            settle();
+        }
+        assertThat(sized(width)).as("the ribbon is laid out at " + width).isTrue();
+    }
+
+    private boolean sized(int width) {
+        return shell.getSize().x == width && ribbon.getSize().x == shell.getClientArea().width;
     }
 
     // ------------------------------------------------------------------ layout and reduction
