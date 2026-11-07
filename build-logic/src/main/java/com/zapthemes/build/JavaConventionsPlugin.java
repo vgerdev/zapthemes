@@ -60,8 +60,18 @@ public class JavaConventionsPlugin implements Plugin<Project> {
         project.getTasks().withType(JavaExec.class).configureEach(exec -> {
             exec.getJavaLauncher().convention(toolchains.launcherFor(java.getToolchain()));
             exec.jvmArgs(swtJvmArgs);
-            exec.getTimeout().convention(Duration.ofMinutes(10));
+            // Smoke tests and screenshots can hang on a native event loop; stop them. The run tasks
+            // are someone using the app, so they run until its windows close.
+            if (!isInteractive(exec.getName())) {
+                exec.getTimeout().convention(Duration.ofMinutes(10));
+            }
         });
+    }
+
+    /** {@code run}, {@code runTitleBar}, {@code runJFace}…: tasks a person runs and uses. */
+    static boolean isInteractive(String taskName) {
+        return taskName.equals("run")
+                || taskName.startsWith("run") && taskName.length() > 3 && Character.isUpperCase(taskName.charAt(3));
     }
 
     /** SWT is a JNI library: allow native access on JDK 24+, and run on thread 0 on macOS. */
