@@ -1,4 +1,4 @@
-# Using ZapThemes and writing themes
+# Using ZapThemes and writing themes`focusColor` (focus), `useAppAccent` (true), `arc` (4), and the states `hover`, `pressed`, `checked`, `disabled`, `focused`, each with `background`, `foreground`, `borderColor` (they win over the `item…` keys) |
 
 This guide covers adding ZapThemes to an SWT or JFace application, choosing and switching themes,
 writing your own theme in JSON, and making your own widgets theme-aware. The

@@ -325,6 +325,8 @@ public final class RibbonDemo {
                 customize.setText("Customize the Ribbon...");
                 customize.addListener(SWT.Selection, e -> ribbon.openCustomizeDialog());
             });
+            // KeyTips over the entries are picked from their labels; Office uses T for Options.
+            backstage.setKeyTip("options", "T");
         });
 
         RibbonTab home = ribbon.addTab("home", "Home").setKeyTip("H");
@@ -555,6 +557,23 @@ public final class RibbonDemo {
             if (!editor.isVisible()) {
                 problems.add(theme.id() + ": the editor did not come back after the backstage");
             }
+
+            // The backstage's KeyTips: Alt, F opens it with badges on its entries; O picks Open.
+            ribbon.showKeyTips();
+            ribbon.typeKeyTips("F");
+            DemoSupport.settle(display);
+            Map<String, String> backstageTips = ribbon.visibleKeyTips();
+            if (!ribbon.getBackstage().isOpen() || !"T".equals(backstageTips.get("Options")) || !"O".equals(backstageTips.get("Open"))) {
+                problems.add(theme.id() + ": the backstage's KeyTips are " + backstageTips);
+            }
+            shot(screenshots, theme, "backstage-keytips", ribbon.getBackstage());
+            ribbon.typeKeyTips("O");
+            if (!"open".equals(ribbon.getBackstage().selectedPage()) || ribbon.isShowingKeyTips()) {
+                problems.add(theme.id() + ": the backstage's O KeyTip did not open the Open page");
+            }
+            ribbon.getBackstage().select("info");
+            ribbon.getBackstage().close();
+            DemoSupport.settle(display);
 
             // Contextual tabs.
             run("insert.table");

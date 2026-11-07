@@ -17,6 +17,7 @@ import com.zapthemes.widgets.command.Command;
 public class RibbonButton extends RibbonItem {
 
     private final Command command;
+    private String customLabel;
 
     public RibbonButton(Command command) {
         super(command.id());
@@ -30,7 +31,28 @@ public class RibbonButton extends RibbonItem {
 
     @Override
     public String label() {
-        return command.plainLabel();
+        return Command.stripMnemonic(text());
+    }
+
+    /**
+     * A label of this button's own instead of its command's ({@code null}: the command's again).
+     * The Customize Ribbon dialog sets it when a user renames a command in a group; other places
+     * that show the command (other groups, the quick access toolbar) keep the command's label.
+     */
+    public RibbonButton setLabel(String label) {
+        customLabel = label == null || label.isBlank() ? null : label;
+        changed();
+        return this;
+    }
+
+    /** The label set with {@link #setLabel}, or {@code null}. */
+    public String customLabel() {
+        return customLabel;
+    }
+
+    /** The label drawn, with its {@code &} mnemonic. */
+    String text() {
+        return customLabel != null ? customLabel : command.label();
     }
 
     boolean isSplit() {
@@ -70,7 +92,7 @@ public class RibbonButton extends RibbonItem {
         int arrow = hasArrow() ? m.arrow : 0;
         switch (size) {
             case LARGE -> {
-                String[] lines = m.lines(command.label(), hasArrow());
+                String[] lines = m.lines(text(), hasArrow());
                 int width = m.largeIcon;
                 for (int i = 0; i < lines.length; i++) {
                     int line = m.text(lines[i]);
@@ -82,14 +104,14 @@ public class RibbonButton extends RibbonItem {
                 return new Point(width + m.px(10), m.contentHeight);
             }
             case MEDIUM -> {
-                int width = m.px(4) + (hasImage(m, size) ? m.smallIcon + m.px(4) : 0) + m.text(command.label()) + m.px(5);
+                int width = m.px(4) + (hasImage(m, size) ? m.smallIcon + m.px(4) : 0) + m.text(text()) + m.px(5);
                 if (arrow > 0) {
                     width += (isSplit() ? m.px(8) : m.px(4)) + arrow;
                 }
                 return new Point(width, m.row);
             }
             default -> {
-                int width = m.px(3) + (hasImage(m, size) ? m.smallIcon : m.text(command.label())) + m.px(3);
+                int width = m.px(3) + (hasImage(m, size) ? m.smallIcon : m.text(text())) + m.px(3);
                 if (arrow > 0) {
                     width += (isSplit() ? m.px(6) : m.px(2)) + arrow;
                 }
@@ -120,7 +142,7 @@ public class RibbonButton extends RibbonItem {
         boolean enabled = isEnabled();
         Rectangle arrow = arrowBounds(m, box);
         surface.paintItemBackground(gc, box, arrow, isChecked());
-        Color foreground = enabled ? colors.foreground : colors.disabled;
+        Color foreground = surface.itemForeground(box, isChecked());
         gc.setForeground(foreground);
         gc.setFont(m.font);
         int arrowWidth = hasArrow() ? m.arrow : 0;
@@ -130,7 +152,7 @@ public class RibbonButton extends RibbonItem {
                 int iconY = b.y + m.px(3);
                 surface.drawImage(gc, command.images(), m.largeIcon, iconX, iconY, enabled);
                 paintLargeExtras(surface, gc, m, iconX, iconY, m.largeIcon);
-                String[] lines = m.lines(command.label(), hasArrow());
+                String[] lines = m.lines(text(), hasArrow());
                 int y = iconY + m.largeIcon + m.px(3);
                 int lineHeight = m.fontHeight;
                 for (int i = 0; i < lines.length; i++) {
@@ -157,7 +179,7 @@ public class RibbonButton extends RibbonItem {
                 }
                 if (box.size() == Size.MEDIUM || !image) {
                     x += image ? m.px(4) : 0;
-                    String text = command.plainLabel();
+                    String text = label();
                     gc.setForeground(foreground);
                     gc.drawText(text, x, b.y + (b.height - m.fontHeight) / 2, SWT.DRAW_TRANSPARENT);
                     x += m.text(text);

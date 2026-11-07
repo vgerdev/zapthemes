@@ -69,6 +69,24 @@ public final class ResolvedStyle {
         return new ResolvedStyle(merged, names, owner);
     }
 
+    /**
+     * Only the overrides of {@code state}, without this style's other properties, or {@code null}
+     * when it has none: for renderers that keep their own fallback per state.
+     */
+    public ResolvedStyle overridesOf(String state) {
+        JsonElement states = props.get(STATES);
+        if (states == null || !states.isJsonObject() || !states.getAsJsonObject().has(state)) {
+            return null;
+        }
+        JsonElement overrides = states.getAsJsonObject().get(state);
+        if (!overrides.isJsonObject()) {
+            throw new IllegalArgumentException("State \"" + state + "\" must be an object, got: " + overrides);
+        }
+        Map<String, JsonElement> own = new LinkedHashMap<>();
+        overrides.getAsJsonObject().entrySet().forEach(e -> own.put(e.getKey(), e.getValue()));
+        return new ResolvedStyle(own, names, owner);
+    }
+
     /** {@code "#RRGGBB"} or {@code "#RRGGBBAA"}, directly or via a swatch or a name's color. */
     public Optional<RGBA> color(String key) {
         KeyRecorder.record(owner, key);
