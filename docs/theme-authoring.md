@@ -19,7 +19,8 @@ runnable program:
 | `zapthemes-core` | Theme model, JSON loading, `ThemeManager`, stylers |
 | `zapthemes-swt` | Proxies for every SWT widget: `com.zapthemes.swt.{widgets,custom,browser,opengl}` |
 | `zapthemes-themes` | The bundled themes: `zap-light`, `zap-dark`, `zap-high-contrast` |
-| `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar` |
+| `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar`; the Office-style `Ribbon` and the shared command model (`com.zapthemes.widgets.command`) |
+| `zapthemes-jface-ribbon` | JFace support for the ribbon: actions as commands, contribution items, `RibbonApplicationWindow` |
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
 | `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |
 | `zapthemes-jface-text` | JFace Text 3.31.100 fork: a drop-in `org.eclipse.jface.text` (`SourceViewer`, rulers, hovers, content assist), with `zapthemes-text`, `org.eclipse.text` 3.14.800 built from source |
@@ -302,3 +303,26 @@ nothing from the previous one behind.
 - To try a theme quickly, keep it in a file and pass it to the custom-theme sample:
   `./gradlew :zapthemes-samples:runCustomTheme --args=$PWD/my-theme.json`. It prints validation
   problems to stderr.
+
+## 7. The ribbon
+
+`zapthemes-widgets` has an Office-style `Ribbon` (see [the ribbon plan](ribbon-plan.md) and
+`RibbonDemo`). It paints everything from these theme types; each property defaults to the common
+name in brackets, so a theme on common names only sets what it wants different.
+
+| Type | Properties |
+|---|---|
+| `Ribbon` | `background` (raised), `foreground`, `tabStripBackground` (chrome), `tabForeground`, `tabHoverBackground` (hover), `selectedTabBackground` (chrome: then only the underline shows), `selectedTabForeground` (accent), `tabIndicatorColor` (accent), `tabFont`, `groupLabelForeground` (muted), `groupLabelFont` (caption), `separatorColor`, `borderColor` (border), `itemHoverBackground` (hover), `itemPressedBackground`, `itemCheckedBackground` (selection), `itemCheckedBorderColor` (accent), `disabledForeground` (disabled), `fieldBackground`, `galleryBackground` (surface), `galleryBorderColor`, `gallerySelectionColor`, `keyTipBackground` (badge), `keyTipForeground` (onBadge), `keyTipBorderColor`, `fileTabBackground`, `fileTabForeground`, `emphasisBackground`, `emphasisForeground` (accent, onAccent), `contextualAccent1` … `4` (accent, info, success, warning), `focusColor` (focus), `useAppAccent` (true), `arc` (4) |
+| `RibbonPopup` | `background`, `borderColor`: collapsed groups, the collapsed ribbon's overlay, galleries, color palettes |
+| `RibbonToolTip` | `background`, `foreground`, `borderColor`, `titleFont` (strong) |
+| `RibbonBackstage` | `background`, `foreground`, `navBackground` (accent), `navForeground` (onAccent), `navHoverBackground`, `navSelectedBackground`, `navSelectedForeground`, `navFont`, `titleFont` (heading1), `useAppAccent`; its pages use the style classes `backstage` (Composite) and `backstageTitle` (Label) |
+| `RibbonMessageBar` | `background`, `foreground`, `borderColor`, `iconColor`, `titleFont`, and the states `info`, `warning`, `error`, `success` |
+
+`chrome` (the ribbon's tab row; title bars have names of their own), `badge` and `onBadge` are common names for
+these. An app's brand color (`Ribbon.setAccentColor`, Word blue or Excel green) replaces the
+accent keys unless the theme sets `useAppAccent: false`, as zap-high-contrast does.
+
+Commands are shared with other bars (the title bar's quick access toolbar) through
+`com.zapthemes.widgets.command`: one `CommandRegistry` per shell, and one `CustomizationStore`
+file with a section per bar. JFace apps add `zapthemes-jface-ribbon` for actions as commands and a
+`RibbonApplicationWindow`.

@@ -21,6 +21,7 @@ include(
     "zapthemes-widgets",
     "zapthemes-jface",
     "zapthemes-jface-notifications",
+    "zapthemes-jface-ribbon",
     "zapthemes-jface-text",
     "zapthemes-text",
     "zapthemes-nattable",
