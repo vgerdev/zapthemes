@@ -175,25 +175,28 @@ class RibbonTest {
     }
 
     /**
-     * Sizes the window and waits until the ribbon has the new width: under X without a window
-     * manager (CI) the resize can arrive late.
+     * Sizes the window and waits until the ribbon fills it: under X without a window manager (CI)
+     * the resize can arrive late. Windows keeps a window within the screen, so on a narrow screen
+     * (CI) the window may stay narrower than asked; the ribbon is then laid out at the width it got.
      */
     private void width(int width) {
         shell.setSize(width, 500);
         settle();
         long end = System.currentTimeMillis() + 2000;
-        while (!sized(width) && System.currentTimeMillis() < end) {
+        int last = -1;
+        while (!(fillsWindow() && (shell.getSize().x == width || shell.getSize().x == last)) && System.currentTimeMillis() < end) {
+            last = shell.getSize().x;
             shell.setSize(width, 500);
             shell.layout(true, true);
             display.timerExec(20, () -> { });
             display.sleep();
             settle();
         }
-        assertThat(sized(width)).as("the ribbon is laid out at " + width).isTrue();
+        assertThat(fillsWindow()).as("the ribbon fills the window at " + width).isTrue();
     }
 
-    private boolean sized(int width) {
-        return shell.getSize().x == width && ribbon.getSize().x == shell.getClientArea().width;
+    private boolean fillsWindow() {
+        return ribbon.getSize().x == shell.getClientArea().width;
     }
 
     // ------------------------------------------------------------------ layout and reduction
