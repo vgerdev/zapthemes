@@ -421,34 +421,59 @@ public class Ribbon extends RibbonSurface {
         return keyTipsEnabled;
     }
 
-    /** Shows the tab row's KeyTips, as Alt does. */
+    /** Shows the tab row's KeyTips, as Alt does; the backstage's while it is open. */
     public void showKeyTips() {
         checkWidget();
+        if (isBackstageOpen()) {
+            backstage.showKeyTips();
+            return;
+        }
         keyTips.show();
     }
 
     public void hideKeyTips() {
         keyTips.hide();
+        if (backstage != null) {
+            backstage.hideKeyTips();
+        }
     }
 
     public boolean isShowingKeyTips() {
-        return keyTips.isShowing();
+        return keyTips.isShowing() || backstage != null && backstage.isShowingKeyTips();
     }
 
     /** Types KeyTip letters while KeyTips show, as the keyboard does (for tests and demos). */
     public void typeKeyTips(String letters) {
         checkWidget();
-        keyTips.type(letters);
+        if (isBackstageOpen()) {
+            backstage.typeKeyTips(letters);
+            return;
+        }
+        for (int i = 0; i < letters.length(); i++) {
+            keyTips.type(letters.substring(i, i + 1));
+            if (isBackstageOpen()) {
+                // The File tab's KeyTip opened the backstage: the rest are its KeyTips.
+                backstage.typeKeyTips(letters.substring(i + 1));
+                return;
+            }
+        }
     }
 
     /** The KeyTips shown now, by the label of what they reach (for tests and demos). */
     public Map<String, String> visibleKeyTips() {
         checkWidget();
+        if (isBackstageOpen()) {
+            return backstage.visibleKeyTips();
+        }
         Map<String, String> tips = new LinkedHashMap<>();
         for (KeyTips.Entry entry : keyTips.visible()) {
             tips.put(entry.surface().nameOf(entry.hot()), entry.tip());
         }
         return tips;
+    }
+
+    private boolean isBackstageOpen() {
+        return backstage != null && backstage.isOpen();
     }
 
     /** The size each group of the selected tab is drawn at now, by group id. */
@@ -1100,13 +1125,13 @@ public class Ribbon extends RibbonSurface {
                 if (event.keyCode == SWT.F1 && (event.stateMask & SWT.MODIFIER_MASK) == SWT.CTRL) {
                     setCollapsed(!collapsed);
                     event.doit = false;
-                } else if (event.keyCode == SWT.F10 && (event.stateMask & SWT.MODIFIER_MASK) == 0 && keyTipsEnabled && isVisible()) {
+                } else if (event.keyCode == SWT.F10 && (event.stateMask & SWT.MODIFIER_MASK) == 0 && keyTipsEnabled && (isVisible() || isBackstageOpen())) {
                     toggleKeyTips();
                     event.doit = false;
                 }
             }
             case SWT.KeyUp -> {
-                if (event.keyCode == SWT.ALT && altAlone && keyTipsEnabled && isVisible()) {
+                if (event.keyCode == SWT.ALT && altAlone && keyTipsEnabled && (isVisible() || isBackstageOpen())) {
                     altAlone = false;
                     toggleKeyTips();
                     event.doit = false;
@@ -1133,7 +1158,8 @@ public class Ribbon extends RibbonSurface {
     }
 
     private void toggleKeyTips() {
-        if (backstage != null && backstage.isOpen()) {
+        if (isBackstageOpen()) {
+            backstage.toggleKeyTips();
             return;
         }
         if (keyTips.isShowing()) {

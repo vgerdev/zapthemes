@@ -288,17 +288,18 @@ abstract class RibbonSurface extends Canvas {
         }
     }
 
-    /** Hover, pressed and checked backgrounds of an item (a split item has two parts). */
+    /**
+     * Hover, pressed and checked backgrounds and outlines of an item (a split item has two parts),
+     * from the theme's item states ({@link RibbonColors.Look}).
+     */
     void paintItemBackground(GC gc, ItemBox box, Rectangle arrow, boolean checked) {
         RibbonColors colors = colors();
         Rectangle b = box.bounds();
         boolean enabled = box.item().isEnabled();
         int arc = colors.arc;
         if (checked) {
-            gc.setBackground(colors.checked);
-            gc.fillRoundRectangle(b.x, b.y, b.width, b.height, arc, arc);
-            gc.setForeground(colors.checkedBorder);
-            gc.drawRoundRectangle(b.x, b.y, b.width - 1, b.height - 1, arc, arc);
+            fill(gc, b, colors.checkedLook.background(), arc);
+            outline(gc, b, colors.checkedBorder, arc);
         }
         boolean hot = enabled && (isHovered(box) || isOpen(box));
         if (!hot) {
@@ -306,24 +307,55 @@ abstract class RibbonSurface extends Canvas {
         }
         if (arrow == null) {
             boolean down = isPressed(box, false) || isOpen(box);
-            gc.setBackground(down ? colors.pressed : checked ? colors.pressed : colors.hover);
-            gc.fillRoundRectangle(b.x, b.y, b.width, b.height, arc, arc);
-            if (checked) {
-                gc.setForeground(colors.checkedBorder);
-                gc.drawRoundRectangle(b.x, b.y, b.width - 1, b.height - 1, arc, arc);
-            }
+            RibbonColors.Look look = down || checked ? colors.pressedLook : colors.hoverLook;
+            fill(gc, b, look.background(), arc);
+            outline(gc, b, checked ? colors.checkedBorder : look.border(), arc);
             return;
         }
         Rectangle main = mainPart(b, arrow);
-        gc.setBackground(isPressed(box, false) ? colors.pressed : colors.hover);
-        gc.fillRoundRectangle(main.x, main.y, main.width, main.height, arc, arc);
-        gc.setBackground(isPressed(box, true) || isOpen(box) ? colors.pressed : colors.hover);
-        gc.fillRoundRectangle(arrow.x, arrow.y, arrow.width, arrow.height, arc, arc);
-        gc.setForeground(colors.border);
+        RibbonColors.Look mainLook = isPressed(box, false) ? colors.pressedLook : colors.hoverLook;
+        RibbonColors.Look arrowLook = isPressed(box, true) || isOpen(box) ? colors.pressedLook : colors.hoverLook;
+        fill(gc, main, mainLook.background(), arc);
+        fill(gc, arrow, arrowLook.background(), arc);
+        Color border = arrowLook.border() != null ? arrowLook.border() : mainLook.border();
+        if (border != null) {
+            outline(gc, b, border, arc);
+        }
+        gc.setForeground(border != null ? border : colors.border);
         if (arrow.y > b.y) {
             gc.drawLine(b.x + 2, arrow.y, b.x + b.width - 3, arrow.y);
         } else {
             gc.drawLine(arrow.x, b.y + 2, arrow.x, b.y + b.height - 3);
+        }
+    }
+
+    /** The text and arrow color of an item in its state now. */
+    Color itemForeground(ItemBox box, boolean checked) {
+        RibbonColors colors = colors();
+        if (!box.item().isEnabled()) {
+            return colors.disabledLook.foreground();
+        }
+        boolean hot = isHovered(box) || isOpen(box);
+        if (hot && (isPressed(box, false) || isPressed(box, true) || isOpen(box))) {
+            return colors.pressedLook.foreground();
+        }
+        if (hot) {
+            return checked ? colors.pressedLook.foreground() : colors.hoverLook.foreground();
+        }
+        return checked ? colors.checkedLook.foreground() : colors.foreground;
+    }
+
+    private static void fill(GC gc, Rectangle r, Color color, int arc) {
+        if (color != null) {
+            gc.setBackground(color);
+            gc.fillRoundRectangle(r.x, r.y, r.width, r.height, arc, arc);
+        }
+    }
+
+    private static void outline(GC gc, Rectangle r, Color color, int arc) {
+        if (color != null) {
+            gc.setForeground(color);
+            gc.drawRoundRectangle(r.x, r.y, r.width - 1, r.height - 1, arc, arc);
         }
     }
 

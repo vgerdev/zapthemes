@@ -15,7 +15,8 @@ import com.zapthemes.widgets.command.CustomizationStore;
 
 /**
  * Users' changes to the ribbon: the app's structure is the default, and a user may reorder,
- * rename and hide tabs, add tabs and groups of their own, and add, remove and reorder commands.
+ * rename and hide tabs, add tabs and groups of their own, and add, remove, reorder and rename
+ * commands (a renamed command keeps its new name in that group only).
  * The changes are kept in a {@link CustomizationStore}'s {@code "ribbon"} section.
  *
  * <p>The structure is edited as a list of {@link TabNode}s ({@link #snapshot()}, then
@@ -68,12 +69,16 @@ public final class RibbonCustomization {
         }
     }
 
-    /** A group: {@code items} are item ids, or {@code null} for the app's items (custom groups: none). */
+    /**
+     * A group: {@code items} are item ids, or {@code null} for the app's items (custom groups: none).
+     * {@code labels} are users' names for commands in it, by item id.
+     */
     public static final class GroupNode {
         public final String id;
         public String label;
         public final boolean custom;
         public List<String> items;
+        public final Map<String, String> labels = new LinkedHashMap<>();
 
         public GroupNode(String id, String label, boolean custom, List<String> items) {
             this.id = Objects.requireNonNull(id);
@@ -83,13 +88,15 @@ public final class RibbonCustomization {
         }
 
         GroupNode copy() {
-            return new GroupNode(id, label, custom, items);
+            GroupNode copy = new GroupNode(id, label, custom, items);
+            copy.labels.putAll(labels);
+            return copy;
         }
 
         @Override
         public boolean equals(Object o) {
             return o instanceof GroupNode g && g.id.equals(id) && Objects.equals(g.label, label) && g.custom == custom
-                    && Objects.equals(g.items, items);
+                    && Objects.equals(g.items, items) && g.labels.equals(labels);
         }
 
         @Override
@@ -99,7 +106,8 @@ public final class RibbonCustomization {
 
         @Override
         public String toString() {
-            return "Group[" + id + (label != null ? " \"" + label + "\"" : "") + (items != null ? " " + items : "") + "]";
+            return "Group[" + id + (label != null ? " \"" + label + "\"" : "") + (items != null ? " " + items : "")
+                    + (labels.isEmpty() ? "" : " " + labels) + "]";
         }
     }
 
@@ -197,7 +205,13 @@ public final class RibbonCustomization {
                 String groupLabel = customGroup || !group.label().equals(defaults.label()) ? group.label() : null;
                 List<String> ids = itemIds(group);
                 List<String> items = !customGroup && ids.equals(defaultItemIds(group.id())) ? null : ids;
-                node.groups.add(new GroupNode(group.id(), groupLabel, customGroup, items));
+                GroupNode groupNode = new GroupNode(group.id(), groupLabel, customGroup, items);
+                for (RibbonItem item : group.items()) {
+                    if (item instanceof RibbonButton button && button.customLabel() != null) {
+                        groupNode.labels.put(item.id(), button.customLabel());
+                    }
+                }
+                node.groups.add(groupNode);
             }
             nodes.add(node);
         }
@@ -240,13 +254,22 @@ public final class RibbonCustomization {
         return null;
     }
 
-    /** A label for an item id: its item's, else its command's, else the id. */
+    /** A label for an item id: its item's (a button's command's, not a renamed one), else its command's, else the id. */
     public String itemLabel(String id) {
         RibbonItem item = appItems.get(id);
+        if (item instanceof RibbonButton button) {
+            return button.command().plainLabel();
+        }
         if (item != null) {
             return item.label();
         }
         return ribbon.commands().find(id).map(c -> c.plainLabel()).orElse(id);
+    }
+
+    /** Whether the item {@code id} shows a command, so users may rename it in a group. */
+    public boolean isRenamable(String id) {
+        RibbonItem item = appItems.get(id);
+        return item != null ? item instanceof RibbonButton : ribbon.commands().find(id).isPresent();
     }
 
     /** Whether {@code id} names something a group can hold: an app item or a command. */
@@ -327,6 +350,11 @@ public final class RibbonCustomization {
                     }
                 } else {
                     group.replaceItems(buildItems(group, groupNode.items));
+                }
+                for (RibbonItem item : group.items()) {
+                    if (item instanceof RibbonButton button) {
+                        button.setLabel(groupNode.labels.get(item.id()));
+                    }
                 }
                 groups.add(group);
             }
@@ -440,6 +468,11 @@ public final class RibbonCustomization {
                     group.items.forEach(items::add);
                     g.add("items", items);
                 }
+                if (!group.labels.isEmpty()) {
+                    JsonObject labels = new JsonObject();
+                    group.labels.forEach(labels::addProperty);
+                    g.add("labels", labels);
+                }
                 groups.add(g);
             }
             t.add("groups", groups);
@@ -473,7 +506,15 @@ public final class RibbonCustomization {
                             items.add(ie.getAsString());
                         }
                     }
-                    tab.groups.add(new GroupNode(g.get("id").getAsString(), string(g, "label"), bool(g, "custom"), items));
+                    GroupNode group = new GroupNode(g.get("id").getAsString(), string(g, "label"), bool(g, "custom"), items);
+                    if (g.has("labels") && g.get("labels").isJsonObject()) {
+                        g.getAsJsonObject("labels").entrySet().forEach(e -> {
+                            if (e.getValue().isJsonPrimitive()) {
+                                group.labels.put(e.getKey(), e.getValue().getAsString());
+                            }
+                        });
+                    }
+                    tab.groups.add(group);
                 }
             }
             state.add(tab);
@@ -512,7 +553,13 @@ public final class RibbonCustomization {
                     continue;
                 }
                 List<String> items = group.items == null ? null : group.items.stream().filter(this::resolvable).toList();
-                copy.groups.add(new GroupNode(group.id, group.label, group.custom, items));
+                GroupNode merged = new GroupNode(group.id, group.label, group.custom, items);
+                group.labels.forEach((item, label) -> {
+                    if (resolvable(item)) {
+                        merged.labels.put(item, label);
+                    }
+                });
+                copy.groups.add(merged);
             }
             state.add(copy);
         }

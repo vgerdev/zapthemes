@@ -25,7 +25,8 @@ import com.zapthemes.widgets.ribbon.RibbonCustomization.TabNode;
 /**
  * Office's <em>Customize the Ribbon</em> dialog: choose commands on the left (all, those not in
  * the ribbon, or a category, with a filter) and add them to groups of the tree on the right;
- * remove, reorder, rename and hide (uncheck) tabs and groups; add tabs and groups of your own;
+ * remove, reorder, rename and hide (uncheck) tabs and groups; rename commands in a group; add
+ * tabs and groups of your own;
  * reset. OK applies and saves.
  *
  * <p>Users add commands only to their own groups and to app groups; combos and galleries keep
@@ -210,7 +211,8 @@ public final class CustomizeRibbonDialog {
                 java.util.List<String> ids = items(group);
                 for (int i = 0; i < ids.size(); i++) {
                     TreeItem commandItem = new TreeItem(groupItem, SWT.NONE);
-                    commandItem.setText(customization.itemLabel(ids.get(i)));
+                    String custom = group.labels.get(ids.get(i));
+                    commandItem.setText(custom != null ? Command.stripMnemonic(custom) : customization.itemLabel(ids.get(i)));
                     ItemRef ref = new ItemRef(group, i);
                     commandItem.setData(ref);
                     commandItem.setChecked(true);
@@ -352,22 +354,22 @@ public final class CustomizeRibbonDialog {
 
     void rename() {
         Object node = selection();
-        if (node instanceof TabNode tab) {
-            String name = prompt("Rename", Command.stripMnemonic(tab.label != null ? tab.label : customization.defaultLabel(tab.id)));
-            if (name != null && !name.isBlank()) {
-                tab.label = name;
-                fillTree(tab);
-            }
-        } else if (node instanceof GroupNode group) {
-            String name = prompt("Rename", Command.stripMnemonic(group.label != null ? group.label : customization.defaultLabel(group.id)));
-            if (name != null && !name.isBlank()) {
-                group.label = name;
-                fillTree(group);
-            }
+        String current = switch (node) {
+            case TabNode tab -> tab.label != null ? tab.label : customization.defaultLabel(tab.id);
+            case GroupNode group -> group.label != null ? group.label : customization.defaultLabel(group.id);
+            case ItemRef ref when renamable(ref) -> ref.group.labels.getOrDefault(itemId(ref), customization.itemLabel(itemId(ref)));
+            case null, default -> null;
+        };
+        if (current == null) {
+            return;
+        }
+        String name = prompt("Rename", Command.stripMnemonic(current));
+        if (name != null && !name.isBlank()) {
+            rename(name);
         }
     }
 
-    /** Renames the selected tab or group without prompting (tests). */
+    /** Renames the selected tab, group or command without prompting (tests). */
     void rename(String name) {
         Object node = selection();
         if (node instanceof TabNode tab) {
@@ -376,7 +378,23 @@ public final class CustomizeRibbonDialog {
         } else if (node instanceof GroupNode group) {
             group.label = name;
             fillTree(group);
+        } else if (node instanceof ItemRef ref && renamable(ref)) {
+            String id = itemId(ref);
+            if (name == null || name.isBlank() || name.equals(customization.itemLabel(id))) {
+                ref.group.labels.remove(id);
+            } else {
+                ref.group.labels.put(id, name);
+            }
+            fillTree(ref);
         }
+    }
+
+    private String itemId(ItemRef ref) {
+        return items(ref.group).get(ref.index);
+    }
+
+    private boolean renamable(ItemRef ref) {
+        return customization.isRenamable(itemId(ref));
     }
 
     void resetTab() {
@@ -471,6 +489,21 @@ public final class CustomizeRibbonDialog {
             for (GroupNode group : tab.groups) {
                 if (group.id.equals(id)) {
                     fillTree(group);
+                    return;
+                }
+            }
+        }
+    }
+
+    /** Selects item {@code itemId} of group {@code groupId} in the tree (tests). */
+    void selectItem(String groupId, String itemId) {
+        for (TabNode tab : state) {
+            for (GroupNode group : tab.groups) {
+                if (group.id.equals(groupId)) {
+                    int index = items(group).indexOf(itemId);
+                    if (index >= 0) {
+                        fillTree(new ItemRef(group, index));
+                    }
                     return;
                 }
             }

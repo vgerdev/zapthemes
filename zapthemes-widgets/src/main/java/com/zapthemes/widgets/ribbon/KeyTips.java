@@ -169,6 +169,14 @@ final class KeyTips {
                 surface.activate(hot, false, null);
                 showPanel();
             }
+            case FILE_TAB -> {
+                hide();
+                ribbon.openBackstage();
+                Backstage backstage = ribbon.getBackstage();
+                if (backstage != null && backstage.isOpen()) {
+                    backstage.showKeyTips();
+                }
+            }
             case GROUP_BUTTON -> {
                 surface.activate(hot, false, null);
                 PopupShell popup = ribbon.popups().isEmpty() ? null : ribbon.popups().getLast();

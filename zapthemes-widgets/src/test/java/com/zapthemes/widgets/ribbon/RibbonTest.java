@@ -668,6 +668,50 @@ class RibbonTest {
     }
 
     @Test
+    void backstageHasKeyTips() {
+        ribbon.setKeyTipsEnabled(true);
+        command("file.save", "&Save");
+        ribbon.setFileTab("File", backstage -> {
+            backstage.addPage("info", "Info", null, page -> new Label(page, SWT.NONE).setText("About"));
+            backstage.addPage("open", "Open", null, page -> new Label(page, SWT.NONE).setText("Recent"));
+            backstage.addPage("saveas", "Save As", null, page -> new Label(page, SWT.NONE).setText("Where"));
+            backstage.addSeparator();
+            backstage.addCommand("file.save");
+            backstage.setKeyTip("file.save", "s");
+        });
+        settle();
+        ribbon.showKeyTips();
+        ribbon.typeKeyTips("F");
+        settle();
+        Backstage backstage = ribbon.getBackstage();
+        assertThat(backstage.isOpen()).isTrue();
+        assertThat(ribbon.isShowingKeyTips()).isTrue();
+        assertThat(ribbon.visibleKeyTips()).containsExactly(Map.entry("Info", "I"), Map.entry("Open", "O"), Map.entry("Save As", "A"),
+                Map.entry("Save", "S"));
+
+        ribbon.typeKeyTips("A");
+        assertThat(backstage.selectedPage()).isEqualTo("saveas");
+        assertThat(ribbon.isShowingKeyTips()).isFalse();
+        assertThat(backstage.isOpen()).isTrue();
+
+        // Alt shows them again; Esc hides them, then closes the backstage.
+        ribbon.filter(key(SWT.KeyDown, SWT.ALT, 0));
+        ribbon.filter(key(SWT.KeyUp, SWT.ALT, SWT.ALT));
+        assertThat(ribbon.isShowingKeyTips()).isTrue();
+        backstage.nav().traverse(SWT.TRAVERSE_ESCAPE);
+        assertThat(ribbon.isShowingKeyTips()).isFalse();
+        assertThat(backstage.isOpen()).isTrue();
+        backstage.nav().traverse(SWT.TRAVERSE_ESCAPE);
+        assertThat(backstage.isOpen()).isFalse();
+
+        ribbon.openBackstage();
+        ribbon.showKeyTips();
+        ribbon.typeKeyTips("s");
+        assertThat(ran).containsExactly("file.save");
+        assertThat(backstage.isOpen()).isFalse();
+    }
+
+    @Test
     void messageBarIsThemedPerKind() {
         MessageBar bar = new MessageBar(shell, SWT.NONE, MessageBar.Kind.WARNING);
         bar.setTitle("Recovered");
@@ -767,6 +811,38 @@ class RibbonTest {
         assertThat(CustomizationStore.open(file).section(RibbonCustomization.SECTION).toString()).contains("custom.tab.1");
     }
 
+    @Test
+    void customizeDialogRenamesCommandsInAGroup(@TempDir Path dir) {
+        Path file = dir.resolve("prefs.json");
+        ribbon.setCustomizationStore(CustomizationStore.open(file));
+        CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);
+        dialog.create();
+        dialog.selectItem("home.font", "home.bold");
+        dialog.rename("Strong");
+        dialog.selectItem("home.font", fontName.id());
+        dialog.rename("Typeface");
+        dialog.ok();
+
+        RibbonButton bold = (RibbonButton) ribbon.tab("home").group("home.font").items().get(1);
+        assertThat(bold.label()).isEqualTo("Strong");
+        assertThat(ribbon.nameOf(ribbon.hotOf(bold))).isEqualTo("Strong");
+        assertThat(bold.command().plainLabel()).as("the command keeps its own label").isEqualTo("Bold");
+        assertThat(fontName.label()).as("only commands are renamed").isNotEqualTo("Typeface");
+        assertThat(CustomizationStore.open(file).section(RibbonCustomization.SECTION).toString()).contains("\"labels\"", "Strong");
+        List<RibbonCustomization.TabNode> saved = ribbon.customization().snapshot();
+
+        // A new window of the same app, on the same file.
+        shell.dispose();
+        settle();
+        setUp();
+        ribbon.setCustomizationStore(CustomizationStore.open(file));
+        assertThat(ribbon.customization().snapshot()).isEqualTo(saved);
+        assertThat(ribbon.tab("home").group("home.font").items().get(1).label()).isEqualTo("Strong");
+
+        ribbon.customization().reset();
+        assertThat(ribbon.tab("home").group("home.font").items().get(1).label()).isEqualTo("Bold");
+    }
+
     // ------------------------------------------------------------------ theming and accessibility
 
     @Test
@@ -778,6 +854,30 @@ class RibbonTest {
         assertThat(darkBackground).isNotEqualTo(lightBackground);
         assertThat(darkBackground).isEqualTo(ThemeManager.get(display).styleOf(ribbon).color("background").orElseThrow().rgb);
         assertThat(ribbon.hotsOf(Hot.Kind.ITEM)).isNotEmpty();
+    }
+
+    @Test
+    void themeStatesOverrideItemColors() {
+        // zap-light has no states block: the item keys, and no outline on hover.
+        RibbonColors colors = ribbon.colors();
+        assertThat(colors.hoverLook.background()).isSameAs(colors.hover);
+        assertThat(colors.hoverLook.border()).isNull();
+        assertThat(colors.pressedLook.foreground()).isEqualTo(colors.foreground);
+        assertThat(colors.disabledLook.foreground()).isSameAs(colors.disabled);
+
+        // zap-high-contrast outlines hovered items and inverts pressed ones.
+        ThemeManager.get(display).setTheme(highContrast);
+        settle();
+        colors = ribbon.colors();
+        RGB accent = new RGB(0xFF, 0xFF, 0x00);
+        assertThat(colors.hoverLook.border().getRGB()).isEqualTo(accent);
+        assertThat(colors.pressedLook.background().getRGB()).isEqualTo(accent);
+        assertThat(colors.pressed.getRGB()).as("the flat key follows the state").isEqualTo(accent);
+        assertThat(colors.pressedLook.foreground().getRGB()).isEqualTo(new RGB(0, 0, 0));
+        assertThat(colors.hoverLook.background()).as("unset state keys keep the item key").isSameAs(colors.hover);
+
+        Hot bold = ribbon.hotOf(ribbon.getSelection().group("home.font").items().get(1));
+        assertThat(ribbon.itemForeground(bold.box(), false)).isEqualTo(colors.foreground);
     }
 
     @Test
