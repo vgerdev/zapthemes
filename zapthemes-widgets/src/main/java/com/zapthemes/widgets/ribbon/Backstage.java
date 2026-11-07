@@ -77,6 +77,10 @@ public final class Backstage extends Composite {
     private final Map<Control, Boolean> savedVisibility = new HashMap<>();
     private final Listener escape = this::escapeFilter;
     private final List<Consumer<Boolean>> openListeners = new ArrayList<>();
+    private final Map<String, String> keyTipsById = new HashMap<>();
+    /** The KeyTips shown, by nav index; {@code null} when none show. */
+    private Map<Integer, String> keyTips;
+    private String typed = "";
 
     @SuppressWarnings("this-escape")
     Backstage(Ribbon ribbon, String title) {
@@ -198,6 +202,8 @@ public final class Backstage extends Composite {
             return;
         }
         open = false;
+        keyTips = null;
+        typed = "";
         getDisplay().removeFilter(SWT.Traverse, escape);
         Composite parent = getParent();
         setVisible(false);
@@ -251,6 +257,128 @@ public final class Backstage extends Composite {
         return composite;
     }
 
+    // ------------------------------------------------------------------ KeyTips
+
+    /**
+     * The KeyTip of page or command {@code id}; others get a free letter of their label. KeyTips
+     * show over the navigation column after Alt or F10, and when the File tab is reached by its
+     * KeyTip.
+     */
+    public Backstage setKeyTip(String id, String tip) {
+        checkWidget();
+        if (tip == null || tip.isBlank()) {
+            keyTipsById.remove(id);
+        } else {
+            keyTipsById.put(id, tip.toUpperCase());
+        }
+        if (keyTips != null) {
+            keyTips = assignKeyTips();
+            nav.redraw();
+        }
+        return this;
+    }
+
+    boolean isShowingKeyTips() {
+        return keyTips != null;
+    }
+
+    void showKeyTips() {
+        if (!open) {
+            return;
+        }
+        keyTips = assignKeyTips();
+        typed = "";
+        nav.setFocus();
+        nav.redraw();
+    }
+
+    void hideKeyTips() {
+        if (keyTips != null) {
+            keyTips = null;
+            typed = "";
+            nav.redraw();
+        }
+    }
+
+    void toggleKeyTips() {
+        if (keyTips != null) {
+            hideKeyTips();
+        } else {
+            showKeyTips();
+        }
+    }
+
+    /** The KeyTips shown now (filtered by what was typed), by entry label. */
+    Map<String, String> visibleKeyTips() {
+        Map<String, String> visible = new LinkedHashMap<>();
+        if (keyTips != null) {
+            keyTips.forEach((index, tip) -> {
+                if (tip.startsWith(typed)) {
+                    visible.put(nav.label(entries.get(index - 1)), tip);
+                }
+            });
+        }
+        return visible;
+    }
+
+    /** Types KeyTip letters: a page's selects it and moves into it, a command's runs it. */
+    void typeKeyTips(String letters) {
+        for (char c : letters.toUpperCase().toCharArray()) {
+            if (keyTips == null) {
+                return;
+            }
+            String next = typed + c;
+            List<Map.Entry<Integer, String>> matches = keyTips.entrySet().stream().filter(e -> e.getValue().startsWith(next)).toList();
+            if (matches.isEmpty()) {
+                continue;
+            }
+            if (matches.size() == 1 && matches.getFirst().getValue().equals(next)) {
+                int index = matches.getFirst().getKey();
+                hideKeyTips();
+                Entry entry = entries.get(index - 1);
+                nav.activate(index);
+                if (entry instanceof Page && open) {
+                    Composite page = pages.get(selected);
+                    if (page != null && !page.setFocus()) {
+                        nav.setFocus();
+                    }
+                }
+            } else {
+                typed = next;
+                nav.redraw();
+            }
+        }
+    }
+
+    /** Explicit KeyTips first, then a free letter of each label; keyed by nav index. */
+    private Map<Integer, String> assignKeyTips() {
+        Map<Integer, String> tips = new LinkedHashMap<>();
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (int i = 0; i < entries.size(); i++) {
+            String explicit = keyTipsById.get(idOf(entries.get(i)));
+            if (explicit != null && used.add(explicit)) {
+                tips.put(i + 1, explicit);
+            }
+        }
+        for (int i = 0; i < entries.size(); i++) {
+            Entry entry = entries.get(i);
+            if (!(entry instanceof Separator) && !tips.containsKey(i + 1)) {
+                String tip = KeyTips.pick(nav.label(entry), used);
+                used.add(tip);
+                tips.put(i + 1, tip);
+            }
+        }
+        return new java.util.TreeMap<>(tips);
+    }
+
+    private static String idOf(Entry entry) {
+        return switch (entry) {
+            case Page page -> page.id();
+            case CommandEntry command -> command.command().id();
+            case Separator separator -> null;
+        };
+    }
+
     void redrawAll() {
         nav.redraw();
     }
@@ -263,7 +391,12 @@ public final class Backstage extends Composite {
         if (event.detail == SWT.TRAVERSE_ESCAPE && open && event.widget instanceof Control control && isAncestorOf(control)) {
             event.doit = false;
             event.detail = SWT.TRAVERSE_NONE;
-            close();
+            if (keyTips != null) {
+                // Esc hides the KeyTips first, then closes the backstage.
+                hideKeyTips();
+            } else {
+                close();
+            }
         }
     }
 
@@ -415,6 +548,17 @@ public final class Backstage extends Composite {
         }
 
         private void key(Event e) {
+            if (keyTips != null) {
+                char c = Character.toUpperCase(e.character);
+                if (Character.isLetterOrDigit(c)) {
+                    typeKeyTips(String.valueOf(c));
+                    return;
+                }
+                if (e.keyCode == SWT.ALT || e.keyCode == SWT.F10 || e.keyCode == SWT.SHIFT || e.keyCode == SWT.CTRL) {
+                    return;
+                }
+                hideKeyTips();
+            }
             int next = focus;
             switch (e.keyCode) {
                 case SWT.ARROW_DOWN -> next = step(1);
@@ -505,11 +649,40 @@ public final class Backstage extends Composite {
                 }
                 x += 26;
                 gc.drawText(label(entry), x, textY, SWT.DRAW_TRANSPARENT);
-                if (i == focus && isFocusControl()) {
+                if (i == focus && isFocusControl() && keyTips == null) {
                     gc.setForeground(navForeground);
                     gc.drawFocus(b.x + 2, b.y + 1, b.width - 4, b.height - 2);
                 }
             }
+            paintKeyTips(gc, ribbonColors);
+        }
+
+        /** KeyTip badges over the entries' icons, as the ribbon draws them. */
+        private void paintKeyTips(GC gc, RibbonColors colors) {
+            if (keyTips == null) {
+                return;
+            }
+            gc.setFont(colors.groupLabelFont);
+            int height = gc.getFontMetrics().getHeight() + 2;
+            for (Map.Entry<Integer, String> tip : keyTips.entrySet()) {
+                if (!tip.getValue().startsWith(typed)) {
+                    continue;
+                }
+                gc.setFont(navFont());
+                Rectangle b = bounds(gc, tip.getKey());
+                gc.setFont(colors.groupLabelFont);
+                Point extent = gc.textExtent(tip.getValue());
+                int width = Math.max(height, extent.x + 6);
+                int x = 28 - width / 2;
+                int y = b.y + b.height - height - 1;
+                gc.setBackground(colors.keyTipBackground);
+                gc.fillRoundRectangle(x, y, width, height, 3, 3);
+                gc.setForeground(colors.keyTipBorder);
+                gc.drawRoundRectangle(x, y, width - 1, height - 1, 3, 3);
+                gc.setForeground(colors.keyTipForeground);
+                gc.drawText(tip.getValue(), x + (width - extent.x) / 2, y + (height - extent.y) / 2, SWT.DRAW_TRANSPARENT);
+            }
+            gc.setFont(navFont());
         }
 
         private void initAccessible() {
