@@ -35,7 +35,8 @@ public class PublishingPlugin implements Plugin<Project> {
             StandardJavadocDocletOptions options = (StandardJavadocDocletOptions) javadoc.getOptions();
             options.setEncoding("UTF-8");
             options.addBooleanOption("html5", true);
-            options.links("https://docs.oracle.com/en/java/javase/25/docs/api/");
+            // No options.links for the JDK: javadoc links the platform docs from its built-in element list,
+            // so the build never downloads Oracle's package-list (which now redirects and fails the build).
             options.quiet();
             if (project.getPluginManager().hasPlugin("zapthemes.fork")) {
                 // Forked upstream code keeps upstream's Javadoc, warts and all.
