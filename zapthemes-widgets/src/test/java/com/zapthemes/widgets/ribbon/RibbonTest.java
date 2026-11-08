@@ -883,6 +883,78 @@ class RibbonTest {
         assertThat(ribbon.itemForeground(bold.box(), false)).isEqualTo(colors.foreground);
     }
 
+    /** As in Office: File is a tab like the others, and the tab under the mouse gets a light underline. */
+    @Test
+    void fileIsATabAndHoveredTabsAreUnderlined() {
+        ribbon.setFileTab("File", backstage -> backstage.addPage("info", "Info", null, page -> { }));
+        settle();
+        // {File text, Home text, bar thickness, bar gap}
+        int[] m = ribbon.measure(metrics -> new int[] { metrics.tabText("File"), metrics.tabText("Home"), Math.max(2, metrics.px(3)),
+                metrics.px(1) });
+        RibbonColors colors = ribbon.colors();
+        Hot file = ribbon.hotsOf(Hot.Kind.FILE_TAB).getFirst();
+        Hot home = tabHot("Home");
+        Hot insert = tabHot("Insert");
+        assertThat(file.bounds().width - m[0]).as("File's padding is a tab's").isEqualTo(home.bounds().width - m[1]);
+
+        RGB strip = colors.tabStrip.getRGB();
+        RGB line = colors.tabHoverIndicator.getRGB();
+        assertThat(line).isNotEqualTo(strip);
+        assertThat(pixel(file.bounds().x + 2, file.bounds().y + file.bounds().height / 2)).as("no File button fill").isEqualTo(strip);
+        assertThat(pixel(barX(insert), barY(m, insert))).as("no underline without the mouse").isEqualTo(strip);
+
+        hoverOver(insert);
+        assertThat(pixel(barX(insert), barY(m, insert))).as("the hovered tab's underline").isEqualTo(line);
+        assertThat(pixel(insert.bounds().x + 2, insert.bounds().y + insert.bounds().height / 2)).as("no hover fill").isEqualTo(strip);
+        assertThat(pixel(barX(home), barY(m, home))).as("the selected tab keeps its accent")
+                .isEqualTo(colors.tabIndicator.getRGB());
+
+        hoverOver(file);
+        assertThat(pixel(barX(file), barY(m, file))).as("File is underlined too").isEqualTo(line);
+        assertThat(pixel(barX(insert), barY(m, insert))).isEqualTo(strip);
+    }
+
+    private Hot tabHot(String label) {
+        return ribbon.hotsOf(Hot.Kind.TAB).stream().filter(h -> ((RibbonTab) h.target()).label().equals(label)).findFirst().orElseThrow();
+    }
+
+    private void hoverOver(Hot hot) {
+        Event event = new Event();
+        event.x = hot.bounds().x + hot.bounds().width / 2;
+        event.y = hot.bounds().y + hot.bounds().height / 2;
+        ribbon.notifyListeners(SWT.MouseMove, event);
+    }
+
+    private static int barX(Hot hot) {
+        return hot.bounds().x + hot.bounds().width / 2;
+    }
+
+    /** The middle row of the bar under a tab's label. */
+    private static int barY(int[] m, Hot hot) {
+        int bar = m[2];
+        return hot.bounds().y + hot.bounds().height - bar - m[3] + bar / 2;
+    }
+
+    /** A pixel of the ribbon, painted into an image by its own paint listener. */
+    private RGB pixel(int x, int y) {
+        org.eclipse.swt.graphics.Point size = ribbon.getSize();
+        org.eclipse.swt.graphics.Image image = new org.eclipse.swt.graphics.Image(display, size.x, size.y);
+        try {
+            GC gc = new GC(image);
+            try {
+                Event paint = new Event();
+                paint.gc = gc;
+                ribbon.notifyListeners(SWT.Paint, paint);
+            } finally {
+                gc.dispose();
+            }
+            org.eclipse.swt.graphics.ImageData data = image.getImageData();
+            return data.palette.getRGB(data.getPixel(x, y));
+        } finally {
+            image.dispose();
+        }
+    }
+
     @Test
     void appAccentAppliesUnlessTheThemeRefuses() {
         RGB green = new RGB(0x10, 0x7C, 0x41);

@@ -705,7 +705,7 @@ public class Ribbon extends RibbonSurface {
     private int tabRowWidth(RibbonMetrics m) {
         int width = m.px(8);
         if (fileTabLabel != null) {
-            width += m.tabText(fileTabLabel) + m.px(30);
+            width += m.tabText(fileTabLabel) + m.px(22);
         }
         for (RibbonTab tab : showingTabs()) {
             width += m.tabText(tab.label()) + m.px(22);
@@ -719,7 +719,7 @@ public class Ribbon extends RibbonSurface {
     private int tabsWidth(RibbonMetrics m, List<RibbonTab> showing, int padding) {
         int width = m.px(4);
         if (fileTabLabel != null) {
-            width += m.tabText(fileTabLabel) + padding + m.px(10);
+            width += m.tabText(fileTabLabel) + padding + m.px(2);
         }
         for (RibbonTab tab : showing) {
             width += m.tabText(tab.label()) + padding + m.px(2);
@@ -785,7 +785,7 @@ public class Ribbon extends RibbonSurface {
         int x = m.px(4);
         int limit = area.width - rightTotal - m.px(6);
         if (fileTabLabel != null) {
-            int width = m.tabText(fileTabLabel) + padding + m.px(8);
+            int width = m.tabText(fileTabLabel) + padding;
             hots.add(new Hot(Hot.Kind.FILE_TAB, this, new Rectangle(x, m.px(2), width, tabHeight - m.px(2))));
             x += width + m.px(2);
         }
@@ -868,18 +868,27 @@ public class Ribbon extends RibbonSurface {
         }
     }
 
+    /** The File tab: a tab like the others, which opens the backstage instead of a panel. */
     private void paintFileTab(GC gc, RibbonMetrics m, Hot hot) {
         RibbonColors colors = colors();
         Rectangle b = hot.bounds();
-        boolean open = backstage != null && backstage.isOpen();
-        gc.setBackground(isHovered(hot) || open ? RibbonColors.mix(colors.fileTab, colors.fileTabForeground, 0.15) : colors.fileTab);
-        gc.fillRoundRectangle(b.x, b.y, b.width, b.height + colors.arc, colors.arc, colors.arc);
         gc.setFont(m.tabFont);
-        gc.setForeground(colors.fileTabForeground);
-        Point extent = gc.textExtent(fileTabLabel);
-        gc.drawText(Command.stripMnemonic(fileTabLabel), b.x + (b.width - extent.x) / 2, b.y + (b.height - extent.y) / 2,
-                SWT.DRAW_TRANSPARENT);
+        String label = Command.stripMnemonic(fileTabLabel);
+        Point extent = gc.textExtent(label);
+        gc.setForeground(colors.tabForeground);
+        int textX = b.x + (b.width - extent.x) / 2;
+        gc.drawText(label, textX, b.y + (b.height - extent.y) / 2, SWT.DRAW_TRANSPARENT);
+        if (isHovered(hot)) {
+            paintTabBar(gc, m, b, textX, extent.x, colors.tabHoverIndicator);
+        }
         gc.setFont(m.font);
+    }
+
+    /** The bar under a tab's label: the accent for the selected tab, a light line for one under the mouse. */
+    private static void paintTabBar(GC gc, RibbonMetrics m, Rectangle b, int x, int width, Color color) {
+        gc.setBackground(color);
+        int bar = Math.max(2, m.px(3));
+        gc.fillRoundRectangle(x, b.y + b.height - bar - m.px(1), width, bar, bar, bar);
     }
 
     private void paintTab(GC gc, RibbonMetrics m, Hot hot) {
@@ -891,9 +900,6 @@ public class Ribbon extends RibbonSurface {
         if (selected && !colors.selectedTab.equals(colors.tabStrip)) {
             gc.setBackground(colors.selectedTab);
             gc.fillRoundRectangle(b.x, b.y, b.width, b.height + colors.arc, colors.arc, colors.arc);
-        } else if (isHovered(hot)) {
-            gc.setBackground(colors.tabHover);
-            gc.fillRoundRectangle(b.x, b.y + m.px(2), b.width, b.height - m.px(4), colors.arc, colors.arc);
         }
         if (contextual != null) {
             gc.setBackground(contextual);
@@ -908,9 +914,9 @@ public class Ribbon extends RibbonSurface {
         int textY = b.y + (b.height - extent.y) / 2;
         gc.drawText(label, textX, textY, SWT.DRAW_TRANSPARENT);
         if (selected) {
-            gc.setBackground(contextual != null ? contextual : colors.tabIndicator);
-            int bar = Math.max(2, m.px(3));
-            gc.fillRoundRectangle(textX, b.y + b.height - bar - m.px(1), extent.x, bar, bar, bar);
+            paintTabBar(gc, m, b, textX, extent.x, contextual != null ? contextual : colors.tabIndicator);
+        } else if (isHovered(hot)) {
+            paintTabBar(gc, m, b, textX, extent.x, colors.tabHoverIndicator);
         }
         gc.setFont(m.font);
     }

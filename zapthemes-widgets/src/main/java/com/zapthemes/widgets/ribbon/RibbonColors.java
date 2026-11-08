@@ -23,6 +23,8 @@ final class RibbonColors {
     final Color tabStrip;
     final Color tabForeground;
     final Color tabHover;
+    /** The line under an unselected tab the mouse is over. */
+    final Color tabHoverIndicator;
     final Color selectedTab;
     final Color selectedTabForeground;
     final Color tabIndicator;
@@ -70,6 +72,7 @@ final class RibbonColors {
         tabForeground = or(context.color(style, "tabForeground"), foreground);
         Color itemHover = or(context.color(style, "itemHoverBackground"), mix(background, foreground, 0.12));
         tabHover = or(context.color(style, "tabHoverBackground"), itemHover);
+        tabHoverIndicator = or(context.color(style, "tabHoverIndicatorColor"), mix(tabStrip, tabForeground, 0.35));
         selectedTab = or(context.color(style, "selectedTabBackground"), background);
         Color accent = or(context.color(style, "tabIndicatorColor"), ribbon.getDisplay().getSystemColor(SWT.COLOR_LIST_SELECTION));
         tabIndicator = accentOverride != null ? accentOverride : accent;
