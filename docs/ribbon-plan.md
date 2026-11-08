@@ -255,7 +255,7 @@ ribbon.setFileTab("File", backstage -> {
 });
 ```
 
-- The File tab, drawn in the accent, opens the `Backstage` (theme type `RibbonBackstage`): a
+- The File tab, drawn like the other tabs (as in current Office), opens the `Backstage` (theme type `RibbonBackstage`): a
   composite over the whole of the ribbon's shell's client area, including the ribbon, with a
   left navigation column (accent-colored in Office; themeable), a back arrow at its top, and the
   selected page on the right. Pages are created on first show and kept.
@@ -305,7 +305,7 @@ themes set them on common names):
 
 | Type | Properties (default name) |
 |---|---|
-| `Ribbon` | `background` (raised), `foreground` (foreground), `tabStripBackground` (chrome), `tabForeground` (foreground), `tabHoverBackground` (hover), `selectedTabBackground` (raised), `selectedTabForeground` (accent), `tabIndicatorColor` (accent), `groupLabelForeground` (muted), `separatorColor` (border), `borderColor` (border), `itemHoverBackground` (hover), `itemPressedBackground` (selection), `itemCheckedBackground` (selection), `itemCheckedBorderColor` (accent), `disabledForeground` (disabled), `galleryBorderColor` (border), `galleryBackground` (surface), `gallerySelectionColor` (accent), `keyTipBackground` (badge), `keyTipForeground` (onBadge), `keyTipBorderColor` (border), `fileTabBackground` (accent), `fileTabForeground` (onAccent), `emphasisBackground` (accent), `emphasisForeground` (onAccent), `contextualAccent1`…`4` (accent, info, success, warning), `focusColor` (focus), `tabFont`, `groupLabelFont` (caption), `useAppAccent` (true), `arc` (4) |
+| `Ribbon` | `background` (raised), `foreground` (foreground), `tabStripBackground` (chrome), `tabForeground` (foreground), `tabHoverBackground` (hover; right commands), `tabHoverIndicatorColor` (the line under a hovered tab; between the tab row and the labels by default), `selectedTabBackground` (raised), `selectedTabForeground` (accent), `tabIndicatorColor` (accent), `groupLabelForeground` (muted), `separatorColor` (border), `borderColor` (border), `itemHoverBackground` (hover), `itemPressedBackground` (selection), `itemCheckedBackground` (selection), `itemCheckedBorderColor` (accent), `disabledForeground` (disabled), `galleryBorderColor` (border), `galleryBackground` (surface), `gallerySelectionColor` (accent), `keyTipBackground` (badge), `keyTipForeground` (onBadge), `keyTipBorderColor` (border), `fileTabBackground` (accent), `fileTabForeground` (onAccent) (the backstage nav's defaults), `emphasisBackground` (accent), `emphasisForeground` (onAccent), `contextualAccent1`…`4` (accent, info, success, warning), `focusColor` (focus), `tabFont`, `groupLabelFont` (caption), `useAppAccent` (true), `arc` (4) |
 | `RibbonPopup` | `background` (raised), `foreground`, `borderColor` (border): galleries, color palettes, collapsed groups, overlays, combo lists |
 | `RibbonToolTip` | `background` (surface), `foreground`, `borderColor`, `titleFont` (strong), `muted` |
 | `RibbonBackstage` | `background` (background), `foreground`, `navBackground` (accent), `navForeground` (onAccent), `navHoverBackground`, `navSelectedBackground`, `navSelectedForeground`, `titleFont` (heading1), `navFont` |

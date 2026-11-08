@@ -29,6 +29,7 @@
         "hover": { "borderColor": "$accent" },
         "pressed": { "background": "$accent", "foreground": "$onAccent", "borderColor": "$accent" }
       },
+      "tabHoverIndicatorColor": "$accent",
       "itemCheckedBackground": "$bg",
       "itemCheckedBorderColor": "$accent",
       "keyTipBorderColor": "$onBadge",
