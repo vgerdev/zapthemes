@@ -3,13 +3,17 @@ package com.zapthemes.widgets.ribbon;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.widgets.Display;
+
+import com.zapthemes.core.ThemeManager;
 
 import com.zapthemes.widgets.command.Command;
 
 /**
- * The ribbon's measurements, all derived from the theme font's height, so zoom and platform font
- * sizes scale the whole ribbon together. At 100 % (a 15 px font) icons are 16 and 32 px, a row is
- * 22 px and the tab row 27 px.
+ * The ribbon's measurements, all derived from the theme font's height and the display's zoom
+ * ({@link ThemeManager#getZoom}), so zoom and platform font sizes scale the whole ribbon together.
+ * At 100 % (a 15 px font) icons are 16 and 32 px, a row is 22 px and the tab row 27 px; at 200 %
+ * icons are 32 and 64 px.
  */
 final class RibbonMetrics {
 
@@ -39,10 +43,20 @@ final class RibbonMetrics {
         this.groupFont = groupFont;
         gc.setFont(font);
         fontHeight = gc.getFontMetrics().getHeight();
-        scale = Math.max(0.8, fontHeight / 15.0);
-        smallIcon = Math.max(16, (int) Math.round(16 * scale / 4) * 4);
+        // The font is already zoomed. Icons come in 16 / 32 px steps for the platform's own font size
+        // (the system font, which the zoom leaves alone) and are then exactly zoomed.
+        double zoom = 1;
+        double platform = fontHeight / 15.0;
+        if (gc.getDevice() instanceof Display display) {
+            zoom = ThemeManager.get(display).getZoom();
+            gc.setFont(display.getSystemFont());
+            platform = gc.getFontMetrics().getHeight() / 15.0;
+            gc.setFont(font);
+        }
+        scale = Math.max(0.8 * zoom, fontHeight / 15.0);
+        smallIcon = Math.max(1, (int) Math.round(Math.max(16, Math.round(16 * platform / 4) * 4) * zoom));
         largeIcon = 2 * smallIcon;
-        row = Math.max(smallIcon + 6, fontHeight + 7);
+        row = Math.max(smallIcon + (int) Math.round(6 * zoom), fontHeight + (int) Math.round(7 * zoom));
         contentTop = px(3);
         contentHeight = 3 * row;
         gc.setFont(groupFont);

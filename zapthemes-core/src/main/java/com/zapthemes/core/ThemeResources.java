@@ -28,6 +28,8 @@ public final class ThemeResources {
     private final Display display;
     private final Map<FontKey, Font> fonts = new HashMap<>();
     private final Map<String, Boolean> installed = new HashMap<>();
+    /** Every font made here, with its height at 100 %. */
+    private final Map<Font, Double> baseHeights = new java.util.IdentityHashMap<>();
     private double zoom = 1;
 
     /** A spec at one effective height: zoom levels that round to the same height share a font. */
@@ -44,10 +46,13 @@ public final class ThemeResources {
 
     /** The font of {@code spec} at the current zoom. */
     public Font font(FontSpec spec) {
-        int height = zoomed(spec.height() > 0 ? spec.height() : systemFontData().getHeight());
+        int base = spec.height() > 0 ? spec.height() : systemFontData().getHeight();
+        int height = zoomed(base);
         return fonts.computeIfAbsent(new FontKey(spec, height), key -> {
             String name = family(spec, systemFontData().getName());
-            return new Font(display, name, key.height(), spec.style());
+            Font font = new Font(display, name, key.height(), spec.style());
+            baseHeights.put(font, (double) base);
+            return font;
         });
     }
 
@@ -93,8 +98,20 @@ public final class ThemeResources {
     public Font font(String name, int style, double baseHeight) {
         int height = Math.max(1, (int) Math.round(baseHeight * zoom));
         FontSpec spec = new FontSpec(name, 0, style);
-        return fonts.computeIfAbsent(new FontKey(spec, height),
-                key -> new Font(display, family(spec, systemFontData().getName()), key.height(), style));
+        return fonts.computeIfAbsent(new FontKey(spec, height), key -> {
+            Font font = new Font(display, family(spec, systemFontData().getName()), key.height(), style);
+            baseHeights.put(font, baseHeight);
+            return font;
+        });
+    }
+
+    /**
+     * The height at 100 % of a font made here (a theme font, or an application font at a zoom), so
+     * that code which finds it on a widget does not zoom it again; empty for any other font.
+     */
+    public java.util.OptionalDouble baseHeight(Font font) {
+        Double base = baseHeights.get(font);
+        return base == null ? java.util.OptionalDouble.empty() : java.util.OptionalDouble.of(base);
     }
 
     void setZoom(double zoom) {
@@ -114,5 +131,6 @@ public final class ThemeResources {
     void dispose() {
         fonts.values().forEach(Font::dispose);
         fonts.clear();
+        baseHeights.clear();
     }
 }
