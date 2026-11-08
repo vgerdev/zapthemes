@@ -40,8 +40,9 @@ import com.zapthemes.core.style.ThemeContext;
  *       through {@link PlatformThemeSupport}.</li>
  *   <li>{@link ThemeExtension}s found by {@link ServiceLoader} are installed when the manager is
  *       created, e.g. zapthemes-jface's sync of the JFace color and font registries.</li>
- *   <li>A Chrome-style {@linkplain #setZoom(double) zoom} scales every theme font; Ctrl + mouse
- *       wheel and Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS) change it unless
+ *   <li>A Chrome-style {@linkplain #setZoom(double) zoom} scales every theme font, column widths,
+ *       theme sizes and widget images; Ctrl + mouse wheel, Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on
+ *       macOS) and a trackpad pinch change it unless
  *       {@linkplain #setZoomShortcutsEnabled(boolean) turned off}.</li>
  * </ul>
  *
@@ -73,16 +74,23 @@ public final class ThemeManager {
     private StyleResolver resolver = new StyleResolver(Theme.EMPTY);
     private final ThemeResources resources;
     private boolean zoomShortcuts = !"false".equalsIgnoreCase(System.getProperty(ZOOM_SHORTCUTS_PROPERTY));
+    private boolean zoomImages = true;
+    private final ImageZoom images;
+    /** The zoom when the current pinch began, 0 when there is none. */
+    private double pinchStart;
 
     private ThemeManager(Display display) {
         this.display = display;
         this.resources = new ThemeResources(display);
+        this.images = new ImageZoom(display);
         display.addListener(SWT.Skin, this::onSkin);
         display.addFilter(SWT.MouseWheel, this::onZoomWheel);
         display.addFilter(SWT.KeyDown, this::onZoomKey);
+        display.addFilter(SWT.Gesture, this::onZoomGesture);
         display.disposeExec(() -> {
             MANAGERS.remove(display);
             resources.dispose();
+            images.dispose();
         });
     }
 
@@ -206,7 +214,52 @@ public final class ThemeManager {
         zoomListeners.remove(listener);
     }
 
-    /** Whether Ctrl + mouse wheel and Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS) zoom; on by default. */
+    /**
+     * Whether widget images follow the zoom (see the guide's Zoom section); on by default. Turned
+     * off, every widget gets its own image back. {@link ThemeKeys#ZOOM_IMAGES} turns it off for one
+     * widget and its children.
+     */
+    public boolean isZoomImagesEnabled() {
+        return zoomImages;
+    }
+
+    public void setZoomImagesEnabled(boolean enabled) {
+        if (enabled == zoomImages) {
+            return;
+        }
+        zoomImages = enabled;
+        for (Shell shell : display.getShells()) {
+            WidgetTree.walk(shell, this::rescaleImage);
+        }
+        images.sweep();
+    }
+
+    /**
+     * The image {@code widget} should show for {@code image} at the current zoom: a zoomed copy, or
+     * {@code image} itself at 100 %, when images are off, or for a widget left out. Proxies call it
+     * from {@code setImage}, so a widget sizes itself around the zoomed image from the start.
+     */
+    public static org.eclipse.swt.graphics.Image zoomedImage(Widget widget, org.eclipse.swt.graphics.Image image) {
+        ThemeManager manager = MANAGERS.get(widget.getDisplay());
+        if (manager == null) {
+            return image;
+        }
+        double zoom = manager.zoomImages && ImageZoom.allowed(widget) ? manager.resources.zoom() : 1;
+        return manager.images.forSet(widget, image, zoom);
+    }
+
+    /** Number of zoomed image copies held; used by leak tests. */
+    public int zoomedImageCount() {
+        return images.copyCount();
+    }
+
+    private void rescaleImage(Widget widget) {
+        if (!widget.isDisposed()) {
+            images.rescale(widget, zoomImages && ImageZoom.allowed(widget) ? resources.zoom() : 1);
+        }
+    }
+
+    /** Whether Ctrl + mouse wheel, Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS) and a pinch zoom; on by default. */
     public boolean isZoomShortcutsEnabled() {
         return zoomShortcuts;
     }
@@ -263,6 +316,9 @@ public final class ThemeManager {
         for (Shell shell : display.getShells()) {
             reapplyTree(shell, visited, previousZoom);
         }
+        if (previousZoom > 0) {
+            images.sweep();
+        }
         platform.afterTheme(display, resolver.platform());
     }
 
@@ -276,6 +332,7 @@ public final class ThemeManager {
                 if (widget == shell || visited.add(widget)) {
                     if (previousZoom > 0) {
                         ColumnZoom.rescale(widget, previousZoom, resources.zoom());
+                        rescaleImage(widget);
                     }
                     apply(widget);
                 }
@@ -300,6 +357,22 @@ public final class ThemeManager {
     }
 
     /**
+     * Called by every proxy control's {@code setFont}, before SWT's: records {@code font} as the
+     * application's own font for {@code control} ({@link ThemeKeys#APP_FONT}), kept through theme
+     * switches and scaled by the zoom. {@code null}, or a font like the theme's, follows the theme.
+     */
+    public static void fontSetByApplication(Control control, org.eclipse.swt.graphics.Font font) {
+        ThemeManager manager = MANAGERS.get(control.getDisplay());
+        if (manager == null) {
+            return;
+        }
+        ThemeContext context = new ThemeContext(manager.resources);
+        org.eclipse.swt.graphics.Font theme = context.font(manager.styleOf(control), DefaultStyler.FONT);
+        DefaultStyler.fontSetByApplication(control, font, theme != null ? theme
+                : context.defaultFont() != null ? context.defaultFont() : control.getDisplay().getSystemFont(), context);
+    }
+
+    /**
      * Drops a font the application set on {@code control} ({@link ThemeKeys#APP_FONT}), so that it
      * takes the theme's font, at the current zoom, again.
      */
@@ -319,8 +392,10 @@ public final class ThemeManager {
 
     void apply(Widget widget) {
         ResolvedStyle style = styleOf(widget);
-        stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
+        // The native theme first: on Windows SetWindowTheme makes a tool bar reload its default
+        // font, so the styler's font must come after it.
         platform.apply(widget, resolver.platform());
+        stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
     }
 
     private String typeOf(Widget widget) {
@@ -363,6 +438,42 @@ public final class ThemeManager {
         action.run();
     }
 
+    /**
+     * A trackpad pinch: the zoom when it began times the gesture's magnification, snapped to the
+     * nearest of Chrome's levels.
+     */
+    private void onZoomGesture(Event event) {
+        switch (event.detail) {
+            case SWT.GESTURE_BEGIN -> pinchStart = 0;
+            case SWT.GESTURE_END -> pinchStart = 0;
+            case SWT.GESTURE_MAGNIFY -> {
+                if (!zoomShortcutsFor(event.widget) || !(event.magnification > 0)) {
+                    return;
+                }
+                if (pinchStart == 0) {
+                    pinchStart = getZoom();
+                }
+                double level = nearestLevel(pinchStart * event.magnification);
+                event.doit = false;
+                setZoom(level);
+            }
+            default -> {
+                // Pan, rotate, swipe: not a zoom.
+            }
+        }
+    }
+
+    /** The one of {@link #ZOOM_LEVELS} closest to {@code zoom}, by ratio. */
+    static double nearestLevel(double zoom) {
+        double best = 1;
+        for (double level : ZOOM_LEVELS) {
+            if (Math.abs(Math.log(level / zoom)) < Math.abs(Math.log(best / zoom))) {
+                best = level;
+            }
+        }
+        return best;
+    }
+
     /** Whether the shortcuts are on and neither {@code widget} nor a parent keeps them for itself. */
     private boolean zoomShortcutsFor(Widget widget) {
         if (!zoomShortcuts) {
@@ -394,6 +505,9 @@ public final class ThemeManager {
             }
             try {
                 apply(widget);
+                if (getZoom() != 1) {
+                    rescaleImage(widget);
+                }
             } catch (RuntimeException e) {
                 if (RETRY_LOGGED.add(widget.getClass())) {
                     LOG.log(Level.WARNING, "Theming " + widget.getClass().getName() + " from SWT.Skin failed", e);
