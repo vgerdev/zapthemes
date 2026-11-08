@@ -37,6 +37,7 @@ import com.zapthemes.core.ThemeManager;
 public class FlatButton extends Canvas {
 
     private static final int KINDS = SWT.PUSH | SWT.TOGGLE | SWT.CHECK | SWT.RADIO;
+    // Sizes at 100 %; px(...) gives them at the current zoom.
     private static final int PADDING_X = 10;
     private static final int PADDING_Y = 4;
     private static final int BOX = 13;
@@ -155,14 +156,14 @@ public class FlatButton extends Canvas {
         if (image != null) {
             Rectangle bounds = image.getBounds();
             height = Math.max(height, bounds.height);
-            extent.x += bounds.width + (text.isEmpty() ? 0 : GAP);
+            extent.x += bounds.width + (text.isEmpty() ? 0 : px(GAP));
         }
         if (isBox()) {
-            width = BOX + (extent.x > 0 ? GAP + extent.x : 0) + 2;
-            height = Math.max(height, BOX) + 2;
+            width = px(BOX) + (extent.x > 0 ? px(GAP) + extent.x : 0) + 2;
+            height = Math.max(height, px(BOX)) + 2;
         } else {
-            width = extent.x + 2 * PADDING_X;
-            height += 2 * PADDING_Y;
+            width = extent.x + 2 * px(PADDING_X);
+            height += 2 * px(PADDING_Y);
         }
         return new Point(wHint == SWT.DEFAULT ? width : wHint, hHint == SWT.DEFAULT ? height : hHint);
     }
@@ -217,7 +218,7 @@ public class FlatButton extends Canvas {
             paintBox(gc, area, colors, border);
             return;
         }
-        int arc = colors.integer("arc", 4);
+        int arc = colors.size("arc", 4);
         gc.setBackground(getParent().getBackground());
         gc.fillRectangle(area);
         gc.setBackground(colors.background());
@@ -231,44 +232,50 @@ public class FlatButton extends Canvas {
     private void paintBox(GC gc, Rectangle area, FlatPalette colors, Color border) {
         gc.setBackground(colors.background());
         gc.fillRectangle(area);
-        int y = area.y + (area.height - BOX) / 2;
+        int box = px(BOX);
+        int y = area.y + (area.height - box) / 2;
         gc.setBackground(colors.color("boxBackground", colors.background()));
         Color accent = colors.accent();
         if (kind == SWT.CHECK) {
             if (selection) {
                 gc.setBackground(accent);
             }
-            gc.fillRoundRectangle(area.x, y, BOX, BOX, 3, 3);
+            gc.fillRoundRectangle(area.x, y, box, box, px(3), px(3));
             gc.setForeground(selection ? accent : border);
-            gc.drawRoundRectangle(area.x, y, BOX, BOX, 3, 3);
+            gc.drawRoundRectangle(area.x, y, box, box, px(3), px(3));
             if (selection) {
                 gc.setForeground(colors.color("checkColor", getDisplay().getSystemColor(SWT.COLOR_WHITE)));
-                gc.setLineWidth(2);
-                gc.drawPolyline(new int[] { area.x + 3, y + 7, area.x + 6, y + 10, area.x + 11, y + 4 });
+                gc.setLineWidth(px(2));
+                gc.drawPolyline(new int[] { area.x + px(3), y + px(7), area.x + px(6), y + px(10), area.x + px(11), y + px(4) });
                 gc.setLineWidth(1);
             }
         } else {
-            gc.fillOval(area.x, y, BOX, BOX);
+            gc.fillOval(area.x, y, box, box);
             gc.setForeground(selection ? accent : border);
-            gc.drawOval(area.x, y, BOX, BOX);
+            gc.drawOval(area.x, y, box, box);
             if (selection) {
                 gc.setBackground(accent);
-                gc.fillOval(area.x + 3, y + 3, BOX - 5, BOX - 5);
+                gc.fillOval(area.x + px(3), y + px(3), box - px(5), box - px(5));
             }
         }
         Point content = contentSize(gc);
-        paintContent(gc, colors.foreground(), area.x + BOX + GAP, area.y + (area.height - content.y) / 2, content.y);
+        int gap = px(GAP);
+        paintContent(gc, colors.foreground(), area.x + box + gap, area.y + (area.height - content.y) / 2, content.y);
         if (isFocusControl()) {
             gc.setForeground(border);
-            gc.drawFocus(area.x + BOX + GAP - 2, area.y, Math.min(content.x + 4, area.width - BOX - GAP + 2), area.height);
+            gc.drawFocus(area.x + box + gap - 2, area.y, Math.min(content.x + 4, area.width - box - gap + 2), area.height);
         }
+    }
+
+    private int px(int pixels) {
+        return FlatPalette.px(this, pixels);
     }
 
     private Point contentSize(GC gc) {
         Point extent = text.isEmpty() ? new Point(0, 0) : gc.textExtent(text, SWT.DRAW_MNEMONIC);
         if (image != null) {
             Rectangle bounds = image.getBounds();
-            extent.x += bounds.width + (text.isEmpty() ? 0 : GAP);
+            extent.x += bounds.width + (text.isEmpty() ? 0 : px(GAP));
             extent.y = Math.max(extent.y, bounds.height);
         }
         return extent;
@@ -278,7 +285,7 @@ public class FlatButton extends Canvas {
         if (image != null) {
             Rectangle bounds = image.getBounds();
             gc.drawImage(image, x, y + (height - bounds.height) / 2);
-            x += bounds.width + GAP;
+            x += bounds.width + px(GAP);
         }
         if (!text.isEmpty()) {
             gc.setForeground(foreground);

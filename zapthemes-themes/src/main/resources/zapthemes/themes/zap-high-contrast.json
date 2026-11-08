@@ -21,7 +21,10 @@
     "stripe": "#141414",
     "border": "#FFFFFF",
     "link": "#00FFFF",
-    "line": "#8A8A8A"
+    "line": "#8A8A8A",
+    "chrome": "#000000",
+    "badge": "#FFFF00",
+    "onBadge": "#000000"
   },
   "controls": {
     "TitleBar": {
@@ -34,6 +37,44 @@
       "avatarForeground": "#000000",
       "focusColor": "#FFFF00",
       "useAccent": false
+    },
+    "Ribbon": {
+      "useAppAccent": false,
+      "states": {
+        "hover": { "borderColor": "$accent" },
+        "pressed": { "background": "$accent", "foreground": "$onAccent", "borderColor": "$accent" }
+      },
+      "itemCheckedBackground": "$bg",
+      "itemCheckedBorderColor": "$accent",
+      "keyTipBorderColor": "$onBadge",
+      "contextualAccent2": "#00FFFF",
+      "contextualAccent3": "#00FF00",
+      "contextualAccent4": "#FF8000"
+    },
+    "RibbonBackstage": {
+      "navBackground": "$bg",
+      "navForeground": "$fg",
+      "navHoverBackground": "$hover",
+      "navSelectedBackground": "$selection",
+      "navSelectedForeground": "$fg",
+      "useAppAccent": false
+    },
+    "RibbonMessageBar": {
+      "background": "$bg",
+      "borderColor": "$border",
+      "states": {
+        "info": {
+          "background": "$bg"
+        },
+        "error": {
+          "background": "$bg",
+          "borderColor": "$error",
+          "iconColor": "$error"
+        },
+        "success": {
+          "background": "$bg"
+        }
+      }
     },
     "Table": {
       "gridLineColor": "$line"

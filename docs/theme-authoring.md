@@ -1,4 +1,4 @@
-# Using ZapThemes and writing themes
+# Using ZapThemes and writing themes`focusColor` (focus), `useAppAccent` (true), `arc` (4), and the states `hover`, `pressed`, `checked`, `disabled`, `focused`, each with `background`, `foreground`, `borderColor` (they win over the `item…` keys) |
 
 This guide covers adding ZapThemes to an SWT or JFace application, choosing and switching themes,
 writing your own theme in JSON, and making your own widgets theme-aware. The
@@ -19,7 +19,8 @@ runnable program:
 | `zapthemes-core` | Theme model, JSON loading, `ThemeManager`, stylers |
 | `zapthemes-swt` | Proxies for every SWT widget: `com.zapthemes.swt.{widgets,custom,browser,opengl}` |
 | `zapthemes-themes` | The bundled themes: `zap-light`, `zap-dark`, `zap-high-contrast` |
-| `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar` |
+| `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar`; the Office-style `Ribbon` and the shared command model (`com.zapthemes.widgets.command`) |
+| `zapthemes-jface-ribbon` | JFace support for the ribbon: actions as commands, contribution items, `RibbonApplicationWindow` |
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
 | `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |
 | `zapthemes-jface-text` | JFace Text 3.31.100 fork: a drop-in `org.eclipse.jface.text` (`SourceViewer`, rulers, hovers, content assist), with `zapthemes-text`, `org.eclipse.text` 3.14.800 built from source |
@@ -149,6 +150,89 @@ Set the theme before creating widgets. `setTheme` can be called at any time late
 every open shell, JFace's color and font registries, and the themed system colors used by Nebula's
 painters. To react after a switch (for example to refresh content that shows colors), add a
 `ThemeChangeListener`.
+
+### Zoom
+
+Like Chrome, an app can be zoomed: **Ctrl + mouse wheel** (Cmd on macOS) makes every themed font
+bigger or smaller, one step per wheel notch, and **Ctrl+=** (or Ctrl++), **Ctrl+-** and **Ctrl+0**
+zoom in, zoom out and reset. The steps are Chrome's: 25, 33, 50, 67, 75, 80, 90, 100, 110, 125,
+150, 175, 200, 250, 300, 400 and 500 %.
+
+```java
+themes.zoomIn();                       // 100 % -> 110 %
+themes.setZoom(1.5);                   // any factor from 0.25 to 5.0
+themes.resetZoom();
+themes.addZoomListener((previous, zoom) -> status.setText(Math.round(zoom * 100) + " %"));
+```
+
+- The zoom multiplies the height the theme gives each font. A theme font with no height (the
+  system font's size) is scaled too; name, bold and italic stay. Heights are rounded to whole
+  points, so a 9 pt font is 10 pt at 110 % and 11 pt at 125 %.
+- It is per `Display`, so it applies to the whole app. It applies live: existing widgets get the
+  new fonts and every shell is laid out again. Shells, popups and dialogs opened later use the
+  current zoom. Switching themes keeps the zoom, and zooming keeps the theme.
+- **Controls without a theme font** follow the zoom too: at any zoom but 100 % they get the system
+  font at that zoom. At 100 % they keep the platform default, as before.
+- **JFace's `FontRegistry`** follows the zoom: the keys the theme sets in `registries.fonts`, and
+  every other key, JFace's own (`JFaceResources.getTextFont()`, the banner font, ...) and yours.
+  JFace dialogs and viewers take their fonts from it. A value you `put` for a key the theme doesn't
+  set becomes that key's original and is zoomed right away. At 100 % every key holds its original
+  again.
+- **Fonts an app sets with `setFont`** are kept and scaled. The styler remembers the font it
+  left on each control, so a different font found there later is one the app set (a bold label,
+  a code editor's monospace font). From then on the control keeps
+  that family and style through theme switches and zooms, at its height times the zoom. The height
+  is taken at the zoom the font was set at, so a font derived from an already zoomed one (a bold
+  copy of the dialog font at 150 %) doesn't grow twice. At 100 % the control gets the app's own
+  `Font` object back.
+  - A font like the theme's (same family, height and style) counts as the theme's and keeps
+    following the theme. That covers JFace's dialog font, which the bundled themes set to their
+    default font.
+  - Whichever was set last wins. `setThemeClass` makes the control follow the theme's font again,
+    so a class with a font (`"*.mono": { "font": ... }`) replaces an app font set before it. An
+    app font set after the class wins. `themes.followThemeFont(control)` drops an app font without
+    changing classes.
+  - A JFace registry font set on a control (`label.setFont(JFaceResources.getBannerFont())`)
+    is such an app font. It scales with the zoom, but on a theme switch it keeps the family and
+    style it had. To follow the new theme's banner font, set it again from a
+    `ThemeChangeListener`.
+  - Only controls are covered. Fonts on table and tree items (a JFace `IFontProvider`) are left to
+    the app and the viewer, as before.
+  - `ThemeResources.font(name, style, baseHeight)` gives a font at the current zoom for code that
+    draws text itself.
+- **Owner-drawn widgets** (`FlatButton`, `FlatGroup`, Nebula's painters, NatTable, Visualization
+  figures) take their fonts from the theme, so they scale as well. They must use
+  `ThemeContext.font` or the control's font, not a font they made once.
+- **Column widths** of tables and trees scale, JFace viewer columns and Nebula `GridColumn`s
+  included (any `...Column` item with `getWidth` / `setWidth`). Each column keeps its 100 % width
+  as a fraction, so zooming in and out many times ends at the exact original width. A width that
+  changed since the last zoom (the user dragged the column, or the app set or packed it) is taken
+  at the zoom it changed at, so a column dragged to 300 px at 200 % is 150 px at 100 %. Columns
+  created while zoomed keep the width the app gives them until the next zoom. Give them
+  `themes.resources().zoomedPixels(160)` to start at the current zoom.
+- **NatTable** row heights and column widths scale through NatTable's own scaling. NatTable keeps
+  the sizes unscaled, so there's no drift either, sizes the user dragged stay in proportion, and a
+  table created while zoomed starts at the current zoom.
+- **Sizes in the theme** scale: the integer keys the property catalog describes as pixel sizes
+  (`PropertySpec.size(...)`). Those are `arc` on the Flat widgets, CTabFolder's
+  `selectionBarThickness` and `tabHeight`, and the sample Gauge's `thickness`. Other integers (a
+  count, a style index) are left as they are. A library describes its own sizes the same way in
+  its `CatalogProvider`. `ThemeContext.size(style, key)` reads one at the current zoom, and the
+  generic setter styler (Nebula, your own widgets) and Visualization figures scale them on their
+  own. The Flat widgets' built-in padding, margins and check boxes scale too.
+- Images and icons stay as they are, and so do windows: Chrome doesn't resize its window either.
+
+**Turning it off.** `themes.setZoomShortcutsEnabled(false)` turns off the mouse and keyboard
+shortcuts for the display. `setZoom` and the other methods keep working, for a View menu of your
+own. The system property `-Dzapthemes.zoomShortcuts=false` starts every display with them turned
+off. A control that uses Ctrl + wheel itself, such as a chart that zooms its plot, keeps it with
+`chart.setData(ThemeKeys.ZOOM_SHORTCUTS, Boolean.FALSE)`. That covers its children too, and its
+listeners then get the events as usual. Elsewhere the shortcuts consume the event, so the widget
+under the mouse doesn't scroll. If your menus have their own Ctrl+= / Ctrl+- / Ctrl+0 accelerators,
+turn the shortcuts off, or leave the accelerators out of the menu items, so a key doesn't zoom
+twice.
+
+### High contrast
 
 `zap-high-contrast` is black with white text and yellow accents. Every text color in it reaches the
 WCAG AAA contrast ratio of 7:1 against its background, which a test checks. When Windows itself runs
@@ -294,7 +378,7 @@ nothing from the previous one behind.
 ## 6. Tips
 
 - Don't dispose fonts you get from a theme (`getFont()` on a themed widget, `ThemeContext.font`):
-  they are cached and shared until the display is disposed. Theme colors are safe to dispose,
+  they are cached and shared until the display is disposed, one per font and zoomed height. Theme colors are safe to dispose,
   because each caller gets its own.
 - To restyle one widget without a new theme, give it a class and add a class rule. Calling
   `setBackground` directly works, but it lasts only until the next theme switch.
@@ -303,3 +387,26 @@ nothing from the previous one behind.
 - To try a theme quickly, keep it in a file and pass it to the custom-theme sample:
   `./gradlew :zapthemes-samples:runCustomTheme --args=$PWD/my-theme.json`. It prints validation
   problems to stderr.
+
+## 7. The ribbon
+
+`zapthemes-widgets` has an Office-style `Ribbon` (see [the ribbon plan](ribbon-plan.md) and
+`RibbonDemo`). It paints everything from these theme types; each property defaults to the common
+name in brackets, so a theme on common names only sets what it wants different.
+
+| Type | Properties |
+|---|---|
+| `Ribbon` | `background` (raised), `foreground`, `tabStripBackground` (chrome), `tabForeground`, `tabHoverBackground` (hover), `selectedTabBackground` (chrome: then only the underline shows), `selectedTabForeground` (accent), `tabIndicatorColor` (accent), `tabFont`, `groupLabelForeground` (muted), `groupLabelFont` (caption), `separatorColor`, `borderColor` (border), `itemHoverBackground` (hover), `itemPressedBackground`, `itemCheckedBackground` (selection), `itemCheckedBorderColor` (accent), `disabledForeground` (disabled), `fieldBackground`, `galleryBackground` (surface), `galleryBorderColor`, `gallerySelectionColor`, `keyTipBackground` (badge), `keyTipForeground` (onBadge), `keyTipBorderColor`, `fileTabBackground`, `fileTabForeground`, `emphasisBackground`, `emphasisForeground` (accent, onAccent), `contextualAccent1` … `4` (accent, info, success, warning), `focusColor` (focus), `useAppAccent` (true), `arc` (4) |
+| `RibbonPopup` | `background`, `borderColor`: collapsed groups, the collapsed ribbon's overlay, galleries, color palettes |
+| `RibbonToolTip` | `background`, `foreground`, `borderColor`, `titleFont` (strong) |
+| `RibbonBackstage` | `background`, `foreground`, `navBackground` (accent), `navForeground` (onAccent), `navHoverBackground`, `navSelectedBackground`, `navSelectedForeground`, `navFont`, `titleFont` (heading1), `useAppAccent`; its pages use the style classes `backstage` (Composite) and `backstageTitle` (Label) |
+| `RibbonMessageBar` | `background`, `foreground`, `borderColor`, `iconColor`, `titleFont`, and the states `info`, `warning`, `error`, `success` |
+
+`chrome` (the ribbon's tab row; title bars have names of their own), `badge` and `onBadge` are common names for
+these. An app's brand color (`Ribbon.setAccentColor`, Word blue or Excel green) replaces the
+accent keys unless the theme sets `useAppAccent: false`, as zap-high-contrast does.
+
+Commands are shared with other bars (the title bar's quick access toolbar) through
+`com.zapthemes.widgets.command`: one `CommandRegistry` per shell, and one `CustomizationStore`
+file with a section per bar. JFace apps add `zapthemes-jface-ribbon` for actions as commands and a
+`RibbonApplicationWindow`.

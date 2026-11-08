@@ -21,6 +21,7 @@ import org.eclipse.swt.widgets.Widget;
 import com.zapthemes.core.ThemeKeys;
 import com.zapthemes.core.ThemeChangeListener;
 import com.zapthemes.core.ThemeManager;
+import com.zapthemes.core.ZoomListener;
 import com.zapthemes.core.ThemeRegistry;
 import com.zapthemes.core.model.Theme;
 import com.zapthemes.swt.custom.CCombo;
@@ -65,9 +66,10 @@ import com.zapthemes.widgets.FlatProgressBar;
 
 /**
  * A standalone {@link Display}/{@link Shell} app (no JFace) built only from ZapThemes proxies, with
- * live switching between the bundled themes. {@code --smoke} builds the UI, switches to the dark
- * theme, checks that every widget is tagged and has the theme's background, and exits (non-zero on
- * failure). {@code --screenshots <dir>} additionally saves the window in every theme as PNG.
+ * live switching between the bundled themes and zoom (Ctrl + mouse wheel, Ctrl+= / Ctrl+- / Ctrl+0;
+ * the theme bar shows the zoom). {@code --smoke} builds the UI, switches to the dark theme, checks
+ * that every widget is tagged and has the theme's background, zooms in, checks that fonts grew and
+ * the widgets still pass, and exits (non-zero on failure). {@code --screenshots <dir>} additionally saves the window in every theme as PNG.
  *
  * <p>Proxies are imported for {@code new}; parameters and fields that accept any widget use the
  * original SWT types (a proxy {@code Shell} is an SWT {@code Composite}, not a proxy one).
@@ -79,6 +81,7 @@ public final class StandaloneDemo {
     private final List<Theme> available = new ArrayList<>();
     private Shell shell;
     private CTabFolder tabs;
+    private Label zoom;
 
     private StandaloneDemo(Display display) {
         this.display = display;
@@ -150,7 +153,7 @@ public final class StandaloneDemo {
 
     private void createThemeBar(org.eclipse.swt.widgets.Composite parent) {
         Composite bar = new Composite(parent, SWT.NONE);
-        bar.setLayout(new GridLayout(3, false));
+        bar.setLayout(new GridLayout(4, false));
         new Label(bar, SWT.NONE).setText("Theme:");
         Combo picker = new Combo(bar, SWT.READ_ONLY);
         available.forEach(theme -> picker.add(theme.name()));
@@ -167,6 +170,18 @@ public final class StandaloneDemo {
             picker.select((picker.getSelectionIndex() + 1) % available.size());
             themes.setTheme(available.get(picker.getSelectionIndex()));
         });
+        zoom = new Label(bar, SWT.NONE);
+        zoom.setText(zoomText(themes.getZoom()));
+        ZoomListener showZoom = (previous, current) -> {
+            zoom.setText(zoomText(current));
+            bar.layout();
+        };
+        themes.addZoomListener(showZoom);
+        zoom.addDisposeListener(e -> themes.removeZoomListener(showZoom));
+    }
+
+    private static String zoomText(double factor) {
+        return "Zoom: " + Math.round(factor * 100) + " %  (Ctrl + wheel, Ctrl+= / Ctrl+- / Ctrl+0)";
     }
 
     private interface Page {
@@ -423,8 +438,25 @@ public final class StandaloneDemo {
         List<String> problems = new ArrayList<>();
         int[] checked = { 0 };
         check(shell, problems, checked);
+
+        int before = tabs.getFont().getFontData()[0].getHeight();
+        themes.zoomIn();
+        themes.zoomIn();
+        themes.zoomIn();
+        settle();
+        int zoomed = tabs.getFont().getFontData()[0].getHeight();
+        if (zoomed <= before || !zoom.getText().startsWith("Zoom: 150 %")) {
+            problems.add("zoom 150 %: tab font " + zoomed + " pt (was " + before + "), label \"" + zoom.getText() + "\"");
+        }
+        check(shell, problems, checked);
+        themes.resetZoom();
+        settle();
+        if (tabs.getFont().getFontData()[0].getHeight() != before) {
+            problems.add("zoom reset: tab font " + tabs.getFont().getFontData()[0].getHeight() + " pt, was " + before);
+        }
         if (problems.isEmpty()) {
-            System.out.println("SMOKE OK: " + checked[0] + " widgets tagged and themed with " + dark.id());
+            System.out.println("SMOKE OK: " + checked[0] + " widgets tagged and themed with " + dark.id()
+                    + ", at 100 % and 150 % zoom");
             return 0;
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));
