@@ -42,9 +42,9 @@ final class BuiltinStylers implements StylerProvider {
             folder.setSelectionBackground(context.color(style, "selectionBackground"));
             folder.setSelectionForeground(context.color(style, "selectionForeground"));
             // Only set when the theme says so: the application may have chosen these itself.
-            style.integer("selectionBarThickness").ifPresent(folder::setSelectionBarThickness);
+            context.size(style, "selectionBarThickness").ifPresent(folder::setSelectionBarThickness);
             style.bool("highlight").ifPresent(folder::setHighlightEnabled);
-            style.integer("tabHeight").ifPresent(folder::setTabHeight);
+            context.size(style, "tabHeight").ifPresent(folder::setTabHeight);
         }));
         registry.register("StyledText", extend((StyledText text, ResolvedStyle style, ThemeContext context) -> {
             text.setSelectionBackground(context.color(style, "selectionBackground"));

@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":zapthemes-swt"))
     implementation(project(":zapthemes-jface"))
     implementation(project(":zapthemes-jface-notifications"))
+    implementation(project(":zapthemes-jface-ribbon"))
     implementation(project(":zapthemes-jface-text"))
     implementation(project(":zapthemes-nattable"))
     implementation(project(":zapthemes-visualization"))
@@ -98,7 +99,14 @@ val smokeTitleBar = tasks.register<JavaExec>("smokeTestTitleBar") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
-val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeTitleBar)
+val smokeRibbon = tasks.register<JavaExec>("smokeTestRibbon") {
+    group = "verification"
+    description = "Smoke-tests the ribbon demo: reduction, KeyTips, backstage, contextual tabs, collapse."
+    mainClass = "com.zapthemes.demo.RibbonDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
+val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar)
 smokeTasks.forEach { task ->
     task.configure {
         dependsOn(clearRecordedKeys)
@@ -144,6 +152,14 @@ tasks.register<JavaExec>("runNatTable") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
+// The ribbon demo.
+tasks.register<JavaExec>("runRibbon") {
+    group = "application"
+    description = "Runs the ribbon demo."
+    mainClass = "com.zapthemes.demo.RibbonDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 // The Office-style title bar demo (Word-like and Excel-like windows).
 tasks.register<JavaExec>("runTitleBar") {
     group = "application"
@@ -170,6 +186,7 @@ val screenshotTasks = mapOf(
     "Text" to "com.zapthemes.demo.TextDemo",
     "NatTable" to "com.zapthemes.demo.NatTableDemo",
     "Visualization" to "com.zapthemes.demo.VisualizationDemo",
+    "Ribbon" to "com.zapthemes.demo.RibbonDemo",
     "TitleBar" to "com.zapthemes.demo.TitleBarDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
