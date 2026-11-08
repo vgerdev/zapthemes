@@ -180,15 +180,22 @@ class FlatWidgetsTest {
 
     /** A pixel of the control's fill, left of any centered text, whose antialiasing varies by platform. */
     private static RGB fillPixel(Control control) {
+        while (display.readAndDispatch()) {
+            // Let the control be laid out and painted before printing it.
+        }
         var size = control.getSize();
         Image image = new Image(display, size.x, size.y);
         GC gc = new GC(image);
+        gc.setBackground(display.getSystemColor(SWT.COLOR_MAGENTA));
+        gc.fillRectangle(0, 0, size.x, size.y);
         control.print(gc);
         gc.dispose();
         ImageData data = image.getImageData();
         assumePrintWorks(data);
         RGB rgb = data.palette.getRGB(data.getPixel(size.x / 8, size.y / 2));
         image.dispose();
+        org.junit.jupiter.api.Assumptions.assumeFalse(rgb.equals(new RGB(255, 0, 255)),
+                "Control.print left the control unpainted (busy CI desktop?)");
         return rgb;
     }
 

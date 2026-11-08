@@ -183,6 +183,17 @@ public class Button extends org.eclipse.swt.widgets.Button {
   3. Notify `ThemeChangeListener`s.
   4. Sync JFace `ColorRegistry` / `FontRegistry` keys (in the JFace module, through a listener).
   5. Dispose the old fonts and images.
+- **Zoom** (Chrome-style, per `Display`): `getZoom` / `setZoom(double)` / `zoomIn` / `zoomOut` /
+  `resetZoom` and `ZoomListener`s. `ThemeResources` multiplies every theme font height (and the
+  system font's, for fonts with no height) by the zoom and caches fonts by spec and zoomed height.
+  A zoom re-applies the theme like `setTheme`, keeping the theme. Display filters handle Ctrl +
+  wheel and Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS), unless `setZoomShortcutsEnabled(false)`, or a
+  control (or a parent) has `ThemeKeys.ZOOM_SHORTCUTS` = `false`. `JFaceThemeSync` scales every
+  `FontRegistry` key, and fork patch 0008 makes the registry reuse its stale fonts, so repeated
+  zooming stays bounded. Fonts the app set on a control (`DefaultStyler` notices one it did not
+  set) are kept and scaled. Column widths (`ColumnZoom`, a fractional 100 % width per column) and
+  NatTable sizes (its `ConfigureScalingCommand`) scale without drift. Integer keys the catalog marks
+  as sizes (`PropertySpec.size`) scale through `ThemeContext.size`. See the guide's Zoom section.
 - **Safety net:** a `Display` listener for `SWT.Skin` tags and themes widgets that were created without
   a proxy (code outside the forks, native-dialog children, third-party libraries).
 - **Performance:** skip a control whose resolved-style hash hasn't changed.
@@ -337,7 +348,7 @@ Renderers read the theme's `states` block (hover, pressed, focused, disabled, se
 - **ThemeManager:**
   - Build a nested UI (SWT + JFace + Nebula), switch theme, and assert every descendant was
     re-styled, including untagged children.
-  - Check that fonts don't leak across 100 switches.
+  - Check that fonts don't leak across 100 switches, or across repeated zooming (`ZoomTest`).
   - Test the `SWT.Skin` safety net.
   - Test the retry path for a user subclass whose setters throw during construction.
 - **Audit gate** (§5.3) runs in `check`.

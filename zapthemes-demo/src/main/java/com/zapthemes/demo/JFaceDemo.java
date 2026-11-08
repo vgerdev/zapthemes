@@ -31,6 +31,7 @@ import org.eclipse.jface.preference.PreferenceNode;
 import org.eclipse.jface.preference.PreferenceStore;
 import org.eclipse.jface.preference.RadioGroupFieldEditor;
 import org.eclipse.jface.preference.StringFieldEditor;
+import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.FocusCellOwnerDrawHighlighter;
@@ -68,11 +69,13 @@ import com.zapthemes.themes.BundledThemes;
 
 /**
  * A JFace {@link ApplicationWindow} on the ZapThemes JFace fork: menu bar, tool bar, status line,
- * table and tree viewers, and the common JFace dialogs, with live theme switching. The app code is
- * plain JFace; its widgets are proxies because the fork creates them.
+ * table and tree viewers, and the common JFace dialogs, with live theme switching and zoom (Ctrl +
+ * mouse wheel, Ctrl+= / Ctrl+- / Ctrl+0, or the View menu; the tool bar shows the zoom). The app
+ * code is plain JFace; its widgets are proxies because the fork creates them.
  *
  * <p>{@code --smoke} opens every dialog, a tooltip and a field-decoration hover, checks that each
- * control is tagged and has the theme's background in every bundled theme, and exits non-zero on
+ * control is tagged and has the theme's background in every bundled theme, zooms in and checks
+ * that the window's and a dialog's fonts grew and the widgets still pass, and exits non-zero on
  * failure. {@code --screenshots <dir>} saves the window (focus cell and a status-line error shown),
  * the dialogs and the tooltip as PNG. {@code --screen-captures <dir>} also saves what the screen
  * shows at each step, through macOS {@code screencapture}: Control.print leaves Cocoa dialogs blank
@@ -104,6 +107,10 @@ public final class JFaceDemo extends ApplicationWindow {
         addMenuBar();
         addToolBar(SWT.FLAT | SWT.RIGHT);
         addStatusLine();
+        themes.addZoomListener((previous, zoom) -> {
+            zoomReset.setText(percent(zoom));
+            setStatus("Zoom: " + percent(zoom) + "  (Ctrl + mouse wheel, Ctrl+= / Ctrl+- / Ctrl+0)");
+        });
     }
 
     public static void main(String[] args) throws Exception {
@@ -161,6 +168,20 @@ public final class JFaceDemo extends ApplicationWindow {
         setStatus("Theme: " + available.get(current).name());
     }
 
+    private final Action zoomIn = action("Zoom &In", () -> themes().zoomIn());
+    private final Action zoomOut = action("Zoom &Out", () -> themes().zoomOut());
+    /** Shows the zoom in the tool bar; resets it when clicked. */
+    private final Action zoomReset = action("100 %", () -> themes().resetZoom());
+
+    /** For the actions above: field initializers run before the constructor sets {@code themes}. */
+    private ThemeManager themes() {
+        return themes;
+    }
+
+    private static String percent(double zoom) {
+        return Math.round(zoom * 100) + " %";
+    }
+
     private final Map<String, Supplier<Window>> dialogs = new LinkedHashMap<>();
     {
         dialogs.put("Message", () -> new MessageDialog(getShell(), "Message", null,
@@ -192,7 +213,13 @@ public final class JFaceDemo extends ApplicationWindow {
         file.add(action("E&xit", this::close));
         MenuManager open = new MenuManager("&Dialogs");
         dialogs.forEach((name, dialog) -> open.add(action(name + "...", () -> dialog.get().open())));
+        // No accelerator text: ThemeManager handles the zoom keys, a menu accelerator would zoom twice.
+        MenuManager view = new MenuManager("&View");
+        view.add(zoomIn);
+        view.add(zoomOut);
+        view.add(action("&Reset Zoom", () -> themes.resetZoom()));
         bar.add(file);
+        bar.add(view);
         bar.add(open);
         return bar;
     }
@@ -201,6 +228,10 @@ public final class JFaceDemo extends ApplicationWindow {
     protected ToolBarManager createToolBarManager(int style) {
         ToolBarManager toolBar = new ToolBarManager(style);
         toolBar.add(switchTheme);
+        toolBar.add(new Separator());
+        toolBar.add(action("A−", () -> themes.zoomOut()));
+        toolBar.add(zoomReset);
+        toolBar.add(action("A+", () -> themes.zoomIn()));
         toolBar.add(new Separator());
         dialogs.forEach((name, dialog) -> toolBar.add(action(name, () -> dialog.get().open())));
         return toolBar;
@@ -387,13 +418,69 @@ public final class JFaceDemo extends ApplicationWindow {
                 dialog.close();
             }
         }
+        checked += verifyZoom(screenshots, problems);
         if (problems.isEmpty()) {
             System.out.println("SMOKE OK: " + checked + " controls in the window and " + dialogs.size()
-                    + " dialogs tagged and themed, in " + available.size() + " themes");
+                    + " dialogs tagged and themed, in " + available.size() + " themes and zoomed");
             return 0;
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));
         return 1;
+    }
+
+    /**
+     * Zooms in three steps (to 150 %): the table's font, a dialog's font and JFace's dialog font must
+     * grow, the first column must be 1.5 times as wide, the widgets must still pass {@link #check}, the
+     * tool bar must show the zoom, and a reset must bring the fonts and the column back.
+     */
+    private int verifyZoom(Path screenshots, List<String> problems) throws Exception {
+        Control control = table.getControl();
+        int before = control.getFont().getFontData()[0].getHeight();
+        int dialogFontBefore = JFaceResources.getDialogFont().getFontData()[0].getHeight();
+        int columnBefore = table.getTable().getColumn(0).getWidth();
+        for (int i = 0; i < 3; i++) {
+            themes.zoomIn();
+        }
+        dispatch();
+        int checked = 0;
+        int zoomed = control.getFont().getFontData()[0].getHeight();
+        if (themes.getZoom() != 1.5 || zoomed <= before) {
+            problems.add("zoom: at " + themes.getZoom() + " the table font is " + zoomed + " pt, was " + before);
+        }
+        if (JFaceResources.getDialogFont().getFontData()[0].getHeight() <= dialogFontBefore) {
+            problems.add("zoom: JFace's dialog font did not grow");
+        }
+        int column = table.getTable().getColumn(0).getWidth();
+        if (column != Math.round(columnBefore * 1.5)) {
+            problems.add("zoom: at 150 % the first column is " + column + " px wide, was " + columnBefore);
+        }
+        if (!zoomReset.getText().equals("150 %")) {
+            problems.add("zoom: the tool bar shows " + zoomReset.getText());
+        }
+        checked += check("zoomed window", getShell(), problems);
+        screenshot(getShell(), screenshots, "jface-window-zoom-150");
+        Window dialog = dialogs.get("TitleArea").get();
+        dialog.setBlockOnOpen(false);
+        dialog.open();
+        dispatch();
+        checked += check("zoomed TitleArea", dialog.getShell(), problems);
+        screenshot(dialog.getShell(), screenshots, "jface-titlearea-zoom-150");
+        int dialogFont = dialog.getShell().getFont().getFontData()[0].getHeight();
+        if (dialogFont <= before) {
+            problems.add("zoom: a dialog opened at 150 % has a " + dialogFont + " pt font");
+        }
+        dialog.close();
+        themes.resetZoom();
+        dispatch();
+        int reset = control.getFont().getFontData()[0].getHeight();
+        if (reset != before) {
+            problems.add("zoom: after a reset the table font is " + reset + " pt, was " + before);
+        }
+        if (table.getTable().getColumn(0).getWidth() != columnBefore) {
+            problems.add("zoom: after a reset the first column is " + table.getTable().getColumn(0).getWidth()
+                    + " px wide, was " + columnBefore);
+        }
+        return checked;
     }
 
     /**

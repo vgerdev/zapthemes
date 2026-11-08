@@ -1,0 +1,67 @@
+diff --git a/org/eclipse/jface/resource/FontRegistry.java b/org/eclipse/jface/resource/FontRegistry.java
+index ec360f9..b4dd346 100644
+--- a/org/eclipse/jface/resource/FontRegistry.java
++++ b/org/eclipse/jface/resource/FontRegistry.java
+@@ -122,7 +122,7 @@ public class FontRegistry extends ResourceRegistry {
+ 
+ 			FontData[] boldData = getModifiedFontData(SWT.BOLD);
+ 			Display display = getDisplayAndHookForDisposal();
+-			boldFont = new Font(display, boldData);
++			boldFont = staleOrNew(display, boldData);
+ 			return boldFont;
+ 		}
+ 
+@@ -159,7 +159,7 @@ public class FontRegistry extends ResourceRegistry {
+ 
+ 			FontData[] italicData = getModifiedFontData(SWT.ITALIC);
+ 			Display display = getDisplayAndHookForDisposal();
+-			italicFont = new Font(display, italicData);
++			italicFont = staleOrNew(display, italicData);
+ 			return italicFont;
+ 		}
+ 
+@@ -205,6 +205,27 @@ public class FontRegistry extends ResourceRegistry {
+ 	 */
+ 	private final List<Font> staleFonts = new ArrayList<>();
+ 
++	/** ZapThemes: the data each font of this registry was made from, for {@link #staleOrNew}. */
++	private final Map<Font, FontData[]> fontDataOf = new java.util.IdentityHashMap<>();
++
++	/**
++	 * ZapThemes: a stale font made from the same data if there is one, else a new font. Stale fonts
++	 * are only disposed with the display, so without this, putting the same few values over and
++	 * over (switching themes, zooming in and out) would allocate new fonts every time.
++	 */
++	private Font staleOrNew(Display display, FontData[] data) {
++		for (Iterator<Font> it = staleFonts.iterator(); it.hasNext();) {
++			Font font = it.next();
++			if (!font.isDisposed() && font.getDevice() == display && Arrays.equals(fontDataOf.get(font), data)) {
++				it.remove();
++				return font;
++			}
++		}
++		Font font = new Font(display, data);
++		fontDataOf.put(font, data);
++		return font;
++	}
++
+ 	/**
+ 	 * Runnable that cleans up the manager on disposal of the display.
+ 	 */
+@@ -504,7 +525,7 @@ public class FontRegistry extends ResourceRegistry {
+ 
+ 		//Do not fire the update from creation as it is not a property change
+ 		put(symbolicName, validData, false);
+-		Font newFont = new Font(display, validData);
++		Font newFont = staleOrNew(display, validData);
+ 		return new FontRecord(newFont, validData);
+ 	}
+ 
+@@ -729,6 +750,7 @@ public class FontRegistry extends ResourceRegistry {
+ 		disposeFonts(staleFonts.iterator());
+ 		stringToFontRecord.clear();
+ 		staleFonts.clear();
++		fontDataOf.clear();
+ 
+ 		displayDisposeHooked.remove(Display.getCurrent());
+ 	}

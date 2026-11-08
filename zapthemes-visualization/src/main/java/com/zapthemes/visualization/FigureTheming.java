@@ -23,6 +23,7 @@ import org.eclipse.swt.widgets.Display;
 
 import com.zapthemes.core.ThemeChangeListener;
 import com.zapthemes.core.ThemeManager;
+import com.zapthemes.core.ZoomListener;
 import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.ThemeContext;
 
@@ -109,10 +110,14 @@ public final class FigureTheming {
                 walk(root, manager, true);
             }
         };
+        // Theme fonts follow the zoom, so a zoom re-styles the figures like a theme switch.
+        ZoomListener onZoom = (previous, current) -> onSwitch.themeChanged(manager.getTheme(), manager.getTheme());
         manager.addThemeChangeListener(onSwitch);
+        manager.addZoomListener(onZoom);
         root.addLayoutListener(onLayout);
         ATTACHED.put(root, () -> {
             manager.removeThemeChangeListener(onSwitch);
+            manager.removeZoomListener(onZoom);
             root.removeLayoutListener(onLayout);
         });
     }
@@ -170,7 +175,7 @@ public final class FigureTheming {
                 }
                 Object value;
                 try {
-                    value = value(rule, key, target.setter.getParameterTypes()[0], context);
+                    value = value(rule, key, target.setter.getParameterTypes()[0], type, context);
                 } catch (RuntimeException e) {
                     LOG.log(System.Logger.Level.WARNING, "Theme value of \"" + key + "\" does not fit " + target.setter, e);
                     continue;
@@ -215,7 +220,8 @@ public final class FigureTheming {
         return names;
     }
 
-    private static Object value(ResolvedStyle style, String key, Class<?> type, ThemeContext context) {
+    /** {@code owner}: the theme type, so that sizes (by the catalog) follow the zoom. */
+    private static Object value(ResolvedStyle style, String key, Class<?> type, String owner, ThemeContext context) {
         if (type == Color.class) {
             return context.color(style, key);
         }
@@ -223,7 +229,7 @@ public final class FigureTheming {
             return context.font(style, key);
         }
         if (type == int.class) {
-            return style.integer(key).orElse(null);
+            return context.integer(style, owner, key).orElse(null);
         }
         if (type == boolean.class) {
             return style.bool(key).orElse(null);
