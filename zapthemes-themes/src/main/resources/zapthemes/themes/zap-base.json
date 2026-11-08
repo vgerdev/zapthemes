@@ -44,6 +44,9 @@
     "*.strong": {
       "font": "$font.strong"
     },
+    "Label.backstageTitle": {
+      "font": "$font.header"
+    },
     "*.title": {
       "font": "$font.strong"
     }

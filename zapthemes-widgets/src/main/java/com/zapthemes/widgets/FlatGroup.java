@@ -66,16 +66,18 @@ public class FlatGroup extends Composite {
     @Override
     public Rectangle getClientArea() {
         Rectangle area = super.getClientArea();
-        int top = titleHeight() + MARGIN;
-        return new Rectangle(area.x + MARGIN + 1, area.y + top, Math.max(0, area.width - 2 * MARGIN - 2),
-                Math.max(0, area.height - top - MARGIN - 1));
+        int margin = FlatPalette.px(this, MARGIN);
+        int top = titleHeight() + margin;
+        return new Rectangle(area.x + margin + 1, area.y + top, Math.max(0, area.width - 2 * margin - 2),
+                Math.max(0, area.height - top - margin - 1));
     }
 
     @Override
     public Rectangle computeTrim(int x, int y, int width, int height) {
         Rectangle trim = super.computeTrim(x, y, width, height);
-        int top = titleHeight() + MARGIN;
-        return new Rectangle(trim.x - MARGIN - 1, trim.y - top, trim.width + 2 * MARGIN + 2, trim.height + top + MARGIN + 1);
+        int margin = FlatPalette.px(this, MARGIN);
+        int top = titleHeight() + margin;
+        return new Rectangle(trim.x - margin - 1, trim.y - top, trim.width + 2 * margin + 2, trim.height + top + margin + 1);
     }
 
     private int titleHeight() {
@@ -96,14 +98,14 @@ public class FlatGroup extends Composite {
         gc.setFont(colors.font("titleFont", getFont()));
         Point title = text.isEmpty() ? new Point(0, gc.getFontMetrics().getHeight()) : gc.textExtent(text);
         int lineY = area.y + title.y / 2;
-        int arc = colors.integer("arc", 6);
+        int arc = colors.size("arc", 6);
 
         gc.setForeground(colors.border());
         gc.drawRoundRectangle(area.x, lineY, area.width - 1, area.height - lineY - 1, arc, arc);
         if (!text.isEmpty()) {
-            int x = area.x + MARGIN + 2;
+            int x = area.x + FlatPalette.px(this, MARGIN) + 2;
             gc.setBackground(colors.background());
-            gc.fillRectangle(x - 3, area.y, title.x + 6, title.y);
+            gc.fillRectangle(x - FlatPalette.px(this, 3), area.y, title.x + FlatPalette.px(this, 6), title.y);
             gc.setForeground(colors.color("titleForeground", colors.foreground()));
             gc.drawText(text, x, area.y, true);
         }
