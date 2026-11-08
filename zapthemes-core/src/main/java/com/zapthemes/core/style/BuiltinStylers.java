@@ -1,9 +1,13 @@
 package com.zapthemes.core.style;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.ToolBar;
+import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.Widget;
 
@@ -21,8 +25,16 @@ import org.eclipse.swt.widgets.Widget;
  *   <tr><td>StyledText</td><td>{@code selectionBackground}, {@code selectionForeground}, {@code marginColor}</td></tr>
  *   <tr><td>Link</td><td>{@code linkForeground}</td></tr>
  * </table>
+ *
+ * <p>ToolBar gets no extra properties, but on Windows its items are measured again when its font
+ * changes (a theme switch, a zoom): the native tool bar sizes a button with the font it had when the
+ * button was added, so after a new font the text no longer fits.
  */
 final class BuiltinStylers implements StylerProvider {
+
+    private static final boolean WIN32 = "win32".equals(SWT.getPlatform());
+    /** The font a ToolBar's items were last measured with. */
+    private static final String TOOL_BAR_FONT = "zapthemes.toolBarFont";
 
     @Override
     public void register(StylerRegistry registry) {
@@ -50,6 +62,19 @@ final class BuiltinStylers implements StylerProvider {
             text.setSelectionBackground(context.color(style, "selectionBackground"));
             text.setSelectionForeground(context.color(style, "selectionForeground"));
             text.setMarginColor(context.color(style, "marginColor"));
+        }));
+        registry.register("ToolBar", extend((ToolBar bar, ResolvedStyle style, ThemeContext context) -> {
+            Font font = bar.getFont();
+            if (WIN32 && bar.getData(TOOL_BAR_FONT) != null && !font.equals(bar.getData(TOOL_BAR_FONT))) {
+                for (ToolItem item : bar.getItems()) {
+                    String text = item.getText();
+                    if (!text.isEmpty()) {
+                        item.setText("");
+                        item.setText(text);
+                    }
+                }
+            }
+            bar.setData(TOOL_BAR_FONT, font);
         }));
         registry.register("Link", extend((Link link, ResolvedStyle style, ThemeContext context) ->
                 link.setLinkForeground(context.color(style, "linkForeground"))));

@@ -141,8 +141,12 @@ public final class MessageBar extends Canvas {
         return theme().font("titleFont", getFont());
     }
 
+    private int px(int at100) {
+        return Themed.px(this, at100);
+    }
+
     private int height(GC gc) {
-        return gc.getFontMetrics().getHeight() + 16;
+        return gc.getFontMetrics().getHeight() + px(16);
     }
 
     @Override
@@ -151,20 +155,20 @@ public final class MessageBar extends Canvas {
         try {
             int height = height(gc);
             for (FlatButton button : buttons) {
-                height = Math.max(height, button.computeSize(SWT.DEFAULT, SWT.DEFAULT).y + 8);
+                height = Math.max(height, button.computeSize(SWT.DEFAULT, SWT.DEFAULT).y + px(8));
             }
-            return new Point(wHint == SWT.DEFAULT ? 400 : wHint, hHint == SWT.DEFAULT ? height : hHint);
+            return new Point(wHint == SWT.DEFAULT ? px(400) : wHint, hHint == SWT.DEFAULT ? height : hHint);
         } finally {
             gc.dispose();
         }
     }
 
     private int textEnd(GC gc) {
-        int x = 12 + gc.getFontMetrics().getHeight() + 8;
+        int x = px(12) + gc.getFontMetrics().getHeight() + px(8);
         gc.setFont(titleFont());
-        x += gc.textExtent(title.toUpperCase(java.util.Locale.ROOT)).x + 12;
+        x += gc.textExtent(title.toUpperCase(java.util.Locale.ROOT)).x + px(12);
         gc.setFont(getFont());
-        x += gc.textExtent(message).x + 12;
+        x += gc.textExtent(message).x + px(12);
         return x;
     }
 
@@ -183,14 +187,14 @@ public final class MessageBar extends Canvas {
         for (FlatButton button : buttons) {
             Point size = button.computeSize(SWT.DEFAULT, SWT.DEFAULT);
             button.setBounds(x, Math.max(0, (area.height - size.y) / 2), size.x, size.y);
-            x += size.x + 8;
+            x += size.x + px(8);
         }
     }
 
     Rectangle closeBounds() {
         Rectangle area = getClientArea();
-        int size = Math.max(16, area.height - 12);
-        return new Rectangle(area.width - size - 8, (area.height - size) / 2, size, size);
+        int size = Math.max(px(16), area.height - px(12));
+        return new Rectangle(area.width - size - px(8), (area.height - size) / 2, size, size);
     }
 
     private void paint(Event event) {
@@ -210,8 +214,8 @@ public final class MessageBar extends Canvas {
         Color icon = theme.color("iconColor", foreground);
         gc.setForeground(icon);
         gc.setLineWidth(Math.max(1, height / 12));
-        gc.drawOval(12, y, height - 1, height - 1);
-        int cx = 12 + height / 2;
+        gc.drawOval(px(12), y, height - 1, height - 1);
+        int cx = px(12) + height / 2;
         if (kind == Kind.INFO || kind == Kind.SUCCESS) {
             gc.drawLine(cx, y + height / 2 - 1, cx, y + height - 4);
             gc.drawPoint(cx, y + 3);
@@ -220,12 +224,12 @@ public final class MessageBar extends Canvas {
             gc.drawPoint(cx, y + height - 4);
         }
         gc.setLineWidth(1);
-        int x = 12 + height + 8;
+        int x = px(12) + height + px(8);
         gc.setForeground(foreground);
         gc.setFont(titleFont());
         String upper = title.toUpperCase(java.util.Locale.ROOT);
         gc.drawText(upper, x, (area.height - gc.getFontMetrics().getHeight()) / 2, SWT.DRAW_TRANSPARENT);
-        x += gc.textExtent(upper).x + 12;
+        x += gc.textExtent(upper).x + px(12);
         gc.setFont(getFont());
         gc.drawText(message, x, y, SWT.DRAW_TRANSPARENT);
         Rectangle close = closeBounds();
