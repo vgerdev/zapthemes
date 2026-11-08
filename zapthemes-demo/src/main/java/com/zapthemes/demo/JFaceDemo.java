@@ -470,6 +470,13 @@ public final class JFaceDemo extends ApplicationWindow {
             problems.add("zoom: a dialog opened at 150 % has a " + dialogFont + " pt font");
         }
         dialog.close();
+        Window message = dialogs.get("Message").get();
+        message.setBlockOnOpen(false);
+        message.open();
+        dispatch();
+        checked += check("zoomed Message", message.getShell(), problems);
+        iconFits(message.getShell(), problems);
+        message.close();
         themes.resetZoom();
         dispatch();
         int reset = control.getFont().getFontData()[0].getHeight();
@@ -481,6 +488,27 @@ public final class JFaceDemo extends ApplicationWindow {
                     + " px wide, was " + columnBefore);
         }
         return checked;
+    }
+
+    /** The dialog's icon label is at least as large as its (zoomed) image, so the icon is not cut off. */
+    private static void iconFits(Control control, List<String> problems) {
+        if (control instanceof org.eclipse.swt.widgets.Label label && label.getImage() != null) {
+            var image = label.getImage().getBounds();
+            var size = label.getSize();
+            if (size.x < image.width || size.y < image.height) {
+                problems.add("zoom: a " + image.width + "x" + image.height + " icon in a " + size.x + "x" + size.y + " label");
+            }
+            // The 100 % image ZapThemes keeps for the label (24 px on GTK, 32 px on Windows).
+            if (!(label.getData("zapthemes.originalImage") instanceof org.eclipse.swt.graphics.Image original)
+                    || image.width < original.getBounds().width * 1.4) {
+                problems.add("zoom: the dialog icon is " + image.width + " px wide at 150 %, not zoomed");
+            }
+        }
+        if (control instanceof Composite composite) {
+            for (Control child : composite.getChildren()) {
+                iconFits(child, problems);
+            }
+        }
     }
 
     /**

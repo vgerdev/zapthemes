@@ -65,6 +65,7 @@ public final class TitleBarStylers implements StylerProvider, CatalogProvider {
         catalog.type(TypeSpec.of(SLOT_TYPE, GROUP, TypeSpec.Base.NONE)
                 .described("The title bar's slot for app controls; takes the bar's background"));
         catalog.type(TypeSpec.of(SEARCH_TYPE, GROUP, TypeSpec.Base.NONE)
+                .with(PropertySpec.font("font", "foreground", "The search text"))
                 .described("The title bar's search field; takes the bar's search colors"));
     }
 }

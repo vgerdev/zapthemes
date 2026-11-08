@@ -27,10 +27,16 @@ public final class ThemeKeys {
     public static final String ZOOM_SHORTCUTS = "zapthemes.zoomShortcuts";
 
     /**
+     * {@link Boolean#FALSE} on a widget (or a parent control) keeps its image as it is when zooming,
+     * e.g. for an image that already fits its space. See {@link ThemeManager#setZoomImagesEnabled}.
+     */
+    public static final String ZOOM_IMAGES = "zapthemes.zoomImages";
+
+    /**
      * A font the application set on a control with {@code setFont}, a
      * {@link com.zapthemes.core.style.DefaultStyler.AppFont}: kept through theme switches and scaled
-     * by the zoom instead of the theme's font. Set by the styler when it finds a font it did not set
-     * there. {@link ThemeManager#setThemeClass} and {@link ThemeManager#followThemeFont} clear it.
+     * by the zoom instead of the theme's font. Recorded when the application calls {@code setFont}
+     * on a proxy control. {@link ThemeManager#setThemeClass} and {@link ThemeManager#followThemeFont} clear it.
      */
     public static final String APP_FONT = "zapthemes.appFont";
 
