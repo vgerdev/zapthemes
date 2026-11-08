@@ -44,6 +44,11 @@ final class Themed {
         return style.bool(key).orElse(fallback);
     }
 
+    /** {@code at100} pixels at the display's zoom ({@link ThemeManager#getZoom}). */
+    static int px(Control control, int at100) {
+        return (int) Math.round(at100 * ThemeManager.get(control.getDisplay()).getZoom());
+    }
+
     int integer(String key, int fallback) {
         return style.integer(key).orElse(fallback);
     }

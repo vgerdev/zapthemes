@@ -30,7 +30,7 @@ Decided here (the user can change them later):
 | Combos | Drawn on the canvas, with an editor `Text` created only while typing, so a group can move into a popup without reparenting native controls |
 | Modules | The ribbon and the shared command model live in `zapthemes-widgets`, which now depends on `zapthemes-swt` for its popups' proxies. JFace support is a new module, `zapthemes-jface-ribbon` |
 | Commands | One command model, `com.zapthemes.widgets.command`, shared with the title bar's quick access toolbar; one registry per shell; one customization file with a section per bar |
-| Zoom | Sizes come from the theme font's height, so the ribbon follows the zoom of PR #19 once it merges (step 7 checks it) |
+| Zoom | Sizes come from the theme font's height and `ThemeManager.getZoom()`, so the ribbon follows the zoom: icons are 16 / 32 px times the zoom (`RibbonZoomTest`) |
 
 ## Terms
 
@@ -168,7 +168,9 @@ Every item shows a *super tooltip* after a hover delay: the label in bold, the s
 **Measurements** come from the theme font's height `h` (about 15 px at 100 %), so zoom and the
 platform's font sizes scale everything together: the tab row is `h + 12`, the panel holds three
 rows of `h + 7`, plus the group label row; large icons are 32 px at 100 % and the image size is
-picked to match (`Images` is asked for 32, 40 or 48).
+picked to match (`Images` is asked for 32, 40 or 48 for a larger platform font). The zoom
+multiplies the 100 % icon sizes exactly (64 px large icons at 200 %); the backstage and the
+message bar scale their paddings by the zoom too.
 
 **Groups lay out in columns.** A large item takes a column. Consecutive medium or small items
 stack three to a column. `RibbonRow`s stack two or three to a column; each row lays its items out
@@ -374,8 +376,8 @@ New module `zapthemes-jface-ribbon` (depends on `zapthemes-jface` and `zapthemes
   never grow as width shrinks, the order of reductions) and not pixel values.
 - **Accessibility on a single canvas:** child ids work with Windows' MSAA/UIA bridge in SWT; on
   GTK (ATK) and macOS support is thinner, and is checked by hand.
-- **The zoom PR (#19):** the ribbon reads only font metrics for sizes, so it should follow; if
-  it lands a zoom factor API, icon sizes use it (step 7).
+- **The zoom PR (#19):** done. The ribbon reads the zoomed font's metrics and
+  `ThemeManager.getZoom()` for icon sizes and paddings.
 - **The title bar session:** it is building the quick access toolbar on the same command model in
   parallel. The model is in step 1, so it can merge first.
 
@@ -385,7 +387,7 @@ New module `zapthemes-jface-ribbon` (depends on `zapthemes-jface` and `zapthemes
 |---|---|---|
 | 1–5 ✅ | **Commands and the ribbon** (PR 1) | The command model and `CustomizationStore`; `Ribbon` with tabs, groups, every button kind, combos, color buttons, labels, dialog launchers, right commands; super tooltips; galleries; adaptive resizing and collapsed groups; KeyTips; collapse, overlay and pin; contextual tab sets; the backstage and `MessageBar`; customization with `CustomizeRibbonDialog`; theming (types, catalog, base names, bundled themes); accessibility; `RibbonDemo` with its smoke test and screenshots |
 | 6 ✅ | **JFace** (PR 2, on PR 1) | `zapthemes-jface-ribbon`: action commands, contribution items, `RibbonApplicationWindow`; the demo's ¶ button is a JFace action |
-| 7 | **Follow-ups** | ✅ KeyTips in the backstage; ✅ renaming commands in the dialog; ✅ per-state theme overrides (PR 3, on PR 2). Still open: zoom (#19 merged; the ribbon sizes from the font, to be checked) and the GTK and macOS checks by hand |
+| 7 ✅ | **Follow-ups** | ✅ KeyTips in the backstage; ✅ renaming commands in the dialog; ✅ per-state theme overrides (PR 3, on PR 2); ✅ zoom (icons, paddings, backstage and message bar follow `ThemeManager.getZoom()`, `RibbonZoomTest`). Still open: the GTK and macOS checks by hand |
 
 Steps 1 to 5 landed as one PR instead of five: they share one surface, hit-test and popup model
 (galleries, KeyTips, collapsed groups and the overlay are all `Hot`s of a `RibbonSurface`), so
