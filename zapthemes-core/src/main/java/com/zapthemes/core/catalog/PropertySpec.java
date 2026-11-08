@@ -17,9 +17,11 @@ import com.google.gson.JsonPrimitive;
  * @param defaultValue for other kinds, the value it takes by default, or null for none
  * @param choices the allowed values of a {@link PropertyKind#CHOICE}; empty otherwise
  * @param description one line for tools such as the theme editor; may be empty
+ * @param size for an {@link PropertyKind#INTEGER}, whether it is a size in pixels (a corner radius,
+ *        a thickness): sizes follow the {@linkplain com.zapthemes.core.ThemeManager#setZoom zoom}
  */
 public record PropertySpec(String key, PropertyKind kind, String defaultName, JsonElement defaultValue,
-        List<String> choices, String description) {
+        List<String> choices, String description, boolean size) {
 
     public PropertySpec {
         Objects.requireNonNull(key, "key");
@@ -29,6 +31,15 @@ public record PropertySpec(String key, PropertyKind kind, String defaultName, Js
         if (defaultName != null && kind != PropertyKind.COLOR && kind != PropertyKind.FONT) {
             throw new IllegalArgumentException(key + ": only colors and fonts have a default name");
         }
+        if (size && kind != PropertyKind.INTEGER) {
+            throw new IllegalArgumentException(key + ": only integers are sizes");
+        }
+    }
+
+    /** A property that is not a size. */
+    public PropertySpec(String key, PropertyKind kind, String defaultName, JsonElement defaultValue,
+            List<String> choices, String description) {
+        this(key, kind, defaultName, defaultValue, choices, description, false);
     }
 
     public static PropertySpec color(String key, String defaultName, String description) {
@@ -42,6 +53,12 @@ public record PropertySpec(String key, PropertyKind kind, String defaultName, Js
     public static PropertySpec integer(String key, Integer defaultValue, String description) {
         return new PropertySpec(key, PropertyKind.INTEGER, null, defaultValue == null ? null : new JsonPrimitive(defaultValue),
                 null, description);
+    }
+
+    /** An integer that is a size in pixels, scaled by the zoom (see {@link #size()}). */
+    public static PropertySpec size(String key, Integer defaultValue, String description) {
+        return new PropertySpec(key, PropertyKind.INTEGER, null, defaultValue == null ? null : new JsonPrimitive(defaultValue),
+                null, description, true);
     }
 
     public static PropertySpec bool(String key, Boolean defaultValue, String description) {
@@ -73,13 +90,13 @@ public record PropertySpec(String key, PropertyKind kind, String defaultName, Js
 
     /** This spec with another default name. */
     public PropertySpec withDefaultName(String name) {
-        return new PropertySpec(key, kind, name, defaultValue, choices, description);
+        return new PropertySpec(key, kind, name, defaultValue, choices, description, size);
     }
 
     /** This spec with {@code other}'s default and description where this one has none. */
     PropertySpec mergedWith(PropertySpec other) {
         return new PropertySpec(key, kind, defaultName != null ? defaultName : other.defaultName,
                 defaultValue != null ? defaultValue : other.defaultValue, choices.isEmpty() ? other.choices : choices,
-                description.isEmpty() ? other.description : description);
+                description.isEmpty() ? other.description : description, size || other.size);
     }
 }

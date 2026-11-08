@@ -2,7 +2,6 @@ package com.zapthemes.core.catalog;
 
 import static com.zapthemes.core.catalog.PropertySpec.bool;
 import static com.zapthemes.core.catalog.PropertySpec.color;
-import static com.zapthemes.core.catalog.PropertySpec.integer;
 
 import java.util.List;
 
@@ -106,9 +105,9 @@ final class CoreCatalog implements CatalogProvider {
         catalog.type(TypeSpec.of("CTabFolder", SWT, Base.COMPOSITE)
                 .with(color("selectionBackground", "surface", "The selected tab"),
                         color("selectionForeground", "accent", "The selected tab's text"),
-                        integer("selectionBarThickness", 2, "Height of the bar over the selected tab, in pixels"),
+                        PropertySpec.size("selectionBarThickness", 2, "Height of the bar over the selected tab, in pixels"),
                         bool("highlight", true, "Highlight the selected tab"),
-                        integer("tabHeight", null, "Tab height, in pixels")));
+                        PropertySpec.size("tabHeight", null, "Tab height, in pixels")));
         catalog.type(TypeSpec.of("StyledText", SWT, Base.COMPOSITE).defaults("background=surface")
                 .with(color("selectionBackground", "selection", "Selected text"),
                         color("selectionForeground", "selectionForeground", "Selected text's color"),

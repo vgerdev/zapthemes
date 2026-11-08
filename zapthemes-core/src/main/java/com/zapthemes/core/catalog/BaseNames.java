@@ -25,6 +25,7 @@ public final class BaseNames {
             name("stripe", "Surfaces", COLOR, "Alternate table rows"),
             name("hover", "Surfaces", COLOR, "Under the mouse"),
             name("selection", "Surfaces", COLOR, "Selected rows and text"),
+            name("chrome", "Surfaces", COLOR, "Window chrome around the content: the ribbon's tab row (title bars have their own names)"),
 
             name("foreground", "Text", BOTH, "Text; its font is the default font", "background", "surface", "raised"),
             name("muted", "Text", COLOR, "Secondary text: qualifiers, hints, line numbers", "background", "surface"),
@@ -32,6 +33,7 @@ public final class BaseNames {
             name("onAccent", "Text", COLOR, "Text on the accent color", "accent"),
             name("link", "Text", COLOR, "Links", "background", "surface"),
             name("selectionForeground", "Text", COLOR, "Text on the selection", "selection"),
+            name("onBadge", "Text", COLOR, "Text on badges", "badge"),
 
             name("heading1", "Headings", BOTH, "Largest heading", "background"),
             name("heading2", "Headings", BOTH, "Second-level heading", "background"),
@@ -48,6 +50,7 @@ public final class BaseNames {
             name("warning", "Accent and status", COLOR, "Warnings", "background"),
             name("success", "Accent and status", COLOR, "Success", "background"),
             name("info", "Accent and status", COLOR, "Information", "background"),
+            name("badge", "Accent and status", COLOR, "Badges: KeyTips, counts"),
 
             name("titleBar", "Title bar", COLOR, "The window title bar (TitleBar), when the app sets no accent"),
             name("titleBarForeground", "Title bar", COLOR, "Title, glyphs and window buttons on the title bar", "titleBar"),

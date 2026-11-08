@@ -63,7 +63,8 @@ public class ZapNatTableThemeConfiguration extends ModernNatTableThemeConfigurat
         Color accent = context.color(style, "accentColor");
         Color error = context.color(style, "errorForeground");
         Color hover = style.states().contains("hover") ? context.color(style.state("hover"), "background") : null;
-        Font font = context.font(style, "font");
+        // Without a theme font NatTable's own default is replaced only at a zoom other than 100 %.
+        Font font = first(context.font(style, "font"), context.defaultFont());
         Font headerFont = first(context.font(style, "headerFont"), font);
         dark = background != null && luminance(background.getRGB()) < 0.5;
 
