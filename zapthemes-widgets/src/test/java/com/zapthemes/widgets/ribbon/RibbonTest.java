@@ -670,6 +670,65 @@ class RibbonTest {
         assertThat(ran).containsExactly("file.save");
     }
 
+    /**
+     * GTK sends the release of the click that opened the backstage to the nav, over its back arrow
+     * where the File tab was: a release without a press on the nav must not close the backstage.
+     */
+    @Test
+    void backstageIgnoresTheReleaseOfTheClickThatOpenedIt() {
+        ribbon.setFileTab("File", backstage -> {
+            backstage.addPage("info", "Info", null, page -> { });
+            backstage.addPage("open", "Open", null, page -> { });
+        });
+        settle();
+        ribbon.activate(ribbon.hotsOf(Hot.Kind.FILE_TAB).getFirst(), false, null);
+        settle();
+        Backstage backstage = ribbon.getBackstage();
+        Backstage.Nav nav = (Backstage.Nav) backstage.nav();
+        int back = navY(nav, 0);
+        int open = navY(nav, 2);
+
+        mouse(nav, SWT.MouseUp, back);
+        settle();
+        assertThat(backstage.isOpen()).as("a release alone does nothing").isTrue();
+
+        mouse(nav, SWT.MouseDown, open);
+        mouse(nav, SWT.MouseUp, back);
+        assertThat(backstage.isOpen()).as("pressed on Open, released on the back arrow").isTrue();
+        assertThat(backstage.selectedPage()).isEqualTo("info");
+
+        mouse(nav, SWT.MouseDown, open);
+        mouse(nav, SWT.MouseUp, open);
+        assertThat(backstage.selectedPage()).isEqualTo("open");
+
+        mouse(nav, SWT.MouseDown, back);
+        mouse(nav, SWT.MouseUp, back);
+        settle();
+        assertThat(backstage.isOpen()).as("a click on the back arrow closes it").isFalse();
+    }
+
+    /** The middle of the nav's entry {@code index} (0 is the back arrow). */
+    private static int navY(Backstage.Nav nav, int index) {
+        int first = -1;
+        int last = -1;
+        for (int y = 0; y < nav.getSize().y; y++) {
+            if (nav.indexAt(y) == index) {
+                first = first < 0 ? y : first;
+                last = y;
+            }
+        }
+        assertThat(first).as("nav entry " + index).isNotNegative();
+        return (first + last) / 2;
+    }
+
+    private static void mouse(org.eclipse.swt.widgets.Control control, int type, int y) {
+        Event event = new Event();
+        event.button = 1;
+        event.x = 30;
+        event.y = y;
+        control.notifyListeners(type, event);
+    }
+
     @Test
     void backstageHasKeyTips() {
         ribbon.setKeyTipsEnabled(true);

@@ -461,6 +461,8 @@ public final class Backstage extends Composite {
 
         private int hover = -1;
         private int focus;
+        /** The entry the left button went down on, or -1. */
+        private int pressed = -1;
 
         Nav(Composite parent) {
             super(parent, SWT.DOUBLE_BUFFERED);
@@ -477,9 +479,15 @@ public final class Backstage extends Composite {
                 hover = -1;
                 redraw();
             });
+            // An entry acts on a press and release both on it. The release of the click on the File
+            // tab that opened the backstage must not count: on GTK it arrives here, over the back
+            // arrow, once the ribbon has been hidden, and would close the backstage at once.
+            addListener(SWT.MouseDown, e -> pressed = e.button == 1 ? indexAt(e.y) : -1);
             addListener(SWT.MouseUp, e -> {
                 int index = indexAt(e.y);
-                if (index >= 0 && e.button == 1) {
+                boolean click = e.button == 1 && index >= 0 && index == pressed;
+                pressed = -1;
+                if (click) {
                     activate(index);
                 }
             });
