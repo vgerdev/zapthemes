@@ -133,6 +133,21 @@ public final class ProxyGenerator {
             appendConstructor(src, original, simpleName, constructor);
         }
 
+        if (reportsFont(original)) {
+            // A font the application chooses is kept through theme switches and scaled by the zoom.
+            src.append("\n    @Override\n");
+            src.append("    public void setFont(org.eclipse.swt.graphics.Font font) {\n");
+            src.append("        com.zapthemes.core.ThemeManager.fontSetByApplication(this, font);\n");
+            src.append("        super.setFont(font);\n");
+            src.append("    }\n");
+        }
+        if (zoomsImage(original)) {
+            // The zoomed image is set right away, so a dialog sizes itself around it.
+            src.append("\n    @Override\n");
+            src.append("    public void setImage(org.eclipse.swt.graphics.Image image) {\n");
+            src.append("        super.setImage(com.zapthemes.core.ThemeManager.zoomedImage(this, image));\n");
+            src.append("    }\n");
+        }
         if (!checkSubclassIsFinal(original)) {
             src.append("\n    @Override\n");
             src.append("    protected void checkSubclass() {\n");
@@ -212,6 +227,38 @@ public final class ProxyGenerator {
     }
 
     /** A widget library may forbid overriding {@code checkSubclass}; then the proxy must not. */
+    /**
+     * Whether the proxy passes images through {@code ThemeManager.zoomedImage}: widgets with a public,
+     * overridable {@code setImage(Image)}, except shells (their window icon), carets, and table and
+     * tree items, whose native image lists keep the size of their first image.
+     */
+    static boolean zoomsImage(Class<?> type) {
+        if (org.eclipse.swt.widgets.Decorations.class.isAssignableFrom(type) || org.eclipse.swt.widgets.Caret.class.isAssignableFrom(type)
+                || org.eclipse.swt.widgets.TableItem.class.isAssignableFrom(type)
+                || org.eclipse.swt.widgets.TreeItem.class.isAssignableFrom(type)) {
+            return false;
+        }
+        try {
+            Method setter = type.getMethod("setImage", org.eclipse.swt.graphics.Image.class);
+            return !Modifier.isFinal(setter.getModifiers()) && !Modifier.isStatic(setter.getModifiers());
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
+    /** Whether the proxy reports {@code setFont} calls: controls with a public, overridable {@code setFont(Font)}. */
+    static boolean reportsFont(Class<?> type) {
+        if (!org.eclipse.swt.widgets.Control.class.isAssignableFrom(type)) {
+            return false;
+        }
+        try {
+            Method setter = type.getMethod("setFont", org.eclipse.swt.graphics.Font.class);
+            return !Modifier.isFinal(setter.getModifiers()) && !Modifier.isStatic(setter.getModifiers());
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
     static boolean checkSubclassIsFinal(Class<?> type) {
         for (Class<?> k = type; k != null && k != Widget.class; k = k.getSuperclass()) {
             try {

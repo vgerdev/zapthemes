@@ -19,9 +19,10 @@ import com.zapthemes.core.ThemeKeys;
  * {@code backgroundMode} ({@code "none"}, {@code "default"}, {@code "force"}) on composites when the
  * theme sets it. A background mode the theme does not mention is left as the application set it.
  *
- * <p>A font the application set on a control itself ({@code setFont}, after the theme was applied)
- * is kept on later theme switches and zooms, scaled by the zoom, instead of the theme's: see
- * {@link ThemeKeys#APP_FONT}. A font equal to the theme's counts as the theme's.
+ * <p>A font the application set on a proxy control itself ({@code setFont}, which the proxy reports
+ * through {@link com.zapthemes.core.ThemeManager#fontSetByApplication}) is kept on later theme
+ * switches and zooms, scaled by the zoom, instead of the theme's: see {@link ThemeKeys#APP_FONT}.
+ * A font like the theme's counts as the theme's.
  */
 public class DefaultStyler implements ControlStyler {
 
@@ -29,8 +30,6 @@ public class DefaultStyler implements ControlStyler {
     public static final String FOREGROUND = "foreground";
     public static final String FONT = "font";
     public static final String BACKGROUND_MODE = "backgroundMode";
-    /** The font this styler last left on a control, to notice one the application set since. */
-    private static final String APPLIED_FONT = "zapthemes.appliedFont";
 
     @Override
     public void apply(Widget widget, ResolvedStyle style, ThemeContext context) {
@@ -81,25 +80,36 @@ public class DefaultStyler implements ControlStyler {
         }
     }
 
-    /** {@code control}'s font: the application's if it set one since the last pass, else {@code themed}. */
+    /** The control whose font this styler is setting right now, so its proxy does not take it as the application's. */
+    private static Control theming;
+
+    /** {@code control}'s font: the application's if it set one ({@link ThemeKeys#APP_FONT}), else {@code themed}. */
     private static void applyFont(Control control, Font themed, ThemeContext context) {
-        AppFont app = control.getData(ThemeKeys.APP_FONT) instanceof AppFont a ? a : null;
-        if (control.getData(APPLIED_FONT) instanceof Applied applied) {
-            Font current = control.getFont();
-            if (!current.equals(applied.font())) {
-                // The application set a font since the last pass, at the zoom of that pass. One like
-                // the font the theme gave, then or now, follows the theme.
-                Font theme = themed != null ? themed : control.getDisplay().getSystemFont();
-                app = sameFont(current, applied.font()) || sameFont(current, theme) ? null : appFont(current, applied.zoom());
-                control.setData(ThemeKeys.APP_FONT, app);
-            }
+        AppFont app = control.getData(ThemeKeys.APP_FONT) instanceof AppFont a && !a.original().isDisposed() ? a : null;
+        theming = control;
+        try {
+            control.setFont(app != null ? app.at(context) : themed);
+        } finally {
+            theming = null;
         }
-        control.setFont(app != null ? app.at(context) : themed);
-        control.setData(APPLIED_FONT, new Applied(control.getFont(), context.resources().zoom()));
     }
 
-    /** What a pass left on a control: its font, and the zoom then. */
-    private record Applied(Font font, double zoom) {
+    /**
+     * Called by a proxy's {@code setFont} before SWT's: remembers {@code font} as the font the
+     * application chose for {@code control}, taken at the current zoom. {@code null}, or a font like
+     * {@code themeFont} (the one the theme gives the control now), makes it follow the theme again.
+     * The styler's own {@code setFont} calls are ignored.
+     */
+    public static void fontSetByApplication(Control control, Font font, Font themeFont, ThemeContext context) {
+        if (theming == control) {
+            return;
+        }
+        if (font == null || font.isDisposed() || (themeFont != null && sameFont(font, themeFont))) {
+            control.setData(ThemeKeys.APP_FONT, null);
+            return;
+        }
+        double base = context.resources().baseHeight(font).orElse(font.getFontData()[0].getHeight() / context.resources().zoom());
+        control.setData(ThemeKeys.APP_FONT, appFont(font, base));
     }
 
     /**
@@ -108,14 +118,11 @@ public class DefaultStyler implements ControlStyler {
      */
     public static void followThemeFont(Control control) {
         control.setData(ThemeKeys.APP_FONT, null);
-        if (control.getData(APPLIED_FONT) instanceof Applied applied) {
-            control.setData(APPLIED_FONT, new Applied(control.getFont(), applied.zoom()));
-        }
     }
 
-    private static AppFont appFont(Font font, double zoom) {
+    private static AppFont appFont(Font font, double baseHeight) {
         FontData data = font.getFontData()[0];
-        return new AppFont(data.getName(), data.getStyle(), data.getHeight() / zoom, font);
+        return new AppFont(data.getName(), data.getStyle(), baseHeight, font);
     }
 
     private static boolean sameFont(Font a, Font b) {

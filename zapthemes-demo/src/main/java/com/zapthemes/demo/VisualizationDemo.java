@@ -46,7 +46,8 @@ import com.zapthemes.visualization.FigureTheming;
  * ({@link FigureTheming}).
  *
  * <p>{@code --smoke} checks, in every bundled theme, that the controls are tagged and that the
- * graph, its axes and the widgets' scales take the theme's colors, and exits non-zero on failure.
+ * graph, its axes and the widgets' scales take the theme's colors, that the graph's and its axes'
+ * title fonts grow at 150 % zoom and come back after a reset, and exits non-zero on failure.
  * {@code --screenshots <dir>} also saves the window in each theme.
  */
 public final class VisualizationDemo {
@@ -190,9 +191,26 @@ public final class VisualizationDemo {
                 DemoSupport.screenshot(shell, screenshots, "visualization-" + theme.id());
             }
         }
+        int title = graph.getTitleFont().getFontData()[0].getHeight();
+        int axis = graph.getPrimaryXAxis().getTitleFont().getFontData()[0].getHeight();
+        themes.setZoom(1.5);
+        DemoSupport.settle(display);
+        if (graph.getTitleFont().getFontData()[0].getHeight() != Math.round(title * 1.5)
+                || graph.getPrimaryXAxis().getTitleFont().getFontData()[0].getHeight() != Math.round(axis * 1.5)) {
+            problems.add("zoom 150 %: graph title " + graph.getTitleFont().getFontData()[0].getHeight() + " pt (was " + title
+                    + "), axis title " + graph.getPrimaryXAxis().getTitleFont().getFontData()[0].getHeight() + " pt (was " + axis + ")");
+        }
+        if (screenshots != null) {
+            DemoSupport.screenshot(shell, screenshots, "visualization-zoom-150");
+        }
+        themes.resetZoom();
+        DemoSupport.settle(display);
+        if (graph.getTitleFont().getFontData()[0].getHeight() != title) {
+            problems.add("zoom reset: graph title " + graph.getTitleFont().getFontData()[0].getHeight() + " pt, was " + title);
+        }
         if (problems.isEmpty()) {
             System.out.println("SMOKE OK: " + checked + " controls tagged; the graph and " + widgets.size()
-                    + " widget figures follow the theme, in " + available.size() + " themes");
+                    + " widget figures follow the theme, in " + available.size() + " themes, and the zoom");
             return 0;
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));

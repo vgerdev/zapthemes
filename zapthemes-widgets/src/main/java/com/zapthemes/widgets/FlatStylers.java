@@ -76,7 +76,7 @@ public final class FlatStylers implements StylerProvider, CatalogProvider {
                         PropertySpec.color("contextualAccent4", "warning", "Contextual tab sets with accent 4"),
                         PropertySpec.color("focusColor", "focus", "The keyboard focus ring"),
                         PropertySpec.bool("useAppAccent", true, "Whether the app's brand color replaces the accent keys"),
-                        PropertySpec.integer("arc", 4, "Corner radius, in pixels"))
+                        PropertySpec.size("arc", 4, "Corner radius, in pixels"))
                 .withStates("hover", "pressed", "checked", "disabled", "focused")
                 .described("An Office-style ribbon: tabs, groups, galleries, KeyTips"));
         catalog.type(TypeSpec.of("RibbonPopup", group, TypeSpec.Base.COMPOSITE).defaults("background=raised")

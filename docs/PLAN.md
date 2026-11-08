@@ -193,7 +193,11 @@ public class Button extends org.eclipse.swt.widgets.Button {
   zooming stays bounded. Fonts the app set on a control (`DefaultStyler` notices one it did not
   set) are kept and scaled. Column widths (`ColumnZoom`, a fractional 100 % width per column) and
   NatTable sizes (its `ConfigureScalingCommand`) scale without drift. Integer keys the catalog marks
-  as sizes (`PropertySpec.size`) scale through `ThemeContext.size`. See the guide's Zoom section.
+  as sizes (`PropertySpec.size`) scale through `ThemeContext.size`. A trackpad pinch
+  (`SWT.Gesture` magnify) zooms to the nearest level. Widget images get zoomed copies made from
+  `Image.getImageData(zoom)`, so `@2x` variants show (`ImageZoom`). Visualization figures' own
+  fonts, such as XYGraph's title, scale too. Windows never resize on zoom. See the guide's Zoom
+  section.
 - **Safety net:** a `Display` listener for `SWT.Skin` tags and themes widgets that were created without
   a proxy (code outside the forks, native-dialog children, third-party libraries).
 - **Performance:** skip a control whose resolved-style hash hasn't changed.
