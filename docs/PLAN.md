@@ -330,6 +330,7 @@ plain `setBackground` calls.
 | Combo | `FlatCombo` based on `CCombo`, with a painted arrow and a themed pop-up |
 | Group, ProgressBar, Scale / Slider | `FlatGroup`, `FlatProgressBar`, Nebula RangeSlider or a canvas slider |
 | TabFolder | Recommend CTabFolder |
+| Office-style title bar | `TitleBar` (and JFace's `TitleBarWindow`): the caption replaced by a themed bar with a quick access toolbar, title menu, search, account and window buttons, native frame on Windows and macOS, drawn elsewhere. See [titlebar-plan.md](titlebar-plan.md) |
 | Scrollbars, menus, Shell title bar, native dialogs | Platform dark-mode hooks: win32 explorer / immersive dark mode, GTK prefer-dark / CSS, Cocoa NSAppearance. These go through `PlatformThemeSupport` per OS. The internal `Display.setData` keys are checked in Phase 0. Documented as limitations. |
 
 Renderers read the theme's `states` block (hover, pressed, focused, disabled, selected).
