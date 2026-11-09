@@ -258,7 +258,7 @@ the slot (`TitleBarSlot`) are typed so that they take the bar's colors rather th
 | 3 ✅ | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
 | 4 ✅ | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
 | 5 ✅ | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
-| 6 | **Commands from the ribbon** | The quick access toolbar on the shared `Command` model (`CommandTitleBarItem`), saved in the `CustomizationStore` section `"quickAccessToolbar"`, offering every command of the shell's `CommandRegistry` in "More Commands...", and fed by the ribbon's *Add to Quick Access Toolbar*; the Word window of the demo gets a real ribbon. Tests: a command and its item stay in sync, running, toggles, menus, the store round trip, commands added from the registry. |
+| 6 ✅ | **Commands from the ribbon** | The quick access toolbar on the shared `Command` model (`CommandTitleBarItem`), saved in the `CustomizationStore` section `"quickAccessToolbar"`, offering every command of the shell's `CommandRegistry` in "More Commands...", and fed by the ribbon's *Add to Quick Access Toolbar*; the Word window of the demo gets a real ribbon. Tests: a command and its item stay in sync, running, toggles, menus, the store round trip, commands added from the registry. |
 
 ## Step 1 in detail
 
