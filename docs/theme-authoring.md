@@ -26,6 +26,7 @@ runnable program:
 | `zapthemes-jface-text` | JFace Text 3.31.100 fork: a drop-in `org.eclipse.jface.text` (`SourceViewer`, rulers, hovers, content assist), with `zapthemes-text`, `org.eclipse.text` 3.14.800 built from source |
 | `zapthemes-nattable` | NatTable bridge: every NatTable takes the theme as a NatTable `ThemeConfiguration`, switched live (NatTable 2.7.0 as published) |
 | `zapthemes-visualization` | Nebula Visualization fork (XYGraph, gauges, meters, knobs, tanks, thermometers, ...) whose draw2d figures take the theme's figure rules |
+| `zapthemes-editor` | The theme editor, being built (docs/theme-editor-plan.md). So far its headless palette model (`com.zapthemes.editor.palette`): OKLCH and HSL, harmony rules, a seeded generator, tints and shades, colors from an image, WCAG contrast checks, auto-fill of the common names |
 | `zapthemes-nebula`, `zapthemes-nebula-incubation` | Nebula proxies and stylers, with the forked widgets (`zapthemes-nebula-fork`, `zapthemes-nebula-incubation-fork`) and draw2d (`zapthemes-draw2d`) |
 
 Every module needs JDK 25 and depends on SWT 3.135.0. As with JFace on Maven Central, the POMs name the

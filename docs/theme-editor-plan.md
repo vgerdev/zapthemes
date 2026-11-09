@@ -187,7 +187,7 @@ haven't set yourself.
 | 2 ✅ | **Property catalog + default map** | `PropertySpec`, registration in every styler provider and `FigureTheming`, variants, classes and states per type; the catalog coverage tests above. | Step 4 of the wizard and upgrades on load both need it. |
 | 3 ✅ | **Bundled themes on common names** | Rewrite the four bundled themes as v2 with the base names, turning literals into names where one fits. **Equivalence test:** every catalog type, variant, class and state resolves to the same colors and fonts before and after, and screenshot diffs show no change. | Shows that the format and names are enough for real themes before any UI exists. |
 | 4 ✅ | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
-| 5 | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
+| 5 ✅ | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
 | 6 | **Wizard: palette, names, colors and fonts** | `zapthemes-editor` with `ThemeWizard`, pages 1–3, the preview pane, and the editing model (an undo stack per page; "set by user" vs auto-filled). | |
 | 7 | **Wizard: controls, finish, round-trip** | Page 4 (tree, property table, overrides, adding variants, classes and states), the finish page, saving, reopening; a round-trip test (open, then save, gives the same file) on every bundled theme. | |
 | 8 | **App, docs, CI** | The standalone app (`run`, `--smoke`, screenshots of each page in each theme); opening the wizard from the JFace demo and ZapNotes preferences; the theme authoring guide's "Theme editor" section and the v2 format; the README run list; CI smoke tests and screenshots on all platforms. | |
@@ -362,3 +362,68 @@ Open, seen in screenshots:
   `Control.print` captures. It is the same without the `DarkMode_` change, and GTK draws it light.
   Whether the screen shows it too is still to be checked.
 - The Nebula Grid's unfocused selected row has dark text in zap-dark, inside or outside a preview.
+
+## Step 5 in detail
+
+The new module `zapthemes-editor` holds the palette model in `com.zapthemes.editor.palette`. It is
+pure Java over SWT's `RGB` and `ImageData`, which need no display, so every test runs headless.
+Step 6 adds the wizard to the same module.
+
+- **`Oklch` and `Hsl`:** conversions from and to sRGB. `Oklch.toRgb()` brings an out-of-gamut color
+  in by reducing chroma, keeping lightness and hue. `Oklch.distance` is the OKLab distance.
+- **`Contrast`:** WCAG relative luminance, ratios and levels (AAA, AA, AA large, fail).
+  `atLeast(color, minimum, against...)` moves a color's OKLCH lightness just far enough to reach a
+  ratio on every background, keeping its hue.
+- **`Harmony`:** complementary, analogous, triadic, tetradic and monochromatic, as hue offsets in
+  OKLCH. The ids are what `editor.generator.rule` holds.
+- **`PaletteGenerator(seed)`:** 5 to 8 swatches.
+  - Three neutrals tinted with the base hue: `ground`, `panel` and `ink`, at the dark or light end
+    as asked.
+  - Accents on the rule's hues: `accent`, `accent2`, ... Lightness and chroma stay in ranges that
+    suit interfaces.
+  - `regenerate` re-rolls every unlocked swatch. Every swatch draws the same random values whether
+    or not it is locked, so locking one leaves the others as they would be.
+  - The same seed and the same calls give the same palettes.
+- **`TintsAndShades.of(color, steps)`:** even OKLCH lightness steps from 0.97 to 0.18.
+- **`ImagePalette.extract(imageData, k, seed)`:** k-means++ in OKLab on up to 20,000 sampled
+  pixels, transparent ones left out, the most common color first.
+- **`NameFill.fill(palette, userSet)`:** a color for every base name with a color part.
+  - Background: the darkest or lightest swatch.
+  - Surfaces and lines: lightness steps from it.
+  - Foreground: the swatch with the best contrast, brought to 7:1.
+  - Accent: the most saturated swatch. Selection, link, focus and badge follow from it, and
+    `onAccent` is white or black.
+  - Status colors: the accent's chroma moved to red, amber, green and blue. Code colors: hues
+    around the accent's.
+  - Every declared pair reaches its minimum. Colors the user set are kept, and the colors derived
+    from them follow.
+- **`ContrastCheck`:** every pair the base names declare (`NameSpec.contrastWith`), with ratio and
+  level. The minimum is 4.5:1, or 3:1 for `disabled`.
+- **`Palette`:** swatches, dark, and the rule and base when generated. `Palette.fromTheme` takes a
+  theme's `swatches`, or else up to 8 of the most distinct colors its base names resolve to.
+  `toSwatches()` gives a theme's `swatches` section.
+- **`PaletteStore`:** saved palettes, as JSON in `~/.zapthemes/palettes` or a directory the app
+  chooses. The swatches are in a theme's `swatches` shape and the settings in its
+  `editor.generator` shape; a newer format is refused.
+
+Tests (37):
+- the conversions match published values and round-trip all of sRGB;
+- gamut mapping, contrast ratios and `atLeast`;
+- even tints and shades;
+- generator determinism, ranges, rule hues, locks and regenerate;
+- k-means on synthetic images, including noise, transparency and large images;
+- auto-fill: 400 generated palettes (40 seeds, every rule, light and dark, sizes 5 to 8) all pass
+  the contrast checks, user-set colors win, and the bundled themes' palettes fill readable names;
+- palette files.
+
+A rendered sheet of filled palettes, every rule in light and dark, looked like plausible UI themes.
+
+**Found:** the bundled zap-dark and zap-light, which are older than the declared pairs, fall short on
+some of them. High contrast passes them all. The test pins the list:
+- **zap-dark:** muted and disabled on surface, onAccent on accent, link on background and surface,
+  comment on surface;
+- **zap-light:** onAccent on accent, link on background and surface, warning on background, the
+  title bar's foregrounds, comment on surface.
+
+Most are close (accent and links at about 4:1); comments are about 3.4:1 and light's inactive title
+bar 2.3:1. Fixing them changes how the themes look, so it waits for a decision.
