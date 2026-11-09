@@ -202,7 +202,7 @@ public class TitleBar extends Canvas {
         }
         getDisplay().addFilter(SWT.KeyDown, focusKeyFilter);
         ThemeManager manager = ThemeManager.get(getDisplay());
-        manager.addThemeChangeListener(themeListener);
+        manager.addThemeChangeListener(this, themeListener);
         initAccessible();
         ThemeManager.applyOnCreate(this, TYPE);
     }
@@ -1222,7 +1222,7 @@ public class TitleBar extends Canvas {
                 shell.removeListener(type, shellListener);
             }
         }
-        ThemeManager.get(getDisplay()).removeThemeChangeListener(themeListener);
+        ThemeManager.get(getDisplay()).removeThemeChangeListener(this, themeListener);
         for (Menu menu : new Menu[] { customizeMenu, systemMenu }) {
             if (menu != null && !menu.isDisposed()) {
                 menu.dispose();

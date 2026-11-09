@@ -81,10 +81,14 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
         if (api == null || !(widget instanceof Control control)) {
             return;
         }
+        // The DarkMode_ classes are dark whatever the application's mode, so a preview can be dark
+        // in a light window; SWT's own switch (beforeTheme) is display-wide.
         if (control instanceof Combo) {
-            api.theme(control, settings.bool("darkCombos").orElse(false), "CFD");
+            boolean dark = settings.bool("darkCombos").orElse(false);
+            api.theme(control, dark, dark ? "DarkMode_CFD" : "CFD");
         } else if (control instanceof Scrollable || control instanceof Button || control instanceof Slider) {
-            api.theme(control, settings.bool("darkScrollbars").orElse(false), "Explorer");
+            boolean dark = settings.bool("darkScrollbars").orElse(false);
+            api.theme(control, dark, dark ? "DarkMode_Explorer" : "Explorer");
         }
     }
 

@@ -1,5 +1,6 @@
 package com.zapthemes.visualization;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -13,8 +14,10 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.eclipse.draw2d.EventDispatcher;
 import org.eclipse.draw2d.IFigure;
 import org.eclipse.draw2d.LayoutListener;
+import org.eclipse.draw2d.SWTEventDispatcher;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.FontData;
@@ -116,6 +119,8 @@ public final class FigureTheming {
             return;
         }
         ThemeManager manager = ThemeManager.get(display);
+        // The canvas decides the theme: a preview's, if the canvas is in one.
+        Control canvas = canvasOf(root);
         apply(root, manager);
         ThemeChangeListener onSwitch = new ThemeChangeListener() {
             @Override
@@ -132,16 +137,24 @@ public final class FigureTheming {
             @Override
             public void postLayout(IFigure container) {
                 // Figures added since the last pass (a legend, an annotation) get the current theme.
-                walk(root, manager, true);
+                walk(root, manager, canvasOf(root), true);
             }
         };
         // Theme fonts follow the zoom, so a zoom re-styles the figures like a theme switch.
-        ZoomListener onZoom = (previous, current) -> onSwitch.themeChanged(manager.getTheme(), manager.getTheme());
-        manager.addThemeChangeListener(onSwitch);
+        ZoomListener onZoom = (previous, current) -> onSwitch.themeChanged(manager.themeOf(canvas), manager.themeOf(canvas));
+        if (canvas != null) {
+            manager.addThemeChangeListener(canvas, onSwitch);
+        } else {
+            manager.addThemeChangeListener(onSwitch);
+        }
         manager.addZoomListener(onZoom);
         root.addLayoutListener(onLayout);
         ATTACHED.put(root, () -> {
-            manager.removeThemeChangeListener(onSwitch);
+            if (canvas != null) {
+                manager.removeThemeChangeListener(canvas, onSwitch);
+            } else {
+                manager.removeThemeChangeListener(onSwitch);
+            }
             manager.removeZoomListener(onZoom);
             root.removeLayoutListener(onLayout);
         });
@@ -164,32 +177,70 @@ public final class FigureTheming {
         control.addDisposeListener(e -> detach(root));
     }
 
-    /** Applies the current theme to {@code root} and its descendants once. */
+    /**
+     * Applies the theme to {@code root} and its descendants once: that of the canvas showing them
+     * ({@link ThemeManager#themeOf}, a preview's if the canvas is in one), else the display's.
+     */
     public static void apply(IFigure root, ThemeManager manager) {
-        walk(root, manager, false);
+        walk(root, manager, canvasOf(root), false);
         root.repaint();
     }
 
-    private static void walk(IFigure figure, ThemeManager manager, boolean onlyNew) {
-        Object theme = manager.getTheme();
+    /**
+     * The control showing {@code figure}, through its tree's event dispatcher; null when the figure
+     * is not shown, or not on an SWT canvas.
+     */
+    static Control canvasOf(IFigure figure) {
+        EventDispatcher dispatcher;
+        try {
+            dispatcher = figure.internalGetEventDispatcher();
+        } catch (RuntimeException e) {
+            return null;
+        }
+        if (!(dispatcher instanceof SWTEventDispatcher) || DISPATCHER_CONTROL == null) {
+            return null;
+        }
+        try {
+            return DISPATCHER_CONTROL.get(dispatcher) instanceof Control control && !control.isDisposed() ? control : null;
+        } catch (IllegalAccessException e) {
+            return null;
+        }
+    }
+
+    /** {@code SWTEventDispatcher.control}: protected, for subclasses, so read reflectively. */
+    private static final Field DISPATCHER_CONTROL = dispatcherControl();
+
+    private static Field dispatcherControl() {
+        try {
+            Field field = SWTEventDispatcher.class.getDeclaredField("control");
+            field.setAccessible(true);
+            return field;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "draw2d's SWTEventDispatcher has no control field; figures take the display's theme", e);
+            return null;
+        }
+    }
+
+    private static void walk(IFigure figure, ThemeManager manager, Control canvas, boolean onlyNew) {
+        Object theme = manager.themeOf(canvas);
         State state;
         synchronized (STATES) {
             state = STATES.computeIfAbsent(figure, f -> new State());
         }
         if (!onlyNew || state.theme != theme) {
-            style(figure, state, manager);
+            style(figure, state, manager, canvas);
             state.theme = theme;
         }
         for (Object child : new ArrayList<>(figure.getChildren())) {
-            walk((IFigure) child, manager, onlyNew);
+            walk((IFigure) child, manager, canvas, onlyNew);
         }
     }
 
-    private static void style(IFigure figure, State state, ThemeManager manager) {
+    private static void style(IFigure figure, State state, ThemeManager manager, Control canvas) {
         ThemeContext context = new ThemeContext(manager.resources());
         Set<String> applied = new HashSet<>();
         for (String type : types(figure.getClass())) {
-            ResolvedStyle rule = manager.ruleOf(type);
+            ResolvedStyle rule = manager.ruleOf(canvas, type);
             for (String key : rule.keys()) {
                 if (key.equals(ResolvedStyle.STATES)) {
                     continue;

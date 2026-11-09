@@ -94,7 +94,7 @@ public final class TextTheming {
             return null;
         }
         ThemeManager manager = ThemeManager.get(canvas.getDisplay());
-        if (manager.getTheme() == Theme.EMPTY) {
+        if (manager.themeOf(canvas) == Theme.EMPTY) {
             return null;
         }
         return manager.styleOf(canvas).color(property).map(rgba -> new Color(rgba.rgb)).orElse(null);

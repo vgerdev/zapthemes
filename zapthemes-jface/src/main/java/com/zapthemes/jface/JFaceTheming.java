@@ -58,7 +58,7 @@ public final class JFaceTheming {
                 continue;
             }
             ThemeManager manager = ThemeManager.get(control.getDisplay());
-            if (manager.getTheme() == Theme.EMPTY) {
+            if (manager.themeOf(control) == Theme.EMPTY) {
                 control.setData(ThemeKeys.THEME_CLASS, themeClass);
             } else {
                 manager.setThemeClass(control, themeClass);

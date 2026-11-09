@@ -106,7 +106,15 @@ val smokeRibbon = tasks.register<JavaExec>("smokeTestRibbon") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
-val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar)
+val smokePreview = tasks.register<JavaExec>("smokeTestPreview") {
+    group = "verification"
+    description = "Smoke-tests preview themes: one pane themed apart from the window, and edited in place."
+    mainClass = "com.zapthemes.demo.PreviewDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
+val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar,
+    smokePreview)
 smokeTasks.forEach { task ->
     task.configure {
         dependsOn(clearRecordedKeys)
@@ -168,6 +176,14 @@ tasks.register<JavaExec>("runTitleBar") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
+// Preview themes: the same controls in the window's theme and in a previewed one.
+tasks.register<JavaExec>("runPreview") {
+    group = "application"
+    description = "Runs the preview themes demo."
+    mainClass = "com.zapthemes.demo.PreviewDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 // The Nebula widgets demo.
 tasks.register<JavaExec>("runNebula") {
     group = "application"
@@ -188,6 +204,7 @@ val screenshotTasks = mapOf(
     "Visualization" to "com.zapthemes.demo.VisualizationDemo",
     "Ribbon" to "com.zapthemes.demo.RibbonDemo",
     "TitleBar" to "com.zapthemes.demo.TitleBarDemo",
+    "Preview" to "com.zapthemes.demo.PreviewDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"

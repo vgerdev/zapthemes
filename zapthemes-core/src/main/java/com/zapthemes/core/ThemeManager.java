@@ -1,11 +1,13 @@
 package com.zapthemes.core;
 
 import java.lang.System.Logger.Level;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,9 +15,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTException;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Widget;
 
@@ -44,6 +48,8 @@ import com.zapthemes.core.style.ThemeContext;
  *       theme sizes and widget images; Ctrl + mouse wheel, Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on
  *       macOS) and a trackpad pinch change it unless
  *       {@linkplain #setZoomShortcutsEnabled(boolean) turned off}.</li>
+ *   <li>{@link #preview(Composite, Theme)} themes one subtree with a theme of its own, such as a
+ *       theme editor's preview pane, while the rest of the display keeps the display's theme.</li>
  * </ul>
  *
  * All methods except {@link #setTheme(Theme)} must be called on the display's UI thread.
@@ -63,6 +69,15 @@ public final class ThemeManager {
     /** System property: {@code false} makes the zoom shortcuts start turned off on every display. */
     public static final String ZOOM_SHORTCUTS_PROPERTY = "zapthemes.zoomShortcuts";
     private static final double EPSILON = 1e-6;
+    /**
+     * The events whose widget decides which theme {@link #ambientRegistry(String)} reads while a
+     * {@linkplain #preview preview} is shown: painting, input and the like.
+     */
+    private static final int[] AMBIENT_EVENTS = { SWT.Paint, SWT.MeasureItem, SWT.EraseItem, SWT.PaintItem, SWT.Resize,
+            SWT.MouseDown, SWT.MouseUp, SWT.MouseMove, SWT.MouseEnter, SWT.MouseExit, SWT.MouseHover,
+            SWT.MouseDoubleClick, SWT.MouseWheel, SWT.KeyDown, SWT.KeyUp, SWT.FocusIn, SWT.FocusOut, SWT.Selection,
+            SWT.DefaultSelection, SWT.Expand, SWT.Collapse, SWT.Show, SWT.Hide, SWT.Modify, SWT.Traverse };
+    private static final Map<Class<?>, Optional<Method>> PARENT_METHODS = new ConcurrentHashMap<>();
 
     private final Display display;
     private final StylerRegistry stylers = StylerRegistry.withDefaults();
@@ -72,6 +87,12 @@ public final class ThemeManager {
     private final PlatformThemeSupport platform = PlatformThemeSupport.forCurrentPlatform();
 
     private StyleResolver resolver = new StyleResolver(Theme.EMPTY);
+    /** Subtrees themed apart by {@link #preview(Composite, Theme)}, with their resolvers. */
+    private final Map<Composite, StyleResolver> previews = new IdentityHashMap<>();
+    private final List<ScopedListener> scopedListeners = new CopyOnWriteArrayList<>();
+    private final Listener ambientFilter = event -> ambient = resolverOf(event.widget);
+    /** While a preview is shown: the resolver of the widget being themed, or of the last event's widget. */
+    private StyleResolver ambient;
     private final ThemeResources resources;
     private boolean zoomShortcuts = !"false".equalsIgnoreCase(System.getProperty(ZOOM_SHORTCUTS_PROPERTY));
     private boolean zoomImages = true;
@@ -155,9 +176,211 @@ public final class ThemeManager {
             return;
         }
         Theme previous = resolver.theme();
+        Map<ScopedListener, StyleResolver> before = scopedThemes();
         resolver = new StyleResolver(theme);
         reapplyAll();
         listeners.forEach(listener -> listener.themeChanged(previous, theme));
+        fireScoped(before);
+    }
+
+    /**
+     * Themes {@code root} and its descendants with {@code theme} instead of the display's theme,
+     * until {@link #endPreview(Composite)} or until {@code root} is disposed. Calling it again, with an
+     * edited theme, re-themes the subtree in place: nothing is disposed or created again, and widgets
+     * added to the subtree later get the preview's theme too.
+     *
+     * <p>Everything that styles a widget follows the preview: the stylers, {@link #styleOf(Widget)},
+     * native dark scrollbars and combos on Windows, {@link #themeOf(Widget)}, the listeners of
+     * {@link #addThemeChangeListener(Widget, ThemeChangeListener)} (the ribbon, the title bar and
+     * draw2d figures use them), and the system colors the Nebula and JFace Text forks paint with
+     * ({@link #ambientRegistry(String)}). What is display-wide keeps the display's theme: shells
+     * (title bars, the Windows menu bar), menus, tool tips and dialogs opened from the subtree, and
+     * the JFace color and font registries. The zoom is the display's. A preview inside a preview
+     * themes its own subtree.
+     */
+    public void preview(Composite root, Theme theme) {
+        Objects.requireNonNull(root, "root");
+        Objects.requireNonNull(theme, "theme");
+        checkThread();
+        if (root.isDisposed()) {
+            return;
+        }
+        if (root instanceof Shell) {
+            throw new IllegalArgumentException("A shell takes the display's theme; preview a composite inside it");
+        }
+        Map<ScopedListener, StyleResolver> before = scopedThemes();
+        if (previews.isEmpty()) {
+            for (int type : AMBIENT_EVENTS) {
+                display.addFilter(type, ambientFilter);
+            }
+        }
+        if (previews.put(root, new StyleResolver(theme)) == null) {
+            root.addListener(SWT.Dispose, event -> forget(root));
+        }
+        reapplySubtree(root);
+        fireScoped(before);
+    }
+
+    /** Gives {@code root}'s subtree the theme around it again, after {@link #preview(Composite, Theme)}. */
+    public void endPreview(Composite root) {
+        checkThread();
+        if (!previews.containsKey(root)) {
+            return;
+        }
+        Map<ScopedListener, StyleResolver> before = scopedThemes();
+        forget(root);
+        if (!root.isDisposed()) {
+            reapplySubtree(root);
+        }
+        fireScoped(before);
+    }
+
+    /** The theme {@code root} previews, or null when it previews none. */
+    public Theme previewOf(Composite root) {
+        StyleResolver preview = previews.get(root);
+        return preview != null ? preview.theme() : null;
+    }
+
+    private void forget(Composite root) {
+        StyleResolver removed = previews.remove(root);
+        if (removed == null) {
+            return;
+        }
+        if (ambient == removed) {
+            ambient = null;
+        }
+        if (previews.isEmpty()) {
+            for (int type : AMBIENT_EVENTS) {
+                display.removeFilter(type, ambientFilter);
+            }
+            ambient = null;
+        }
+    }
+
+    private void reapplySubtree(Composite root) {
+        root.setRedraw(false);
+        try {
+            WidgetTree.walk(root, this::apply);
+        } finally {
+            root.setRedraw(true);
+        }
+        root.layout(true, true);
+        root.redraw(0, 0, root.getSize().x, root.getSize().y, true);
+    }
+
+    /**
+     * The theme {@code widget} is styled with: that of the nearest {@linkplain #preview preview} it
+     * is in, else the display's {@link #getTheme()}.
+     */
+    public Theme themeOf(Widget widget) {
+        return resolverOf(widget).theme();
+    }
+
+    /**
+     * Calls {@code listener} after each {@link #setTheme(Theme)}, {@link #preview} or
+     * {@link #endPreview} that re-themes {@code widget}, once the widgets are re-themed; removed when
+     * {@code widget} is disposed. A {@code setTheme} does not reach a widget inside a preview. Widgets that paint from the theme
+     * themselves use it rather than {@link #addThemeChangeListener(ThemeChangeListener)}, so that
+     * they follow a preview they are shown in.
+     */
+    public void addThemeChangeListener(Widget widget, ThemeChangeListener listener) {
+        Objects.requireNonNull(listener, "listener");
+        ScopedListener scoped = new ScopedListener(widget, listener);
+        scopedListeners.add(scoped);
+        widget.addListener(SWT.Dispose, event -> scopedListeners.remove(scoped));
+    }
+
+    public void removeThemeChangeListener(Widget widget, ThemeChangeListener listener) {
+        scopedListeners.removeIf(scoped -> scoped.widget == widget && scoped.listener == listener);
+    }
+
+    /** Compared by identity: the same listener may be added twice for one widget. */
+    private static final class ScopedListener {
+        final Widget widget;
+        final ThemeChangeListener listener;
+
+        ScopedListener(Widget widget, ThemeChangeListener listener) {
+            this.widget = widget;
+            this.listener = listener;
+        }
+    }
+
+    /**
+     * The resolver each listener's widget is styled with; every {@link #setTheme} and {@link #preview}
+     * makes a new one, so a listener hears of each call that re-themes its widget.
+     */
+    private Map<ScopedListener, StyleResolver> scopedThemes() {
+        Map<ScopedListener, StyleResolver> resolvers = new IdentityHashMap<>();
+        for (ScopedListener scoped : scopedListeners) {
+            if (!scoped.widget.isDisposed()) {
+                resolvers.put(scoped, resolverOf(scoped.widget));
+            }
+        }
+        return resolvers;
+    }
+
+    private void fireScoped(Map<ScopedListener, StyleResolver> before) {
+        for (ScopedListener scoped : scopedListeners) {
+            StyleResolver previous = before.get(scoped);
+            if (previous == null || scoped.widget.isDisposed()) {
+                continue;
+            }
+            StyleResolver current = resolverOf(scoped.widget);
+            if (current != previous) {
+                scoped.listener.themeChanged(previous.theme(), current.theme());
+            }
+        }
+    }
+
+    /** The resolver for {@code widget}: that of the nearest preview it is in, else the display's. */
+    private StyleResolver resolverOf(Widget widget) {
+        if (previews.isEmpty() || widget == null) {
+            return resolver;
+        }
+        for (Widget at = widget; at != null && !(at instanceof Shell); at = parentOf(at)) {
+            StyleResolver preview = at instanceof Composite composite ? previews.get(composite) : null;
+            if (preview != null) {
+                return preview;
+            }
+        }
+        // A shell, even one opened from a preview, is the display's.
+        return resolver;
+    }
+
+    /**
+     * The widget {@code widget} belongs to: a control's parent; an item's, a scroll bar's or a
+     * caret's control (any public {@code getParent()} returning a widget); else null.
+     */
+    private static Widget parentOf(Widget widget) {
+        if (widget.isDisposed()) {
+            return null;
+        }
+        if (widget instanceof Control control) {
+            return control.getParent();
+        }
+        Optional<Method> method = PARENT_METHODS.computeIfAbsent(widget.getClass(), type -> {
+            try {
+                Method getter = type.getMethod("getParent");
+                return Widget.class.isAssignableFrom(getter.getReturnType()) && getter.getParameterCount() == 0
+                        ? Optional.of(getter) : Optional.empty();
+            } catch (NoSuchMethodException e) {
+                return Optional.empty();
+            }
+        });
+        if (method.isEmpty()) {
+            return null;
+        }
+        try {
+            return (Widget) method.get().invoke(widget);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    private void checkThread() {
+        if (display.getThread() != Thread.currentThread()) {
+            throw new SWTException(SWT.ERROR_THREAD_INVALID_ACCESS);
+        }
     }
 
     /** The zoom factor of every theme font on this display; {@code 1.0} (100 %) by default. */
@@ -295,9 +518,24 @@ public final class ThemeManager {
         return resolver.rule(type);
     }
 
+    /** {@link #ruleOf(String)} in the theme {@code widget} is styled with ({@link #themeOf(Widget)}). */
+    public ResolvedStyle ruleOf(Widget widget, String type) {
+        return resolverOf(widget).rule(type);
+    }
+
     /** A {@code registries} block of the current theme, e.g. {@code "colors"} or {@code "fonts"}. */
     public ResolvedStyle registry(String name) {
         return resolver.registry(name);
+    }
+
+    /**
+     * A {@code registries} block for code that paints without knowing its widget, such as the
+     * forks' system colors. While a {@linkplain #preview preview} is shown, it comes from the theme
+     * of the widget being themed or, otherwise, of the last painting or input event's widget;
+     * without one, from the display's theme.
+     */
+    public ResolvedStyle ambientRegistry(String name) {
+        return (ambient != null ? ambient : resolver).registry(name);
     }
 
     /** The colors and fonts of this display's themes (kept for the display's lifetime). */
@@ -387,15 +625,25 @@ public final class ThemeManager {
      */
     public ResolvedStyle styleOf(Widget widget) {
         String classes = widget.getData(ThemeKeys.THEME_CLASS) instanceof String c ? c : null;
-        return resolver.resolve(typeOf(widget), widget.getStyle(), classes);
+        return resolverOf(widget).resolve(typeOf(widget), widget.getStyle(), classes);
     }
 
     void apply(Widget widget) {
-        ResolvedStyle style = styleOf(widget);
-        // The native theme first: on Windows SetWindowTheme makes a tool bar reload its default
-        // font, so the styler's font must come after it.
-        platform.apply(widget, resolver.platform());
-        stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
+        StyleResolver own = resolverOf(widget);
+        String classes = widget.getData(ThemeKeys.THEME_CLASS) instanceof String c ? c : null;
+        ResolvedStyle style = own.resolve(typeOf(widget), widget.getStyle(), classes);
+        StyleResolver outer = ambient;
+        if (!previews.isEmpty()) {
+            ambient = own;
+        }
+        try {
+            // The native theme first: on Windows SetWindowTheme makes a tool bar reload its default
+            // font, so the styler's font must come after it.
+            platform.apply(widget, own.platform());
+            stylers.get(typeOf(widget)).apply(widget, style, new ThemeContext(resources));
+        } finally {
+            ambient = outer;
+        }
     }
 
     private String typeOf(Widget widget) {

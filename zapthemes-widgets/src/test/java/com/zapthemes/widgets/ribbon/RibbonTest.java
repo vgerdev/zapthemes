@@ -28,6 +28,7 @@ import com.zapthemes.core.ThemeKeys;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.ThemeRegistry;
 import com.zapthemes.core.model.Theme;
+import com.zapthemes.swt.widgets.Composite;
 import com.zapthemes.swt.widgets.Label;
 import com.zapthemes.swt.widgets.Shell;
 import com.zapthemes.themes.BundledThemes;
@@ -916,6 +917,33 @@ class RibbonTest {
         assertThat(darkBackground).isNotEqualTo(lightBackground);
         assertThat(darkBackground).isEqualTo(ThemeManager.get(display).styleOf(ribbon).color("background").orElseThrow().rgb);
         assertThat(ribbon.hotsOf(Hot.Kind.ITEM)).isNotEmpty();
+    }
+
+    @Test
+    void aRibbonInAPreviewFollowsThePreviewTheme() {
+        ThemeManager manager = ThemeManager.get(display);
+        Shell other = new Shell(display);
+        other.setLayout(new org.eclipse.swt.layout.FillLayout());
+        Composite pane = new Composite(other, SWT.NONE);
+        pane.setLayout(new org.eclipse.swt.layout.FillLayout());
+        Ribbon previewed = new Ribbon(pane, SWT.NONE);
+        previewed.addTab("home", "Home").addGroup("clipboard", "Clipboard");
+        other.setSize(800, 200);
+        other.open();
+        settle();
+        RGB lightBackground = previewed.colors().background.getRGB();
+
+        manager.preview(pane, dark);
+        settle();
+        RGB previewBackground = previewed.colors().background.getRGB();
+        assertThat(previewBackground).isNotEqualTo(lightBackground)
+                .isEqualTo(manager.styleOf(previewed).color("background").orElseThrow().rgb);
+
+        manager.setTheme(highContrast);
+        settle();
+        assertThat(previewed.colors().background.getRGB()).as("the preview keeps its theme").isEqualTo(previewBackground);
+        assertThat(ribbon.colors().background.getRGB()).isNotEqualTo(lightBackground);
+        other.dispose();
     }
 
     @Test
