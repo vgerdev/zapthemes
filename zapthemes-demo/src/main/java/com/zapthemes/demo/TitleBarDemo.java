@@ -14,7 +14,6 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Widget;
@@ -31,9 +30,14 @@ import com.zapthemes.swt.widgets.Shell;
 import com.zapthemes.swt.widgets.Table;
 import com.zapthemes.swt.widgets.TableColumn;
 import com.zapthemes.swt.widgets.TableItem;
-import com.zapthemes.swt.widgets.ToolBar;
-import com.zapthemes.swt.widgets.ToolItem;
-import com.zapthemes.widgets.FlatButton;
+import com.zapthemes.widgets.command.Command;
+import com.zapthemes.widgets.command.CommandMenu;
+import com.zapthemes.widgets.command.CommandRegistry;
+import com.zapthemes.widgets.command.CustomizationStore;
+import com.zapthemes.widgets.ribbon.Ribbon;
+import com.zapthemes.widgets.ribbon.RibbonGroup;
+import com.zapthemes.widgets.ribbon.RibbonTab;
+import com.zapthemes.widgets.ribbon.Size;
 import com.zapthemes.widgets.titlebar.TitleBar;
 import com.zapthemes.widgets.titlebar.TitleBarGlyph;
 import com.zapthemes.widgets.titlebar.TitleBarItem;
@@ -43,7 +47,12 @@ import com.zapthemes.widgets.titlebar.TitleBarProfile;
  * Office-style title bars: a Word-like window (blue) and an Excel-like one (green), each with the
  * system menu, a quick access toolbar (AutoSave, Save, Undo, Redo and more in the customize menu),
  * the document title with its menu, a centered search box, an account avatar with a profile
- * pop-up, and the window buttons. Comments and Share sit on the row below, as in Office.
+ * pop-up, and the window buttons. Below each bar is a ribbon whose File tab opens the backstage
+ * and whose items' context menu has <em>Add to Quick Access Toolbar</em>.
+ *
+ * <p>The Word window builds its quick access toolbar from the ribbon's {@link Command}s and keeps
+ * both bars' customizations in one {@link CustomizationStore} file; the Excel window uses plain
+ * title bar items and a Properties file, the other way an app can do it.
  *
  * <p>{@code --smoke} opens both windows, switches through every bundled theme, checks the bar's
  * parts, colors and profile pop-up and every widget's theme tag, and exits (non-zero on failure).
@@ -60,6 +69,7 @@ public final class TitleBarDemo {
     private final List<Theme> available;
     private final List<Window> windows = new ArrayList<>();
     private final List<Image> images = new ArrayList<>();
+    private final DemoIcons icons;
     private Path preferencesDir = Path.of(System.getProperty("user.home"), ".zapthemes");
 
     private record Window(String name, org.eclipse.swt.widgets.Shell shell, TitleBar bar, RGB accent) {
@@ -67,6 +77,7 @@ public final class TitleBarDemo {
 
     private TitleBarDemo(Display display) {
         this.display = display;
+        this.icons = new DemoIcons(display);
         this.themes = ThemeManager.get(display);
         this.available = DemoSupport.bundledThemes();
         themes.setTheme(available.getFirst());
@@ -103,6 +114,7 @@ public final class TitleBarDemo {
             }
         }
         demo.images.forEach(Image::dispose);
+        demo.icons.dispose();
         display.dispose();
         if (smoke) {
             System.exit(exitCode);
@@ -137,9 +149,19 @@ public final class TitleBarDemo {
         bar.setTitleMenu(documentMenu(shell, title));
         bar.setSearchHint("Search");
         Window window = new Window(name, shell, bar, accent);
-        quickAccess(window);
-        // Users' changes to the quick access toolbar survive restarts.
-        bar.setPreferences(preferencesDir.resolve("titlebar-demo-" + name + ".properties"));
+        CommandRegistry commands = CommandRegistry.of(shell);
+        defineCommands(commands, shell);
+        // Users' changes to the quick access toolbar survive restarts: Word keeps them with the
+        // ribbon's in one store, Excel in a Properties file of its own.
+        CustomizationStore store = null;
+        if (spreadsheet) {
+            quickAccess(window);
+            bar.setPreferences(preferencesDir.resolve("titlebar-demo-" + name + ".properties"));
+        } else {
+            commandQuickAccess(window, commands);
+            store = CustomizationStore.open(storeFile(name));
+            bar.setCustomizationStore(store);
+        }
         if (spreadsheet) {
             new TitleBarItem(bar, SWT.PUSH | SWT.TRAIL).setText("Upgrade your plan");
         }
@@ -148,7 +170,11 @@ public final class TitleBarDemo {
                 .action("Switch account", () -> System.out.println("Switch account"))
                 .action("Sign out", () -> System.out.println("Sign out")));
 
-        ribbonRow(shell);
+        Ribbon ribbon = ribbon(shell, commands, accent);
+        ribbon.setQuickAccessHook(bar::addToQuickAccess);
+        if (store != null) {
+            ribbon.setCustomizationStore(store);
+        }
         if (spreadsheet) {
             sheet(shell);
         } else {
@@ -203,48 +229,104 @@ public final class TitleBarDemo {
         return menu;
     }
 
-    /** The ribbon's tab row (the ribbon itself is out of scope), with Comments and Share at the right. */
-    private void ribbonRow(Shell shell) {
-        Composite row = new Composite(shell, SWT.NONE);
-        row.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-        GridLayout layout = new GridLayout(3, false);
-        layout.marginWidth = 10;
-        layout.marginHeight = 4;
-        row.setLayout(layout);
+    Path storeFile(String name) {
+        return preferencesDir.resolve("titlebar-demo-" + name + ".json");
+    }
 
-        Composite tabs = new Composite(row, SWT.NONE);
-        tabs.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        RowLayout tabLayout = new RowLayout();
-        tabLayout.spacing = 14;
-        tabLayout.center = true;
-        tabs.setLayout(tabLayout);
-        for (String tab : new String[] { "File", "Home", "Insert", "Draw", "Layout", "References", "Review", "View", "Help" }) {
-            Label label = new Label(tabs, SWT.NONE);
-            label.setText(tab);
-            if (tab.equals("Home")) {
-                themes.setThemeClass(label, "strong");
-            }
+    /** Word's quick access toolbar: the same commands as its ribbon's, from the shell's registry. */
+    private void commandQuickAccess(Window window, CommandRegistry commands) {
+        TitleBar bar = window.bar;
+        bar.addQuickAccess(commands.get("autosave"));
+        glyph(bar.addQuickAccess(commands.get("save")), TitleBarGlyph.SAVE);
+        glyph(bar.addQuickAccess(commands.get("undo")), TitleBarGlyph.UNDO);
+        glyph(bar.addQuickAccess(commands.get("redo")), TitleBarGlyph.REDO);
+        glyph(bar.addQuickAccess(commands.get("new"), false), TitleBarGlyph.NEW);
+        glyph(bar.addQuickAccess(commands.get("open"), false), TitleBarGlyph.OPEN);
+        glyph(bar.addQuickAccess(commands.get("print"), false), TitleBarGlyph.PRINT);
+        glyph(bar.addQuickAccess(commands.get("email"), false), TitleBarGlyph.EMAIL);
+    }
+
+    private static void glyph(TitleBarItem item, TitleBarGlyph glyph) {
+        item.setGlyph(glyph);
+    }
+
+    /**
+     * The window's commands, shared by its ribbon and its quick access toolbar. The quick access
+     * ones have no images, so the bar draws its own line glyphs for them.
+     */
+    private void defineCommands(CommandRegistry commands, Shell shell) {
+        RGB blue = new RGB(0x2F, 0x6F, 0xD0);
+        RGB slate = new RGB(0x50, 0x5A, 0x68);
+        command(commands, "autosave", "AutoSave", null, null, "File").style(Command.Style.TOGGLE)
+                .description("Save your changes as you go.");
+        command(commands, "save", "&Save", null, null, "File").shortcut(SWT.MOD1 | 'S').description("Save this document.");
+        command(commands, "undo", "&Undo", null, null, "Edit").style(Command.Style.SPLIT).shortcut(SWT.MOD1 | 'Z')
+                .menu(CommandMenu.of(menu -> {
+                    for (String step : new String[] { "Typing \"Time Required\"", "Bold", "Paste" }) {
+                        MenuItem item = new MenuItem(menu, SWT.PUSH);
+                        item.setText("Undo " + step);
+                        item.addListener(SWT.Selection, e -> System.out.println("Undo " + step));
+                    }
+                }));
+        command(commands, "redo", "&Redo", null, null, "Edit").shortcut(SWT.MOD1 | 'Y');
+        command(commands, "new", "&New", null, null, "File").shortcut(SWT.MOD1 | 'N');
+        command(commands, "open", "&Open", null, null, "File").shortcut(SWT.MOD1 | 'O');
+        command(commands, "print", "Quick &Print", null, null, "File");
+        command(commands, "email", "&Email", null, null, "File");
+        command(commands, "file.close", "&Close", "X", slate, "File").onRun(e -> shell.close());
+        command(commands, "home.paste", "&Paste", "P", slate, "Home").shortcut(SWT.MOD1 | 'V')
+                .description("Add content from the clipboard.");
+        command(commands, "home.cut", "Cu&t", "X", slate, "Home").shortcut(SWT.MOD1 | 'X');
+        command(commands, "home.copy", "&Copy", "C", slate, "Home").shortcut(SWT.MOD1 | 'C');
+        command(commands, "home.bold", "&Bold", "B", slate, "Home").style(Command.Style.TOGGLE).shortcut(SWT.MOD1 | 'B');
+        command(commands, "home.italic", "&Italic", "I", slate, "Home").style(Command.Style.TOGGLE).shortcut(SWT.MOD1 | 'I');
+        command(commands, "home.underline", "&Underline", "U", slate, "Home").style(Command.Style.TOGGLE)
+                .shortcut(SWT.MOD1 | 'U');
+        command(commands, "view.theme", "Switch &Theme", "T", blue, "View").description("Show the next bundled theme.")
+                .onRun(e -> switchTheme());
+    }
+
+    private Command command(CommandRegistry commands, String id, String label, String letter, RGB color, String category) {
+        Command command = new Command(id, label).category(category)
+                .onRun(e -> System.out.println(Command.stripMnemonic(label) + (e.arrow() ? " (arrow)" : "")));
+        if (letter != null) {
+            command.images(icons.of(letter, color));
         }
-        FlatButton comments = new FlatButton(row, SWT.PUSH);
-        comments.setText("Comments");
-        FlatButton share = new FlatButton(row, SWT.PUSH);
-        share.setText("Share");
-        themes.setThemeClass(share, "primary");
-        share.addListener(SWT.Selection, e -> switchTheme());
+        return commands.add(command);
+    }
 
-        ToolBar ribbon = new ToolBar(shell, SWT.FLAT | SWT.RIGHT);
+    /** A small ribbon: File (the backstage), Home and View, as in Office. */
+    private Ribbon ribbon(Shell shell, CommandRegistry commands, RGB accent) {
+        Ribbon ribbon = new Ribbon(shell, SWT.NONE, commands);
         ribbon.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-        for (String text : new String[] { "Paste", "Cut", "Copy", "|", "Bold", "Italic", "Underline", "|", "Switch theme" }) {
-            if (text.equals("|")) {
-                new ToolItem(ribbon, SWT.SEPARATOR);
-                continue;
-            }
-            ToolItem item = new ToolItem(ribbon, SWT.PUSH);
-            item.setText(text);
-            if (text.equals("Switch theme")) {
-                item.addListener(SWT.Selection, e -> switchTheme());
-            }
-        }
+        ribbon.setAccentColor(accent);
+        ribbon.setFileTab("File", backstage -> {
+            backstage.addPage("info", "Info", null, page -> {
+                Label text = new Label(page, SWT.WRAP);
+                text.setText(shell.getText() + ": protect, inspect and manage versions of this document here.");
+                text.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+            });
+            backstage.addPage("new", "New", null, page -> new Label(page, SWT.NONE).setText("Blank document"));
+            backstage.addPage("open", "Open", null, page -> new Label(page, SWT.NONE).setText("Recent documents"));
+            backstage.addCommand("save");
+            backstage.addPage("print", "Print", null, page -> new Label(page, SWT.NONE).setText("Printer: Default printer"));
+            backstage.addCommand("file.close");
+            backstage.addSeparator();
+            backstage.addPage("account", "Account", null, page -> new Label(page, SWT.NONE).setText("Pat Doe"));
+        });
+        RibbonTab home = ribbon.addTab("home", "Home").setKeyTip("H");
+        RibbonGroup clipboard = home.addGroup("home.clipboard", "Clipboard").setImage(commands.get("home.paste").images());
+        clipboard.add("home.paste").sizes(Size.LARGE, Size.LARGE);
+        clipboard.add("home.cut");
+        clipboard.add("home.copy");
+        RibbonGroup font = home.addGroup("home.font", "Font").setImage(commands.get("home.bold").images());
+        font.add("home.bold");
+        font.add("home.italic");
+        font.add("home.underline");
+        RibbonTab view = ribbon.addTab("view", "View").setKeyTip("W");
+        view.addGroup("view.themes", "Themes").setImage(commands.get("view.theme").images())
+                .add("view.theme").sizes(Size.LARGE, Size.LARGE);
+        return ribbon;
     }
 
     private void page(Shell shell) {
@@ -534,13 +616,18 @@ public final class TitleBarDemo {
             problems.add("a command shown from the customize menu has no bounds");
         }
         word.bar.getItem("print").setShown(false);
-        // Customization survives a restart: a second bar reads the first one's preferences file.
+        // Customization survives a restart: a second bar reads the first one's store, including a
+        // ribbon command a user added through the ribbon's Add to Quick Access Toolbar.
         word.bar.getItem("redo").setShown(false);
         word.bar.setQuickAccessBelow(true);
+        word.bar.addToQuickAccess(CommandRegistry.of(word.shell).get("home.bold"));
         Window again = window("word-again", "Again", WORD_BLUE, 'W', false);
-        again.bar.setPreferences(preferencesDir.resolve("titlebar-demo-word.properties"));
+        again.bar.setCustomizationStore(CustomizationStore.open(storeFile("word")));
         if (again.bar.getItem("redo").isShown() || !again.bar.isQuickAccessBelow()) {
-            problems.add("the quick access customization did not survive through the preferences file");
+            problems.add("the quick access customization did not survive through the store");
+        }
+        if (again.bar.getItem("home.bold") == null || !again.bar.getItem("home.bold").isShown()) {
+            problems.add("a ribbon command added to the quick access toolbar did not come back from the store");
         }
         again.shell.dispose();
         windows.remove(again);

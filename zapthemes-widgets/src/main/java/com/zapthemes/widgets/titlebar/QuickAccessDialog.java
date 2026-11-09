@@ -32,6 +32,8 @@ final class QuickAccessDialog {
 
         Model(TitleBar bar, TitleBarCustomization state) {
             bar.getQuickAccessItems().forEach(item -> names.put(item.getId(), item.plainText()));
+            // The shell's other commands (the ribbon's, say): adding one creates its item.
+            bar.otherCommands().forEach(command -> names.putIfAbsent(command.id(), command.plainLabel()));
             reset(state);
         }
 
