@@ -8,7 +8,8 @@ description = "Canvas-drawn replacements for native controls that ignore theme c
 
 dependencies {
     api(project(":zapthemes-core"))
-    // Popups (Shell), the combo editor (Text) and the customization dialog use the themed proxies.
+    // Popups (Shell), the combo editor (Text), the customization dialog and the title bar (search
+    // field, slot, menus, pop-up) use the themed proxies.
     api(project(":zapthemes-swt"))
 
     testImplementation(project(":zapthemes-themes"))

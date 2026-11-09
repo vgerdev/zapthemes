@@ -52,6 +52,11 @@ public final class BaseNames {
             name("info", "Accent and status", COLOR, "Information", "background"),
             name("badge", "Accent and status", COLOR, "Badges: KeyTips, counts"),
 
+            name("titleBar", "Title bar", COLOR, "The window title bar (TitleBar), when the app sets no accent"),
+            name("titleBarForeground", "Title bar", COLOR, "Title, glyphs and window buttons on the title bar", "titleBar"),
+            name("titleBarInactive", "Title bar", COLOR, "The title bar of an inactive window"),
+            name("titleBarInactiveForeground", "Title bar", COLOR, "Text on the title bar of an inactive window", "titleBarInactive"),
+
             name("code", "Code", FONT, "Source code"),
             name("keyword", "Code", COLOR, "Keywords in source code", "surface"),
             name("string", "Code", COLOR, "Strings in source code", "surface"),

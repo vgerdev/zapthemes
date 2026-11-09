@@ -3,6 +3,10 @@
   "name": "Zap High Contrast",
   "extends": "zap-dark",
   "palette": {
+    "titleBar": "#000000",
+    "titleBarForeground": "#FFFFFF",
+    "titleBarInactive": "#000000",
+    "titleBarInactiveForeground": "#A6A6A6",
     "bg": "#000000",
     "surface": "#000000",
     "fg": "#FFFFFF",
@@ -23,6 +27,17 @@
     "onBadge": "#000000"
   },
   "controls": {
+    "TitleBar": {
+      "hoverBackground": "$selection",
+      "pressedBackground": "$selection",
+      "searchBackground": "#000000",
+      "searchForeground": "#FFFFFF",
+      "searchBorderColor": "#FFFFFF",
+      "avatarBackground": "#FFFF00",
+      "avatarForeground": "#000000",
+      "focusColor": "#FFFF00",
+      "useAccent": false
+    },
     "Ribbon": {
       "useAppAccent": false,
       "states": {

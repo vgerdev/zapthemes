@@ -92,6 +92,13 @@ val smokeVisualization = tasks.register<JavaExec>("smokeTestVisualization") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeTitleBar = tasks.register<JavaExec>("smokeTestTitleBar") {
+    group = "verification"
+    description = "Smoke-tests the Office-style title bar demo."
+    mainClass = "com.zapthemes.demo.TitleBarDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
 val smokeRibbon = tasks.register<JavaExec>("smokeTestRibbon") {
     group = "verification"
     description = "Smoke-tests the ribbon demo: reduction, KeyTips, backstage, contextual tabs, collapse."
@@ -99,7 +106,7 @@ val smokeRibbon = tasks.register<JavaExec>("smokeTestRibbon") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
-val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon)
+val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar)
 smokeTasks.forEach { task ->
     task.configure {
         dependsOn(clearRecordedKeys)
@@ -153,6 +160,14 @@ tasks.register<JavaExec>("runRibbon") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
+// The Office-style title bar demo (Word-like and Excel-like windows).
+tasks.register<JavaExec>("runTitleBar") {
+    group = "application"
+    description = "Runs the Office-style title bar demo."
+    mainClass = "com.zapthemes.demo.TitleBarDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 // The Nebula widgets demo.
 tasks.register<JavaExec>("runNebula") {
     group = "application"
@@ -172,6 +187,7 @@ val screenshotTasks = mapOf(
     "NatTable" to "com.zapthemes.demo.NatTableDemo",
     "Visualization" to "com.zapthemes.demo.VisualizationDemo",
     "Ribbon" to "com.zapthemes.demo.RibbonDemo",
+    "TitleBar" to "com.zapthemes.demo.TitleBarDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"

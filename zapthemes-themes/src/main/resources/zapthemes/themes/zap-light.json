@@ -3,6 +3,10 @@
   "name": "Zap Light",
   "extends": "zap-base",
   "palette": {
+    "titleBar": "#3574F0",
+    "titleBarForeground": "#FFFFFF",
+    "titleBarInactive": "#6F9AF3",
+    "titleBarInactiveForeground": "#E3EBFC",
     "bg": "#F7F8FA",
     "surface": "#FFFFFF",
     "fg": "#1F2328",
@@ -25,6 +29,15 @@
     "foreground": "$fg"
   },
   "controls": {
+    "TitleBar": {
+      "background": "$titleBar",
+      "foreground": "$titleBarForeground",
+      "inactiveBackground": "$titleBarInactive",
+      "inactiveForeground": "$titleBarInactiveForeground",
+      "avatarBackground": "#CA5010",
+      "avatarForeground": "#FFFFFF",
+      "useAccent": true
+    },
     "Text": {
       "background": "$surface"
     },
