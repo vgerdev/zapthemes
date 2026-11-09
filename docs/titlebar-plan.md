@@ -258,6 +258,7 @@ the slot (`TitleBarSlot`) are typed so that they take the bar's colors rather th
 | 3 ✅ | **Customization and persistence** | `TitleBarCustomization`, the customize menu, "More Commands..." dialog, toolbar below the bar, the preferences file. Tests: round-trip through a file, unknown and new ids, reorder. |
 | 4 ✅ | **JFace** | `TitleBarWindow`, action-bound items, title menu and profile actions; the JFace variant of the demo. Tests: actions in sync, layout under the bar. |
 | 5 ✅ | **macOS native frame, docs** | Full-size content view, traffic-light inset, drag and zoom; `docs/theme-authoring.md` (title bar names and properties), `docs/PLAN.md`, the README. CI screenshots on macOS and GTK. |
+| 6 | **Commands from the ribbon** | The quick access toolbar on the shared `Command` model (`CommandTitleBarItem`), saved in the `CustomizationStore` section `"quickAccessToolbar"`, offering every command of the shell's `CommandRegistry` in "More Commands...", and fed by the ribbon's *Add to Quick Access Toolbar*; the Word window of the demo gets a real ribbon. Tests: a command and its item stay in sync, running, toggles, menus, the store round trip, commands added from the registry. |
 
 ## Step 1 in detail
 
@@ -407,6 +408,32 @@ leaves the bar `EMBEDDED` under the native title bar.
 buttons, the content view starting at the window's top) and the demo's smoke test run in CI on
 macOS, and CI uploads the screenshots; dragging and zooming need a person on a Mac. The demo's smoke
 test expects no window buttons or icon on macOS's native frame.
+
+## Step 6 in detail
+
+The ribbon (#24) brought `com.zapthemes.widgets.command`: a `Command` (id, label, images, style,
+enabled, checked, a handler), a per-shell `CommandRegistry` and a `CustomizationStore` with one JSON
+section per bar. The quick access toolbar moves onto it, as agreed with the ribbon session:
+
+- **`CommandTitleBarItem`** binds a `Command` to a `TitleBarItem`, as `ActionTitleBarItem` does an
+  `IAction`: the label, tooltip (label, shortcut, description), 16 px image, enabled and checked
+  follow the command; a click runs `Command.run`. `TOGGLE` commands are check items, `SPLIT` and
+  `MENU` ones drop-down items whose arrow (all of a `MENU` item) opens the command's `CommandMenu`:
+  ids looked up in the registry, a filler, or a popup factory, as the ribbon opens them.
+  `TitleBar.addQuickAccess(Command[, shown])` creates one; the item's id is the command's.
+- **The registry:** the bar uses `CommandRegistry.of(shell)`, the one the ribbon uses. "More
+  Commands..." offers its commands next to the bar's own items, and a customization that shows a
+  command the bar has no item for creates the item from the registry; unknown ids are ignored.
+- **The store:** `TitleBar.setCustomizationStore(store)` reads and writes the section
+  `"quickAccessToolbar"`: `{"commands": [...], "known": [...], "belowRibbon": false}`. `commands`
+  are the shown ids in order (`"|"`, which the ribbon's format allows, is skipped: the bar has no
+  separators), `known` lets commands the app adds later keep their default. The Properties file of
+  `setPreferences` stays for apps without a store, such as `TitleBarWindow`.
+- **The ribbon:** `ribbon.setQuickAccessHook(bar::addToQuickAccess)` puts *Add to Quick Access
+  Toolbar* on ribbon items' context menus; neither widget refers to the other.
+
+**Left as it is:** "Show below" puts the toolbar on a row under the title bar, not under the
+ribbon; the stored key is still `belowRibbon`, so moving the row later needs no format change.
 
 ## What each platform gets
 
