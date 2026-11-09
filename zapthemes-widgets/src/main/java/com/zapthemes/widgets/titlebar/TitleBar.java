@@ -128,6 +128,7 @@ public class TitleBar extends Canvas {
     private Menu systemMenu;
     private boolean quickAccessBelow;
     private java.nio.file.Path preferences;
+    private com.zapthemes.widgets.command.CustomizationStore store;
     private boolean loadingPreferences;
     private TitleBarCustomization defaults;
     private int focusKey = SWT.F6;
@@ -395,6 +396,64 @@ public class TitleBar extends Canvas {
         notifyCustomized();
     }
 
+    /** A shown quick access item for {@code command}; see {@link CommandTitleBarItem}. */
+    public TitleBarItem addQuickAccess(com.zapthemes.widgets.command.Command command) {
+        return addQuickAccess(command, true);
+    }
+
+    /**
+     * A quick access item for {@code command}, shown or only offered in the customize menu; the
+     * item's id is the command's. Add the shell's commands to {@code CommandRegistry.of(shell)} too,
+     * so "More Commands..." offers them and the ribbon shares them.
+     */
+    public TitleBarItem addQuickAccess(com.zapthemes.widgets.command.Command command, boolean shown) {
+        checkWidget();
+        TitleBarItem item = CommandTitleBarItem.create(this, command).item();
+        if (!shown) {
+            boolean was = loadingPreferences;
+            loadingPreferences = true;
+            try {
+                item.setShown(false);
+            } finally {
+                loadingPreferences = was;
+            }
+        }
+        return item;
+    }
+
+    /**
+     * Shows {@code command} on the quick access toolbar, as a user's choice (saved with the rest of
+     * the customization): the target of {@code Ribbon.setQuickAccessHook(bar::addToQuickAccess)}.
+     */
+    public void addToQuickAccess(com.zapthemes.widgets.command.Command command) {
+        checkWidget();
+        TitleBarItem item = getItem(command.id());
+        if (item == null) {
+            addQuickAccess(command, true);
+            notifyCustomized();
+        } else if (!item.isShown()) {
+            item.setShown(true);
+        }
+    }
+
+    /**
+     * The quick access item {@code id}, created hidden from the shell's {@code CommandRegistry} if
+     * the bar has none; {@code null} if neither knows it.
+     */
+    TitleBarItem itemOrCommand(String id) {
+        TitleBarItem item = getItem(id);
+        if (item != null) {
+            return item;
+        }
+        return com.zapthemes.widgets.command.CommandRegistry.of(shell).find(id).map(c -> addQuickAccess(c, false)).orElse(null);
+    }
+
+    /** The registry's commands the bar has no item for, in the registry's order. */
+    List<com.zapthemes.widgets.command.Command> otherCommands() {
+        return com.zapthemes.widgets.command.CommandRegistry.of(shell).all().stream()
+                .filter(c -> getItem(c.id()) == null).toList();
+    }
+
     void addItem(TitleBarItem item) {
         items.add(item);
         relayout();
@@ -425,6 +484,15 @@ public class TitleBar extends Canvas {
     void notifyCustomized() {
         if (isDisposed() || loadingPreferences) {
             return;
+        }
+        if (store != null) {
+            try {
+                store.put(TitleBarCustomization.SECTION, getCustomization().toJson());
+                store.save();
+            } catch (RuntimeException e) {
+                System.getLogger(TitleBar.class.getName()).log(System.Logger.Level.WARNING,
+                        "Could not save the quick access toolbar to " + store.file(), e);
+            }
         }
         if (preferences != null) {
             try {
@@ -497,6 +565,36 @@ public class TitleBar extends Canvas {
         } catch (java.io.IOException | RuntimeException e) {
             System.getLogger(TitleBar.class.getName()).log(System.Logger.Level.WARNING,
                     "Could not read the title bar preferences from " + file, e);
+        } finally {
+            loadingPreferences = false;
+        }
+    }
+
+    public com.zapthemes.widgets.command.CustomizationStore getCustomizationStore() {
+        checkWidget();
+        return store;
+    }
+
+    /**
+     * Keeps users' customizations in {@code store}'s {@code "quickAccessToolbar"} section, the file
+     * the ribbon keeps its own in: applied now if the section exists (shown commands the bar has no
+     * item for come from the shell's {@code CommandRegistry}; unknown ids are ignored), and saved
+     * on every change. Call it after creating the items. {@code null} stops saving.
+     */
+    public void setCustomizationStore(com.zapthemes.widgets.command.CustomizationStore newStore) {
+        checkWidget();
+        this.store = newStore;
+        defaults();
+        com.google.gson.JsonElement section = newStore == null ? null : newStore.section(TitleBarCustomization.SECTION);
+        if (section == null) {
+            return;
+        }
+        loadingPreferences = true;
+        try {
+            TitleBarCustomization.fromJson(section).applyTo(this);
+        } catch (RuntimeException e) {
+            System.getLogger(TitleBar.class.getName()).log(System.Logger.Level.WARNING,
+                    "Could not read the quick access toolbar from " + newStore.file(), e);
         } finally {
             loadingPreferences = false;
         }

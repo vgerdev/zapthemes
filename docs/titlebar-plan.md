@@ -313,9 +313,11 @@ back and `SWP_FRAMECHANGED` brings the caption back.
   (`setFrameState`) and acts on. A timer clears the hover when the pointer has left, since
   non-client leave messages are not guaranteed. Minimize and close stay client parts.
 - **System menu:** SWT binds `TrackPopupMenu` returning a `boolean`, so `TPM_RETURNCMD` can't give the
-  command back. The icon instead posts `WM_SYSCOMMAND`/`SC_KEYMENU` with a space, exactly what
-  Alt+Space does: the native menu opens under the icon with Windows' own item states. Right-click on
-  the caption shows it at the pointer, natively.
+  command back. Posting `WM_SYSCOMMAND`/`SC_KEYMENU` with a space, as Alt+Space does, opens nothing
+  while a mouse button is down, so the icon tracks `GetSystemMenu` itself: it enables Restore, Move,
+  Size, Minimize and Maximize for the window's state, makes Close the default, and turns the
+  `WM_COMMAND` the menu sends into `WM_SYSCOMMAND`. Right-click on the bar opens it at the pointer;
+  Alt+Space stays Windows'.
 - **No FFM:** with only the caption removed, the side and bottom frame keep the DWM shadow, Windows
   11's rounded corners and its 1 px border (top included), so `DwmExtendFrameIntoClientArea` is not
   needed and there is no `--enable-native-access` requirement. Windows 10 shows no 1 px border at the
@@ -418,7 +420,7 @@ section per bar. The quick access toolbar moves onto it, as agreed with the ribb
 - **`CommandTitleBarItem`** binds a `Command` to a `TitleBarItem`, as `ActionTitleBarItem` does an
   `IAction`: the label, tooltip (label, shortcut, description), 16 px image, enabled and checked
   follow the command; a click runs `Command.run`. `TOGGLE` commands are check items, `SPLIT` and
-  `MENU` ones drop-down items whose arrow (all of a `MENU` item) opens the command's `CommandMenu`:
+  `DROP_DOWN` ones drop-down items whose arrow (all of a `DROP_DOWN` item) opens the command's `CommandMenu`:
   ids looked up in the registry, a filler, or a popup factory, as the ribbon opens them.
   `TitleBar.addQuickAccess(Command[, shown])` creates one; the item's id is the command's.
 - **The registry:** the bar uses `CommandRegistry.of(shell)`, the one the ribbon uses. "More
