@@ -22,6 +22,7 @@ import com.zapthemes.core.ThemeKeys;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.model.Theme;
 import com.zapthemes.swt.custom.StyledText;
+import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Composite;
 import com.zapthemes.swt.widgets.Label;
 import com.zapthemes.swt.widgets.Menu;
@@ -170,7 +171,7 @@ public final class TitleBarDemo {
                 .action("Switch account", () -> System.out.println("Switch account"))
                 .action("Sign out", () -> System.out.println("Sign out")));
 
-        Ribbon ribbon = ribbon(shell, commands, accent);
+        Ribbon ribbon = ribbon(shell, bar, commands, accent);
         ribbon.setQuickAccessHook(bar::addToQuickAccess);
         if (store != null) {
             ribbon.setCustomizationStore(store);
@@ -296,7 +297,7 @@ public final class TitleBarDemo {
     }
 
     /** A small ribbon: File (the backstage), Home and View, as in Office. */
-    private Ribbon ribbon(Shell shell, CommandRegistry commands, RGB accent) {
+    private Ribbon ribbon(Shell shell, TitleBar bar, CommandRegistry commands, RGB accent) {
         Ribbon ribbon = new Ribbon(shell, SWT.NONE, commands);
         ribbon.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         ribbon.setAccentColor(accent);
@@ -313,6 +314,17 @@ public final class TitleBarDemo {
             backstage.addCommand("file.close");
             backstage.addSeparator();
             backstage.addPage("account", "Account", null, page -> new Label(page, SWT.NONE).setText("Pat Doe"));
+            // As in Office: File > Options holds both customizations.
+            backstage.addPage("options", "Options", null, page -> {
+                page.setLayout(new GridLayout(1, false));
+                Button customizeRibbon = new Button(page, SWT.PUSH);
+                customizeRibbon.setText("Customize the &Ribbon...");
+                customizeRibbon.addListener(SWT.Selection, e -> ribbon.openCustomizeDialog());
+                Button customizeToolbar = new Button(page, SWT.PUSH);
+                customizeToolbar.setText("&Quick Access Toolbar...");
+                customizeToolbar.addListener(SWT.Selection, e -> bar.openCustomizeDialog());
+            });
+            backstage.setKeyTip("options", "T");
         });
         RibbonTab home = ribbon.addTab("home", "Home").setKeyTip("H");
         RibbonGroup clipboard = home.addGroup("home.clipboard", "Clipboard").setImage(commands.get("home.paste").images());
