@@ -3,8 +3,20 @@ package com.zapthemes.widgets.ribbon;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BooleanSupplier;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.DND;
+import org.eclipse.swt.dnd.DragSource;
+import org.eclipse.swt.dnd.DragSourceEvent;
+import org.eclipse.swt.dnd.DragSourceListener;
+import org.eclipse.swt.dnd.DropTarget;
+import org.eclipse.swt.dnd.DropTargetAdapter;
+import org.eclipse.swt.dnd.DropTargetEvent;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Event;
@@ -13,6 +25,8 @@ import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Combo;
 import com.zapthemes.swt.widgets.Composite;
 import com.zapthemes.swt.widgets.Label;
+import com.zapthemes.swt.widgets.Menu;
+import com.zapthemes.swt.widgets.MenuItem;
 
 import com.zapthemes.swt.widgets.Shell;
 import com.zapthemes.swt.widgets.Text;
@@ -27,7 +41,9 @@ import com.zapthemes.widgets.ribbon.RibbonCustomization.TabNode;
  * the ribbon, or a category, with a filter) and add them to groups of the tree on the right;
  * remove, reorder, rename and hide (uncheck) tabs and groups; rename commands in a group; add
  * tabs and groups of your own;
- * reset. OK applies and saves.
+ * reset. OK applies and saves. The tree's actions are also in its context menu, and tabs, groups
+ * and commands move by drag and drop as in Office: tabs among tabs, groups within or between tabs,
+ * commands within their group or into a custom group.
  *
  * <p>Users add commands only to their own groups and to app groups; combos and galleries keep
  * their places and come back through Reset.
@@ -47,6 +63,16 @@ public final class CustomizeRibbonDialog {
     private Tree tree;
     private final java.util.List<Command> listed = new ArrayList<>();
     private boolean applied;
+    private Button addButton;
+    private Button removeButton;
+    private final java.util.List<Action> treeActions = new ArrayList<>();
+    private final java.util.List<Button> treeButtons = new ArrayList<>();
+    /** The tree node being dragged, while a drag from the tree is under way. */
+    private Object dragged;
+
+    /** An action on the tree's selection: a button on the right and an item of the tree's context menu. */
+    private record Action(String text, Runnable run, BooleanSupplier enabled) {
+    }
 
     public CustomizeRibbonDialog(Ribbon ribbon) {
         this.ribbon = ribbon;
@@ -76,7 +102,7 @@ public final class CustomizeRibbonDialog {
         chooseLabel.setText("&Choose commands from:");
         new Label(shell, SWT.NONE);
         Label treeLabel = new Label(shell, SWT.NONE);
-        treeLabel.setText("Customize the Ri&bbon:");
+        treeLabel.setText("Ri&bbon:");
         new Label(shell, SWT.NONE);
 
         Composite left = new Composite(shell, SWT.NONE);
@@ -99,12 +125,13 @@ public final class CustomizeRibbonDialog {
         listData.heightHint = 360;
         commandList.setLayoutData(listData);
         commandList.addListener(SWT.DefaultSelection, e -> add());
+        commandList.addListener(SWT.Selection, e -> updateActions());
 
         Composite middle = new Composite(shell, SWT.NONE);
         middle.setLayout(new GridLayout(1, false));
         middle.setLayoutData(new GridData(SWT.CENTER, SWT.CENTER, false, true));
-        button(middle, "&Add >>", this::add);
-        button(middle, "<< &Remove", this::remove);
+        addButton = button(middle, "&Add >>", this::add);
+        removeButton = button(middle, "<< &Remove", this::remove);
 
         tree = new Tree(shell, SWT.SINGLE | SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
         GridData treeData = new GridData(SWT.FILL, SWT.FILL, true, true);
@@ -113,16 +140,33 @@ public final class CustomizeRibbonDialog {
         tree.setLayoutData(treeData);
         tree.addListener(SWT.Selection, this::treeSelected);
 
+        treeActions.add(new Action("&Up", () -> move(-1), () -> canMove(-1)));
+        treeActions.add(new Action("&Down", () -> move(1), () -> canMove(1)));
+        treeActions.add(new Action("New &Tab", this::newTab, () -> true));
+        treeActions.add(new Action("New &Group", this::newGroup, () -> tabOf(selection()) != null));
+        treeActions.add(new Action("Rena&me...", this::rename, this::canRename));
+        treeActions.add(new Action("D&elete", this::remove, this::canRemove));
+        treeActions.add(new Action("Re&set Tab", this::resetTab, this::canResetTab));
+        treeActions.add(new Action("Reset &All", this::resetAll, () -> true));
+
         Composite side = new Composite(shell, SWT.NONE);
         side.setLayout(new GridLayout(1, false));
         side.setLayoutData(new GridData(SWT.FILL, SWT.FILL, false, true));
-        button(side, "&Up", () -> move(-1));
-        button(side, "&Down", () -> move(1));
-        button(side, "New &Tab", this::newTab);
-        button(side, "New &Group", this::newGroup);
-        button(side, "Rena&me...", this::rename);
-        button(side, "Re&set Tab", this::resetTab);
-        button(side, "Reset &All", this::resetAll);
+        Menu menu = new Menu(tree);
+        for (Action action : treeActions) {
+            treeButtons.add(button(side, action.text(), action.run()));
+            MenuItem item = new MenuItem(menu, SWT.PUSH);
+            item.setText(action.text());
+            item.setData(action);
+            item.addListener(SWT.Selection, e -> action.run().run());
+        }
+        menu.addListener(SWT.Show, e -> {
+            for (org.eclipse.swt.widgets.MenuItem item : menu.getItems()) {
+                item.setEnabled(((Action) item.getData()).enabled().getAsBoolean());
+            }
+        });
+        tree.setMenu(menu);
+        dragAndDrop();
 
         Composite buttons = new Composite(shell, SWT.NONE);
         buttons.setLayout(new GridLayout(2, true));
@@ -170,6 +214,7 @@ public final class CustomizeRibbonDialog {
         }
         listed.sort((a, b) -> a.plainLabel().compareToIgnoreCase(b.plainLabel()));
         listed.forEach(c -> commandList.add(c.plainLabel()));
+        updateActions();
     }
 
     // ------------------------------------------------------------------ the tree
@@ -229,12 +274,59 @@ public final class CustomizeRibbonDialog {
             tree.setSelection(selected);
             tree.showItem(selected);
         }
+        updateActions();
+    }
+
+    /** Enables the buttons that act on the tree's selection (the context menu does this when it shows). */
+    private void updateActions() {
+        Object node = selection();
+        addButton.setEnabled(commandList.getSelectionIndex() >= 0 && (node instanceof GroupNode || node instanceof ItemRef));
+        removeButton.setEnabled(canRemove());
+        for (int i = 0; i < treeActions.size(); i++) {
+            treeButtons.get(i).setEnabled(treeActions.get(i).enabled().getAsBoolean());
+        }
+    }
+
+    private boolean canMove(int delta) {
+        Object node = selection();
+        int index;
+        int size;
+        if (node instanceof TabNode tab) {
+            index = state.indexOf(tab);
+            size = state.size();
+        } else if (node instanceof GroupNode group) {
+            TabNode tab = tabOf(group);
+            index = tab.groups.indexOf(group);
+            size = tab.groups.size();
+        } else if (node instanceof ItemRef ref) {
+            index = ref.index;
+            size = items(ref.group).size();
+        } else {
+            return false;
+        }
+        return index + delta >= 0 && index + delta < size;
+    }
+
+    private boolean canRename() {
+        Object node = selection();
+        return node instanceof TabNode || node instanceof GroupNode || (node instanceof ItemRef ref && renamable(ref));
+    }
+
+    private boolean canRemove() {
+        Object node = selection();
+        return node instanceof ItemRef || node instanceof GroupNode || (node instanceof TabNode tab && tab.custom);
+    }
+
+    private boolean canResetTab() {
+        TabNode tab = tabOf(selection());
+        return tab != null && !tab.custom;
     }
 
     private record ItemRef(GroupNode group, int index) {
     }
 
     private void treeSelected(Event event) {
+        updateActions();
         if (event.detail == SWT.CHECK && event.item instanceof org.eclipse.swt.widgets.TreeItem item) {
             if (item.getData() instanceof TabNode tab) {
                 tab.hidden = !item.getChecked();
@@ -303,31 +395,159 @@ public final class CustomizeRibbonDialog {
 
     void move(int delta) {
         Object node = selection();
+        int step = canMove(delta) ? delta : 0;
         if (node instanceof TabNode tab) {
-            int index = state.indexOf(tab);
-            int next = index + delta;
-            if (next >= 0 && next < state.size()) {
-                state.remove(index);
-                state.add(next, tab);
-            }
-            fillTree(tab);
+            moveTab(tab, state.indexOf(tab) + step);
         } else if (node instanceof GroupNode group) {
             TabNode tab = tabOf(group);
-            int index = tab.groups.indexOf(group);
-            int next = index + delta;
-            if (next >= 0 && next < tab.groups.size()) {
-                tab.groups.remove(index);
-                tab.groups.add(next, group);
-            }
-            fillTree(group);
-        } else if (node instanceof ItemRef ref) {
-            java.util.List<String> items = materialize(ref.group, items(ref.group));
-            int next = ref.index + delta;
-            if (next >= 0 && next < items.size()) {
-                items.add(next, items.remove(ref.index));
-                fillTree(new ItemRef(ref.group, next));
+            moveGroup(group, tab, tab.groups.indexOf(group) + step);
+        } else if (node instanceof ItemRef ref && step != 0) {
+            moveItem(ref, ref.group, ref.index + step);
+        }
+    }
+
+    // The moves that Up, Down and drag and drop make. Each index is the node's place once it has
+    // left its old one.
+
+    private void moveTab(TabNode tab, int index) {
+        state.remove(tab);
+        state.add(index, tab);
+        fillTree(tab);
+    }
+
+    private void moveGroup(GroupNode group, TabNode to, int index) {
+        tabOf(group).groups.remove(group);
+        to.groups.add(index, group);
+        fillTree(group);
+    }
+
+    private void moveItem(ItemRef from, GroupNode to, int index) {
+        java.util.List<String> target = materialize(to, items(to));
+        String id = materialize(from.group, items(from.group)).remove(from.index);
+        target.add(index, id);
+        if (to != from.group) {
+            // A command renamed in its group keeps that name in the group it moves to.
+            String label = from.group.labels.remove(id);
+            if (label != null) {
+                to.labels.put(id, label);
             }
         }
+        fillTree(new ItemRef(to, index));
+    }
+
+    // ------------------------------------------------------------------ drag and drop
+
+    private void dragAndDrop() {
+        Transfer[] transfers = { TextTransfer.getInstance() };
+        DragSource source = new DragSource(tree, DND.DROP_MOVE);
+        source.setTransfer(transfers);
+        source.addDragListener(new DragSourceListener() {
+            @Override
+            public void dragStart(DragSourceEvent event) {
+                dragged = selection();
+                event.doit = dragged != null;
+            }
+
+            @Override
+            public void dragSetData(DragSourceEvent event) {
+                // The dragged node stays in the dialog; the id is only what other apps would get.
+                event.data = switch (dragged) {
+                    case TabNode tab -> tab.id;
+                    case GroupNode group -> group.id;
+                    case ItemRef ref -> itemId(ref);
+                    case null, default -> "";
+                };
+            }
+
+            @Override
+            public void dragFinished(DragSourceEvent event) {
+                dragged = null;
+            }
+        });
+        DropTarget target = new DropTarget(tree, DND.DROP_MOVE);
+        target.setTransfer(transfers);
+        target.addDropListener(new DropTargetAdapter() {
+            @Override
+            public void dragEnter(DropTargetEvent event) {
+                dragOver(event);
+            }
+
+            @Override
+            public void dragOperationChanged(DropTargetEvent event) {
+                dragOver(event);
+            }
+
+            @Override
+            public void dragOver(DropTargetEvent event) {
+                Drop drop = plan(event);
+                event.feedback = DND.FEEDBACK_SCROLL | DND.FEEDBACK_EXPAND | (drop == null ? DND.FEEDBACK_NONE : drop.feedback());
+                event.detail = drop == null ? DND.DROP_NONE : DND.DROP_MOVE;
+            }
+
+            @Override
+            public void drop(DropTargetEvent event) {
+                Drop drop = plan(event);
+                if (drop == null) {
+                    event.detail = DND.DROP_NONE;
+                } else {
+                    drop.move().run();
+                }
+            }
+        });
+    }
+
+    private Drop plan(DropTargetEvent event) {
+        if (!(event.item instanceof org.eclipse.swt.widgets.TreeItem item)) {
+            return null;
+        }
+        Point point = tree.toControl(event.x, event.y);
+        Rectangle bounds = item.getBounds();
+        return plan(dragged, item.getData(), point.y < bounds.y + bounds.height / 2);
+    }
+
+    /** A drop the dialog accepts: how the tree shows it, and the move it makes. */
+    private record Drop(int feedback, Runnable move) {
+    }
+
+    /**
+     * What dropping {@code source} on {@code target} (in its upper half when {@code before}) does,
+     * or {@code null} when the dialog refuses it. As in Office, tabs go before or after tabs;
+     * groups before or after groups, in any tab, or at the end of a tab; commands before or after
+     * commands, or at the end of a group, in their own group or a custom one. Other items (combos,
+     * galleries) keep to their group.
+     */
+    private Drop plan(Object source, Object target, boolean before) {
+        int feedback = before ? DND.FEEDBACK_INSERT_BEFORE : DND.FEEDBACK_INSERT_AFTER;
+        int after = before ? 0 : 1;
+        if (source instanceof TabNode tab && target instanceof TabNode to && to != tab) {
+            int index = state.indexOf(to) - (state.indexOf(tab) < state.indexOf(to) ? 1 : 0) + after;
+            return new Drop(feedback, () -> moveTab(tab, index));
+        }
+        if (source instanceof GroupNode group && target instanceof GroupNode at && at != group) {
+            TabNode from = tabOf(group);
+            TabNode to = tabOf(at);
+            int index = to.groups.indexOf(at) - (from == to && from.groups.indexOf(group) < to.groups.indexOf(at) ? 1 : 0) + after;
+            return new Drop(feedback, () -> moveGroup(group, to, index));
+        }
+        if (source instanceof GroupNode group && target instanceof TabNode to) {
+            int index = to.groups.size() - (tabOf(group) == to ? 1 : 0);
+            return new Drop(DND.FEEDBACK_SELECT, () -> moveGroup(group, to, index));
+        }
+        if (source instanceof ItemRef ref && target instanceof ItemRef at && !(at.group == ref.group && at.index == ref.index)
+                && accepts(at.group, ref)) {
+            int index = at.index - (at.group == ref.group && ref.index < at.index ? 1 : 0) + after;
+            return new Drop(feedback, () -> moveItem(ref, at.group, index));
+        }
+        if (source instanceof ItemRef ref && target instanceof GroupNode to && accepts(to, ref)) {
+            int index = items(to).size() - (to == ref.group ? 1 : 0);
+            return new Drop(DND.FEEDBACK_SELECT, () -> moveItem(ref, to, index));
+        }
+        return null;
+    }
+
+    /** Whether item {@code ref} may move into {@code group}: its own, or a custom group that lacks it. */
+    private boolean accepts(GroupNode group, ItemRef ref) {
+        return group == ref.group || (group.custom && renamable(ref) && !items(group).contains(itemId(ref)));
     }
 
     void newTab() {
@@ -508,6 +728,41 @@ public final class CustomizeRibbonDialog {
                 }
             }
         }
+    }
+
+    /** The tree node of tab or group {@code id}, or of its item {@code itemId} when that is not null (tests). */
+    Object node(String id, String itemId) {
+        for (TabNode tab : state) {
+            if (tab.id.equals(id) && itemId == null) {
+                return tab;
+            }
+            for (GroupNode group : tab.groups) {
+                if (group.id.equals(id)) {
+                    return itemId == null ? group : new ItemRef(group, items(group).indexOf(itemId));
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The tree's feedback for dropping {@code source} on {@code target}; {@link DND#FEEDBACK_NONE} when refused (tests). */
+    int dropFeedback(Object source, Object target, boolean before) {
+        Drop drop = plan(source, target, before);
+        return drop == null ? DND.FEEDBACK_NONE : drop.feedback();
+    }
+
+    /** Drops {@code source} on {@code target} as the tree's drop listener does; returns whether it was accepted (tests). */
+    boolean drop(Object source, Object target, boolean before) {
+        Drop drop = plan(source, target, before);
+        if (drop != null) {
+            drop.move().run();
+        }
+        return drop != null;
+    }
+
+    /** The tree's context menu (tests). */
+    Menu treeMenu() {
+        return (Menu) tree.getMenu();
     }
 
     /** Selects the command with {@code id} in the left list. */

@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.accessibility.ACC;
+import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.RGB;
@@ -904,6 +905,180 @@ class RibbonTest {
 
         ribbon.customization().reset();
         assertThat(ribbon.tab("home").group("home.font").items().get(1).label()).isEqualTo("Bold");
+    }
+
+    private static final List<String> TREE_ACTIONS = List.of("&Up", "&Down", "New &Tab", "New &Group", "Rena&me...", "D&elete", "Re&set Tab",
+            "Reset &All");
+
+    private static org.eclipse.swt.widgets.Button dialogButton(org.eclipse.swt.widgets.Composite parent, String text) {
+        for (org.eclipse.swt.widgets.Control child : parent.getChildren()) {
+            if (child instanceof org.eclipse.swt.widgets.Button button && button.getText().equals(text)) {
+                return button;
+            }
+            if (child instanceof org.eclipse.swt.widgets.Composite composite) {
+                org.eclipse.swt.widgets.Button found = dialogButton(composite, text);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static org.eclipse.swt.widgets.MenuItem shownMenuItem(CustomizeRibbonDialog dialog, String text) {
+        dialog.treeMenu().notifyListeners(SWT.Show, new Event());
+        for (org.eclipse.swt.widgets.MenuItem item : dialog.treeMenu().getItems()) {
+            if (item.getText().equals(text)) {
+                return item;
+            }
+        }
+        throw new AssertionError("no menu item " + text);
+    }
+
+    private static List<String> groupIds(CustomizeRibbonDialog dialog, String tabId) {
+        return ((RibbonCustomization.TabNode) dialog.node(tabId, null)).groups.stream().map(g -> g.id).toList();
+    }
+
+    @Test
+    void customizeDialogDeletesFromTheButtonAndTheMenu() {
+        CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);
+        dialog.create();
+        assertThat(java.util.Arrays.stream(dialog.shell().getChildren()).filter(c -> c instanceof org.eclipse.swt.widgets.Label)
+                .map(c -> ((org.eclipse.swt.widgets.Label) c).getText())).contains("Ri&bbon:").doesNotContain("Customize the Ri&bbon:");
+        for (String text : TREE_ACTIONS) {
+            assertThat(dialogButton(dialog.shell(), text)).as(text).isNotNull();
+        }
+        assertThat(java.util.Arrays.stream(dialog.treeMenu().getItems()).map(org.eclipse.swt.widgets.MenuItem::getText)).containsExactlyElementsOf(TREE_ACTIONS);
+
+        org.eclipse.swt.widgets.Button delete = dialogButton(dialog.shell(), "D&elete");
+        dialog.selectItem("home.clipboard", "home.cut");
+        assertThat(delete.isEnabled()).isTrue();
+        delete.notifyListeners(SWT.Selection, new Event());
+        assertThat(((RibbonCustomization.GroupNode) dialog.node("home.clipboard", null)).items).containsExactly("home.paste", "home.copy");
+
+        dialog.selectNode("home.editing");
+        shownMenuItem(dialog, "D&elete").notifyListeners(SWT.Selection, new Event());
+        assertThat(groupIds(dialog, "home")).doesNotContain("home.editing");
+
+        dialog.selectNode("home");
+        assertThat(delete.isEnabled()).as("built-in tabs are not deleted").isFalse();
+        assertThat(dialogButton(dialog.shell(), "<< &Remove").isEnabled()).isFalse();
+        dialog.newTab();
+        dialog.selectNode("custom.tab.1");
+        assertThat(delete.isEnabled()).isTrue();
+        delete.notifyListeners(SWT.Selection, new Event());
+        assertThat(dialog.state()).extracting(t -> t.id).containsExactly("home", "insert");
+
+        dialog.ok();
+        assertThat(ribbon.tab("home").group("home.clipboard").items()).extracting(RibbonItem::id).containsExactly("home.paste", "home.copy");
+        assertThat(ribbon.tab("home").group("home.editing")).isNull();
+    }
+
+    @Test
+    void customizeDialogMenuIsEnabledLikeTheButtons() {
+        CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);
+        dialog.create();
+        Runnable same = () -> {
+            for (String text : TREE_ACTIONS) {
+                assertThat(shownMenuItem(dialog, text).isEnabled()).as(text).isEqualTo(dialogButton(dialog.shell(), text).isEnabled());
+            }
+        };
+        same.run();
+        assertThat(shownMenuItem(dialog, "&Up").isEnabled()).as("nothing selected").isFalse();
+        assertThat(shownMenuItem(dialog, "New &Tab").isEnabled()).isTrue();
+
+        dialog.selectNode("home");
+        same.run();
+        assertThat(shownMenuItem(dialog, "&Up").isEnabled()).isFalse();
+        assertThat(shownMenuItem(dialog, "&Down").isEnabled()).isTrue();
+        assertThat(shownMenuItem(dialog, "D&elete").isEnabled()).isFalse();
+        assertThat(shownMenuItem(dialog, "Re&set Tab").isEnabled()).isTrue();
+
+        dialog.selectNode("insert.illustrations");
+        same.run();
+        assertThat(shownMenuItem(dialog, "&Up").isEnabled()).isTrue();
+        assertThat(shownMenuItem(dialog, "&Down").isEnabled()).isFalse();
+        assertThat(shownMenuItem(dialog, "D&elete").isEnabled()).isTrue();
+
+        dialog.selectItem("home.font", "home.fontName");
+        same.run();
+        assertThat(shownMenuItem(dialog, "Rena&me...").isEnabled()).as("combos are not renamed").isFalse();
+
+        dialog.newTab();
+        same.run();
+        assertThat(shownMenuItem(dialog, "Re&set Tab").isEnabled()).as("custom tabs have no defaults").isFalse();
+        assertThat(shownMenuItem(dialog, "D&elete").isEnabled()).isTrue();
+    }
+
+    @Test
+    void customizeDialogMovesByDragAndDrop(@TempDir Path dir) {
+        Path file = dir.resolve("prefs.json");
+        ribbon.setCustomizationStore(CustomizationStore.open(file));
+        CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);
+        dialog.create();
+
+        // Tabs among tabs, not into groups.
+        assertThat(dialog.dropFeedback(dialog.node("insert", null), dialog.node("home.font", null), true)).isEqualTo(DND.FEEDBACK_NONE);
+        assertThat(dialog.dropFeedback(dialog.node("insert", null), dialog.node("home", null), true)).isEqualTo(DND.FEEDBACK_INSERT_BEFORE);
+        assertThat(dialog.drop(dialog.node("insert", null), dialog.node("home", null), true)).isTrue();
+        assertThat(dialog.state()).extracting(t -> t.id).containsExactly("insert", "home");
+        assertThat(dialog.drop(dialog.node("insert", null), dialog.node("home", null), false)).isTrue();
+        assertThat(dialog.state()).extracting(t -> t.id).containsExactly("home", "insert");
+
+        // Groups within a tab, to another tab, and onto a tab (its end).
+        assertThat(dialog.drop(dialog.node("home.clipboard", null), dialog.node("home.styles", null), false)).isTrue();
+        assertThat(groupIds(dialog, "home")).containsExactly("home.font", "home.styles", "home.clipboard", "home.editing");
+        assertThat(dialog.dropFeedback(dialog.node("home.editing", null), dialog.node("insert.tables", null), false))
+                .isEqualTo(DND.FEEDBACK_INSERT_AFTER);
+        assertThat(dialog.drop(dialog.node("home.editing", null), dialog.node("insert.tables", null), false)).isTrue();
+        assertThat(groupIds(dialog, "insert")).containsExactly("insert.tables", "home.editing", "insert.illustrations");
+        assertThat(dialog.dropFeedback(dialog.node("home.styles", null), dialog.node("insert", null), true)).isEqualTo(DND.FEEDBACK_SELECT);
+        assertThat(dialog.drop(dialog.node("home.styles", null), dialog.node("insert", null), true)).isTrue();
+        assertThat(groupIds(dialog, "insert")).containsExactly("insert.tables", "home.editing", "insert.illustrations", "home.styles");
+        assertThat(dialog.dropFeedback(dialog.node("home.font", null), dialog.node("home.font", "home.bold"), true)).isEqualTo(DND.FEEDBACK_NONE);
+
+        // Commands within their group.
+        assertThat(dialog.drop(dialog.node("home.font", "home.bold"), dialog.node("home.font", "home.underline"), false)).isTrue();
+        assertThat(((RibbonCustomization.GroupNode) dialog.node("home.font", null)).items)
+                .containsExactly("home.fontName", "home.italic", "home.underline", "home.bold", "home.color");
+
+        // Into a custom group only, and only commands.
+        dialog.selectNode("insert");
+        dialog.newTab();
+        String mineTab = dialog.state().getLast().id;
+        RibbonCustomization.GroupNode mine = dialog.state().getLast().groups.getFirst();
+        assertThat(dialog.dropFeedback(dialog.node("home.clipboard", "home.cut"), dialog.node("home.font", "home.bold"), true))
+                .as("a command into a built-in group").isEqualTo(DND.FEEDBACK_NONE);
+        assertThat(dialog.dropFeedback(dialog.node("home.clipboard", "home.cut"), dialog.node("home.font", null), true)).isEqualTo(DND.FEEDBACK_NONE);
+        assertThat(dialog.dropFeedback(dialog.node("home.font", "home.fontName"), mine, true)).as("combos keep their group").isEqualTo(DND.FEEDBACK_NONE);
+        assertThat(dialog.dropFeedback(dialog.node("home.clipboard", "home.cut"), mine, true)).isEqualTo(DND.FEEDBACK_SELECT);
+        dialog.selectItem("home.clipboard", "home.cut");
+        dialog.rename("Snip");
+        assertThat(dialog.drop(dialog.node("home.clipboard", "home.cut"), mine, true)).isTrue();
+        assertThat(dialog.drop(dialog.node("home.clipboard", "home.copy"), dialog.node(mine.id, "home.cut"), true)).isTrue();
+        assertThat(mine.items).containsExactly("home.copy", "home.cut");
+        assertThat(mine.labels).containsEntry("home.cut", "Snip");
+        assertThat(dialog.dropFeedback(dialog.node("home.clipboard", "home.paste"), dialog.node(mine.id, "home.cut"), false))
+                .isEqualTo(DND.FEEDBACK_INSERT_AFTER);
+        dialog.ok();
+
+        assertThat(ribbon.tabs()).extracting(RibbonTab::id).containsExactly("home", "insert", mineTab);
+        assertThat(ribbon.tab("home").groups()).extracting(RibbonGroup::id).containsExactly("home.font", "home.clipboard");
+        assertThat(ribbon.tab("insert").groups()).extracting(RibbonGroup::id)
+                .containsExactly("insert.tables", "home.editing", "insert.illustrations", "home.styles");
+        assertThat(ribbon.tab("home").group("home.clipboard").items()).extracting(RibbonItem::id).containsExactly("home.paste");
+        List<RibbonItem> moved = ribbon.tabs().getLast().groups().getFirst().items();
+        assertThat(moved).extracting(RibbonItem::id).containsExactly("home.copy", "home.cut");
+        assertThat(moved.get(1).label()).isEqualTo("Snip");
+        List<RibbonCustomization.TabNode> saved = ribbon.customization().snapshot();
+        assertThat(CustomizationStore.open(file).section(RibbonCustomization.SECTION).toString()).contains("home.editing", "Snip");
+
+        // Cancel drops what a drag did.
+        CustomizeRibbonDialog cancelled = new CustomizeRibbonDialog(ribbon);
+        cancelled.create();
+        assertThat(cancelled.drop(cancelled.node("insert", null), cancelled.node("home", null), true)).isTrue();
+        cancelled.shell().close();
+        assertThat(ribbon.customization().snapshot()).isEqualTo(saved);
     }
 
     // ------------------------------------------------------------------ theming and accessibility
