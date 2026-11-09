@@ -1,0 +1,164 @@
+{
+  "id": "zap-high-contrast",
+  "name": "Zap High Contrast",
+  "extends": "zap-dark",
+  "palette": {
+    "titleBar": "#000000",
+    "titleBarForeground": "#FFFFFF",
+    "titleBarInactive": "#000000",
+    "titleBarInactiveForeground": "#A6A6A6",
+    "bg": "#000000",
+    "surface": "#000000",
+    "fg": "#FFFFFF",
+    "muted": "#1F1F1F",
+    "hover": "#3A3A3A",
+    "disabled": "#A6A6A6",
+    "selection": "#0037DA",
+    "accent": "#FFFF00",
+    "onAccent": "#000000",
+    "error": "#FF8080",
+    "qualifier": "#C8C8C8",
+    "stripe": "#141414",
+    "border": "#FFFFFF",
+    "link": "#00FFFF",
+    "line": "#8A8A8A",
+    "chrome": "#000000",
+    "badge": "#FFFF00",
+    "onBadge": "#000000"
+  },
+  "controls": {
+    "TitleBar": {
+      "hoverBackground": "$selection",
+      "pressedBackground": "$selection",
+      "searchBackground": "#000000",
+      "searchForeground": "#FFFFFF",
+      "searchBorderColor": "#FFFFFF",
+      "avatarBackground": "#FFFF00",
+      "avatarForeground": "#000000",
+      "focusColor": "#FFFF00",
+      "useAccent": false
+    },
+    "Ribbon": {
+      "useAppAccent": false,
+      "states": {
+        "hover": { "borderColor": "$accent" },
+        "pressed": { "background": "$accent", "foreground": "$onAccent", "borderColor": "$accent" }
+      },
+      "tabHoverIndicatorColor": "$accent",
+      "itemCheckedBackground": "$bg",
+      "itemCheckedBorderColor": "$accent",
+      "keyTipBorderColor": "$onBadge",
+      "contextualAccent2": "#00FFFF",
+      "contextualAccent3": "#00FF00",
+      "contextualAccent4": "#FF8000"
+    },
+    "RibbonBackstage": {
+      "navBackground": "$bg",
+      "navForeground": "$fg",
+      "navHoverBackground": "$hover",
+      "navSelectedBackground": "$selection",
+      "navSelectedForeground": "$fg",
+      "useAppAccent": false
+    },
+    "RibbonMessageBar": {
+      "background": "$bg",
+      "borderColor": "$border",
+      "states": {
+        "info": {
+          "background": "$bg"
+        },
+        "error": {
+          "background": "$bg",
+          "borderColor": "$error",
+          "iconColor": "$error"
+        },
+        "success": {
+          "background": "$bg"
+        }
+      }
+    },
+    "Table": {
+      "gridLineColor": "$line"
+    },
+    "Link": {
+      "linkForeground": "$link"
+    },
+    "CTabFolder": {
+      "selectionForeground": "$accent",
+      "selectionBarThickness": 3
+    },
+    "FlatButton": {
+      "borderColor": "$border",
+      "states": {
+        "focused": {
+          "borderColor": "$accent"
+        }
+      }
+    },
+    "FlatButton[CHECK]": {
+      "borderColor": "$border"
+    },
+    "FlatButton[RADIO]": {
+      "borderColor": "$border"
+    },
+    "FlatGroup": {
+      "borderColor": "$border"
+    },
+    "ProgressBar": {
+      "foreground": "$accent"
+    },
+    "FlatProgressBar": {
+      "background": "$muted",
+      "barColor": "$accent"
+    },
+    "CDateTime": {
+      "buttonSelectedBackgroundColor": "$selection",
+      "buttonSelectedBorderColor": "$accent"
+    },
+    "SwitchButton": {
+      "selectedBackgroundColor": "$selection",
+      "selectedForegroundColor": "$fg",
+      "unselectedBackgroundColor": "$muted"
+    },
+    "TimelineComposite": {
+      "selectedCursorColor": "$link"
+    },
+    "AbstractLinearMarkedFigure": {
+      "fillColor": "$selection"
+    }
+  },
+  "classes": {
+    "Label.muted": {
+      "foreground": "$qualifier"
+    },
+    "*.notification": {
+      "background": "$border"
+    },
+    "*.ruler": {
+      "foreground": "$line"
+    }
+  },
+  "platform": {
+    "win32": {
+      "menuBarBorderColor": "$border",
+      "tableHeaderLineColor": "$line"
+    }
+  },
+  "registries": {
+    "colors": {
+      "com.zapthemes.text.keyword": "#FFFF00",
+      "com.zapthemes.text.string": "#00FF00",
+      "com.zapthemes.text.comment": "#C8C8C8",
+      "com.zapthemes.text.number": "#00FFFF",
+      "HYPERLINK_COLOR": "$link",
+      "ACTIVE_HYPERLINK_COLOR": "$accent"
+    },
+    "systemColors": {
+      "COLOR_LIST_SELECTION": "$selection",
+      "COLOR_LIST_SELECTION_TEXT": "$fg",
+      "COLOR_WIDGET_LIGHT_SHADOW": "$border",
+      "COLOR_WIDGET_DARK_SHADOW": "$border",
+      "COLOR_LINK_FOREGROUND": "$link"
+    }
+  }
+}

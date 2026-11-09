@@ -1,64 +1,464 @@
 {
+  "formatVersion": 2,
   "id": "zap-base",
   "name": "Zap Base",
-  "palette": {
-    "font.default": {
-      "height": 9
-    },
-    "font.strong": {
-      "height": 9,
-      "style": "bold"
-    },
-    "font.header": {
-      "height": 12,
-      "style": "bold"
-    }
+  "names": {
+    "foreground": { "font": { "height": 9 } },
+    "heading1": { "font": { "inherit": "$foreground", "height": 12, "style": "bold" } },
+    "heading2": { "font": { "inherit": "$foreground", "height": 11, "style": "bold" } },
+    "heading3": { "font": { "inherit": "$foreground", "height": 10, "style": "bold" } },
+    "strong": { "font": { "inherit": "$foreground", "style": "bold" } },
+    "caption": { "font": { "inherit": "$foreground", "height": 8 } },
+    "code": { "font": { "name": ["Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Menlo"], "height": 10 } },
+    "avatar": { "color": "#CA5010" },
+    "onAvatar": { "color": "#FFFFFF" }
   },
   "defaults": {
-    "font": "$font.default"
+    "background": "$background",
+    "foreground": "$foreground",
+    "font": "$foreground"
   },
   "controls": {
-    "TableItem": {
-      "inherit": "Table"
-    },
-    "TreeItem": {
-      "inherit": "Tree"
-    },
-    "CCombo": {
-      "inherit": "Combo"
-    },
-    "Spinner": {
-      "inherit": "Text"
-    },
-    "DateTime": {
-      "inherit": "Text"
-    },
-    "List": {
-      "inherit": "Text"
-    },
+    "TableItem": { "inherit": "Table" },
+    "TreeItem": { "inherit": "Tree" },
+    "CCombo": { "inherit": "Combo" },
+    "Spinner": { "inherit": "Text" },
+    "DateTime": { "inherit": "Text" },
+    "List": { "inherit": "Text" },
     "StyledText": {
-      "inherit": "Text"
-    }
+      "inherit": "Text",
+      "selectionBackground": "$selection",
+      "selectionForeground": "$selectionForeground",
+      "marginColor": "$surface"
+    },
+    "TitleBar": {
+      "background": "$titleBar",
+      "foreground": "$titleBarForeground",
+      "inactiveBackground": "$titleBarInactive",
+      "inactiveForeground": "$titleBarInactiveForeground",
+      "avatarBackground": "$avatar",
+      "avatarForeground": "$onAvatar",
+      "useAccent": true
+    },
+    "Text": { "background": "$surface" },
+    "Combo": { "background": "$surface" },
+    "Table": {
+      "background": "$surface",
+      "headerBackground": "$raised",
+      "headerForeground": "$foreground",
+      "selectionBackground": "$selection",
+      "selectionForeground": "$selectionForeground",
+      "focusCellBackground": "$accent",
+      "focusCellForeground": "$onAccent",
+      "alternateRowBackground": "$stripe",
+      "gridLineColor": "$gridLine",
+      "states": {
+        "hover": { "background": "$hover" }
+      }
+    },
+    "Tree": { "inherit": "Table" },
+    "XYGraph": {
+      "background": "$surface",
+      "foreground": "$foreground",
+      "titleColor": "$foreground"
+    },
+    "ToolbarArmedXYGraph": { "background": "$background" },
+    "PlotArea": { "background": "$surface" },
+    "Axis": {
+      "background": "$surface",
+      "foreground": "$foreground",
+      "majorGridColor": "$border",
+      "minorGridColor": "$raised"
+    },
+    "Legend": { "foreground": "$foreground" },
+    "Annotation": { "annotationColor": "$foreground" },
+    "AbstractScaledWidgetFigure": { "foreground": "$foreground" },
+    "AbstractLinearMarkedFigure": {
+      "fillBackgroundColor": "$raised",
+      "fillColor": "$accent"
+    },
+    "KnobFigure": { "thumbColor": "$hover" },
+    "NatTable": {
+      "inherit": "Table",
+      "freezeSeparatorColor": "$border",
+      "errorForeground": "$error",
+      "accentColor": "$accent"
+    },
+    "Link": { "linkForeground": "$link" },
+    "Button[PUSH]": { "background": "$raised" },
+    "CTabFolder": {
+      "selectionBackground": "$surface",
+      "selectionForeground": "$accent",
+      "selectionBarThickness": 2,
+      "highlight": true
+    },
+    "Ribbon": {
+      "background": "$surface",
+      "foreground": "$foreground",
+      "tabStripBackground": "$chrome",
+      "tabForeground": "$foreground",
+      "tabHoverBackground": "$hover",
+      "selectedTabBackground": "$chrome",
+      "selectedTabForeground": "$accent",
+      "tabIndicatorColor": "$accent",
+      "groupLabelForeground": "$muted",
+      "separatorColor": "$border",
+      "borderColor": "$border",
+      "itemHoverBackground": "$hover",
+      "itemPressedBackground": "$selection",
+      "itemCheckedBackground": "$selection",
+      "itemCheckedBorderColor": "$accent",
+      "disabledForeground": "$disabled",
+      "fieldBackground": "$surface",
+      "galleryBorderColor": "$border",
+      "galleryBackground": "$surface",
+      "gallerySelectionColor": "$accent",
+      "keyTipBackground": "$badge",
+      "keyTipForeground": "$onBadge",
+      "keyTipBorderColor": "$border",
+      "fileTabBackground": "$accent",
+      "fileTabForeground": "$onAccent",
+      "emphasisBackground": "$accent",
+      "emphasisForeground": "$onAccent",
+      "contextualAccent1": "$accent",
+      "contextualAccent2": "$info",
+      "contextualAccent3": "$success",
+      "contextualAccent4": "$warning",
+      "focusColor": "$focus",
+      "arc": 4
+    },
+    "RibbonPopup": {
+      "background": "$surface",
+      "borderColor": "$border"
+    },
+    "RibbonToolTip": {
+      "background": "$surface",
+      "foreground": "$foreground",
+      "borderColor": "$border",
+      "titleFont": "$strong"
+    },
+    "RibbonBackstage": {
+      "navBackground": "$accent",
+      "navForeground": "$onAccent",
+      "navSelectedForeground": "$onAccent",
+      "titleFont": "$heading1"
+    },
+    "RibbonMessageBar": {
+      "background": "$warningBackground",
+      "foreground": "$foreground",
+      "borderColor": "$warningBorder",
+      "iconColor": "$foreground",
+      "titleFont": "$strong",
+      "states": {
+        "info": {
+          "background": "$infoBackground",
+          "borderColor": "$border"
+        },
+        "error": {
+          "background": "$errorBackground",
+          "borderColor": "$error",
+          "iconColor": "$error"
+        },
+        "success": {
+          "background": "$successBackground",
+          "borderColor": "$border"
+        }
+      }
+    },
+    "FlatButton": {
+      "background": "$raised",
+      "foreground": "$foreground",
+      "borderColor": "$disabled",
+      "accentColor": "$accent",
+      "arc": 6,
+      "states": {
+        "hover": { "background": "$hover" },
+        "pressed": {
+          "background": "$accent",
+          "foreground": "$onAccent"
+        },
+        "disabled": {
+          "foreground": "$disabled",
+          "borderColor": "$raised"
+        },
+        "focused": { "borderColor": "$accent" }
+      }
+    },
+    "FlatButton[CHECK]": {
+      "background": "$background",
+      "borderColor": "$disabled",
+      "boxBackground": "$surface"
+    },
+    "FlatButton[RADIO]": {
+      "background": "$background",
+      "borderColor": "$disabled",
+      "boxBackground": "$surface"
+    },
+    "FlatGroup": {
+      "borderColor": "$raised",
+      "titleForeground": "$foreground",
+      "titleFont": "$strong"
+    },
+    "FlatProgressBar": {
+      "background": "$raised",
+      "barColor": "$accent",
+      "errorColor": "$error"
+    },
+    "ProgressBar": {
+      "background": "$raised",
+      "foreground": "$accent"
+    },
+    "Grid": {
+      "background": "$surface",
+      "lineColor": "$border",
+      "cellHeaderSelectionBackground": "$selection"
+    },
+    "GridItem": {
+      "background": "$surface",
+      "foreground": "$foreground"
+    },
+    "CDateTime": {
+      "background": "$surface",
+      "pickerBackgroundColor": "$surface",
+      "pickerForegroundColor": "$foreground",
+      "pickerTodayColor": "$accent",
+      "pickerActiveDayColor": "$foreground",
+      "pickerInactiveDayColor": "$disabled",
+      "buttonHoverBackgroundColor": "$hover",
+      "buttonHoverBorderColor": "$border",
+      "buttonSelectedBackgroundColor": "$accent",
+      "buttonSelectedBorderColor": "$accent"
+    },
+    "Gallery": {
+      "background": "$surface",
+      "groupRenderer.titleBackground": "$raised",
+      "groupRenderer.titleForeground": "$foreground",
+      "itemRenderer.selectionBackgroundColor": "$accent",
+      "itemRenderer.selectionForegroundColor": "$onAccent",
+      "itemRenderer.foregroundColor": "$foreground",
+      "itemRenderer.backgroundColor": "$surface"
+    },
+    "GalleryItem": {
+      "background": "$surface",
+      "foreground": "$foreground"
+    },
+    "TableCombo": {
+      "background": "$surface",
+      "borderColor": "$border",
+      "oddLinesBackgroundColor": "$surface",
+      "evenLinesBackgroundColor": "$stripe",
+      "oddLinesForegroundColor": "$foreground",
+      "evenLinesForegroundColor": "$foreground"
+    },
+    "CTreeCombo": { "background": "$surface" },
+    "CTreeComboItem": {
+      "background": "$surface",
+      "foreground": "$foreground"
+    },
+    "PGroup": {
+      "strategy.borderColor": "$border",
+      "titleBackground": "$surface",
+      "titleBackgroundGradient": "$raised",
+      "foreground": "$foreground"
+    },
+    "Header": {
+      "titleColor": "$foreground",
+      "gradientStart": "$surface",
+      "gradientEnd": "$background",
+      "separatorColor": "$border"
+    },
+    "SwitchButton": {
+      "selectedBackgroundColor": "$accent",
+      "selectedForegroundColor": "$onAccent",
+      "unselectedBackgroundColor": "$raised",
+      "unselectedForegroundColor": "$foreground",
+      "borderColor": "$border",
+      "buttonBorderColor": "$border",
+      "buttonBackgroundColor1": "$surface",
+      "buttonBackgroundColor2": "$surface",
+      "focusColor": "$focus"
+    },
+    "Chips": {
+      "chipsBackground": "$raised",
+      "borderColor": "$border",
+      "hoverBackground": "$hover",
+      "hoverForeground": "$foreground",
+      "hoverBorderColor": "$border",
+      "pushedStateBackground": "$accent",
+      "pushedStateForeground": "$onAccent",
+      "pushedStateBorderColor": "$accent",
+      "closeButtonForeground": "$foreground",
+      "closeButtonBackground": "$raised",
+      "closeButtonHoverForeground": "$onAccent",
+      "closeButtonHoverBackground": "$accent"
+    },
+    "BadgedLabel": {
+      "badgeBackground": "$accent",
+      "badgeForeground": "$onAccent",
+      "textColor": "$foreground",
+      "backgroundColor": "$raised",
+      "borderColor": "$border"
+    },
+    "Carousel": {
+      "arrowColor": "$foreground",
+      "circleBackground": "$raised",
+      "circleForeground": "$accent",
+      "circleHoverColor": "$hover"
+    },
+    "ProgressCircle": {
+      "highlightColor": "$accent",
+      "background": "$background",
+      "foreground": "$raised"
+    },
+    "RoundedToolbar": { "borderColor": "$border" },
+    "RoundedToolItem": {
+      "textColor": "$foreground",
+      "textColorSelected": "$onAccent"
+    },
+    "BreadcrumbItem": {
+      "textColor": "$foreground",
+      "textColorSelected": "$accent"
+    },
+    "TextAssist": { "background": "$surface" },
+    "PasswordRevealer": { "background": "$surface" },
+    "Tiles": { "background": "$surface" },
+    "RangeSlider": { "foreground": "$border" },
+    "PShelf": { "renderer.shadeColor": "$raised" },
+    "TimelineComposite": {
+      "background": "$surface",
+      "gridColor": "$border",
+      "overviewSelectionBackgroundColor": "$accent",
+      "cursorColor": "$accent",
+      "selectedCursorColor": "$error"
+    },
+    "CollapsibleButtons": {
+      "background": "$background",
+      "foreground": "$foreground",
+      "borderColor": "$border",
+      "darkResizeColor": "$border",
+      "lightResizeColor": "$raised",
+      "dotDarkColor": "$disabled",
+      "dotLightColor": "$raised",
+      "dotMiddleColor": "$border",
+      "buttonBackgroundColorTop": "$raised",
+      "buttonBackgroundColorMiddle": "$raised",
+      "buttonBackgroundColorBottom": "$raised",
+      "selectedButtonBackgroundColorTop": "$accent",
+      "selectedButtonBackgroundColorMiddle": "$accent",
+      "selectedButtonBackgroundColorBottom": "$accent",
+      "hoverButtonBackgroundColorTop": "$hover",
+      "hoverButtonBackgroundColorMiddle": "$hover",
+      "hoverButtonBackgroundColorBottom": "$hover",
+      "hoverSelectedButtonBackgroundColorTop": "$accent",
+      "hoverSelectedButtonBackgroundColorMiddle": "$accent",
+      "hoverSelectedButtonBackgroundColorBottom": "$accent",
+      "buttonTextColor": "$foreground"
+    },
+    "DateChooser": { "background": "$surface" }
   },
   "classes": {
-    "*.strong": {
-      "font": "$font.strong"
+    "*.strong": { "font": "$strong" },
+    "Label.backstageTitle": { "font": "$heading1" },
+    "*.title": { "font": "$strong" },
+    "Button.primary": {
+      "background": "$accent",
+      "foreground": "$onAccent"
     },
-    "Label.backstageTitle": {
-      "font": "$font.header"
+    "Label.muted": { "foreground": "$disabled" },
+    "*.banner": {
+      "background": "$surface",
+      "foreground": "$foreground"
     },
-    "*.title": {
-      "font": "$font.strong"
+    "*.info": {
+      "background": "$raised",
+      "foreground": "$foreground"
+    },
+    "*.popup": {
+      "background": "$surface",
+      "foreground": "$foreground"
+    },
+    "*.error": { "foreground": "$error" },
+    "*.notification": { "background": "$border" },
+    "*.ruler": {
+      "background": "$surface",
+      "foreground": "$muted"
+    },
+    "*.frame": { "background": "$border" },
+    "Table.popup": { "alternateRowBackground": "$surface" },
+    "*.pane": { "background": "$surface" },
+    "Text.plain": { "background": "$background" },
+    "FlatButton.primary": {
+      "background": "$accent",
+      "foreground": "$onAccent",
+      "borderColor": "$accent"
+    }
+  },
+  "platform": {
+    "gtk": {
+      "menuBarBackground": "$background",
+      "menuBarForeground": "$foreground",
+      "menuBackground": "$surface",
+      "menuForeground": "$foreground",
+      "menuSelectionBackground": "$selection",
+      "menuSelectionForeground": "$selectionForeground"
+    },
+    "win32": {
+      "progressBarColors": true,
+      "menuBarBackground": "$background",
+      "menuBarForeground": "$foreground",
+      "menuBarBorderColor": "$raised",
+      "tableHeaderLineColor": "$gridLine",
+      "disabledLabelForeground": "$disabled"
     }
   },
   "registries": {
+    "colors": {
+      "com.zapthemes.text.keyword": "$keyword",
+      "com.zapthemes.text.string": "$string",
+      "com.zapthemes.text.comment": "$comment",
+      "com.zapthemes.text.number": "$number",
+      "ERROR_COLOR": "$error",
+      "HYPERLINK_COLOR": "$link",
+      "ACTIVE_HYPERLINK_COLOR": "$accent",
+      "QUALIFIER_COLOR": "$muted",
+      "DECORATIONS_COLOR": "$muted",
+      "COUNTER_COLOR": "$accent",
+      "CONTENT_ASSIST_BACKGROUND_COLOR": "$surface",
+      "CONTENT_ASSIST_FOREGROUND_COLOR": "$foreground",
+      "org.eclipse.ui.workbench.INFORMATION_BACKGROUND": "$surface",
+      "org.eclipse.ui.workbench.INFORMATION_FOREGROUND": "$foreground"
+    },
+    "systemColors": {
+      "COLOR_WIDGET_BACKGROUND": "$background",
+      "COLOR_WIDGET_FOREGROUND": "$foreground",
+      "COLOR_LIST_BACKGROUND": "$surface",
+      "COLOR_LIST_FOREGROUND": "$foreground",
+      "COLOR_LIST_SELECTION": "$accent",
+      "COLOR_LIST_SELECTION_TEXT": "$onAccent",
+      "COLOR_WIDGET_NORMAL_SHADOW": "$border",
+      "COLOR_WIDGET_LIGHT_SHADOW": "$raised",
+      "COLOR_WIDGET_HIGHLIGHT_SHADOW": "$surface",
+      "COLOR_WIDGET_DARK_SHADOW": "$disabled",
+      "COLOR_WIDGET_BORDER": "$border",
+      "COLOR_TITLE_BACKGROUND": "$surface",
+      "COLOR_TITLE_FOREGROUND": "$foreground",
+      "COLOR_TITLE_BACKGROUND_GRADIENT": "$raised",
+      "COLOR_TITLE_INACTIVE_BACKGROUND": "$raised",
+      "COLOR_TITLE_INACTIVE_FOREGROUND": "$disabled",
+      "COLOR_TITLE_INACTIVE_BACKGROUND_GRADIENT": "$raised",
+      "COLOR_INFO_BACKGROUND": "$raised",
+      "COLOR_INFO_FOREGROUND": "$foreground",
+      "COLOR_TEXT_DISABLED_BACKGROUND": "$raised",
+      "COLOR_WIDGET_DISABLED_FOREGROUND": "$disabled",
+      "COLOR_LINK_FOREGROUND": "$link"
+    },
     "fonts": {
-      "org.eclipse.jface.defaultfont": "$font.default",
-      "org.eclipse.jface.dialogfont": "$font.default",
-      "org.eclipse.jface.viewerfont": "$font.default",
-      "org.eclipse.jface.windowfont": "$font.default",
-      "org.eclipse.jface.bannerfont": "$font.strong",
-      "org.eclipse.jface.headerfont": "$font.header"
+      "org.eclipse.jface.defaultfont": "$foreground",
+      "org.eclipse.jface.dialogfont": "$foreground",
+      "org.eclipse.jface.viewerfont": "$foreground",
+      "org.eclipse.jface.windowfont": "$foreground",
+      "org.eclipse.jface.bannerfont": "$strong",
+      "org.eclipse.jface.headerfont": "$heading1"
     }
   }
 }

@@ -108,7 +108,7 @@ class NatTableThemingTest {
         int body = table.getRowHeightByPosition(0) + table.getRowHeightByPosition(1) / 2;
         int x = table.getColumnWidthByPosition(0) + 40;
 
-        assertThat(pixel(painted, x, header)).as("column header").isEqualTo(palette(dark, "muted"));
+        assertThat(pixel(painted, x, header)).as("column header").isEqualTo(palette(dark, "raised"));
         assertThat(pixel(painted, x + 50, body)).as("first body row").isEqualTo(palette(dark, "surface"));
     }
 
@@ -142,7 +142,7 @@ class NatTableThemingTest {
         dispatch();
 
         assertThat(background(table, "SPECIAL")).isEqualTo(new RGB(200, 0, 0));
-        assertThat(background(table, GridRegion.COLUMN_HEADER)).isEqualTo(palette(light, "muted"));
+        assertThat(background(table, GridRegion.COLUMN_HEADER)).isEqualTo(palette(light, "raised"));
     }
 
     @Test
@@ -152,7 +152,7 @@ class NatTableThemingTest {
         shell.open();
         dispatch();
 
-        assertThat(background(table, GridRegion.COLUMN_HEADER)).isNotEqualTo(palette(dark, "muted"));
+        assertThat(background(table, GridRegion.COLUMN_HEADER)).isNotEqualTo(palette(dark, "raised"));
     }
 
     @Test
@@ -165,7 +165,7 @@ class NatTableThemingTest {
 
         manager.setTheme(dark);
         dispatch();
-        assertThat(background(plain, GridRegion.COLUMN_HEADER)).isEqualTo(palette(dark, "muted"));
+        assertThat(background(plain, GridRegion.COLUMN_HEADER)).isEqualTo(palette(dark, "raised"));
         manager.setTheme(Theme.EMPTY);
         dispatch();
         assertThat(background(plain, GridRegion.COLUMN_HEADER)).as("NatTable's default theme again").isEqualTo(upstream);
@@ -175,13 +175,13 @@ class NatTableThemingTest {
 
     private void assertStyled(NatTable table, Theme theme) {
         assertThat(background(table, null)).as("body").isEqualTo(palette(theme, "surface"));
-        assertThat(background(table, GridRegion.COLUMN_HEADER)).as("column header").isEqualTo(palette(theme, "muted"));
+        assertThat(background(table, GridRegion.COLUMN_HEADER)).as("column header").isEqualTo(palette(theme, "raised"));
         assertThat(attribute(table, DisplayMode.SELECT, null, CellStyleAttributes.BACKGROUND_COLOR)).as("selection")
                 .isEqualTo(palette(theme, "selection"));
         assertThat(attribute(table, DisplayMode.SELECT, org.eclipse.nebula.widgets.nattable.style.SelectionStyleLabels.ROW_FULLY_SELECTED_STYLE,
                 CellStyleAttributes.BACKGROUND_COLOR)).as("header of a fully selected row").isEqualTo(palette(theme, "selection"));
         Color grid = table.getConfigRegistry().getConfigAttribute(CellConfigAttributes.GRID_LINE_COLOR, DisplayMode.NORMAL);
-        assertThat(grid.getRGB()).as("grid lines").isEqualTo(palette(theme, "muted"));
+        assertThat(grid.getRGB()).as("grid lines").isEqualTo(palette(theme, "raised"));
     }
 
     private static RGB background(NatTable table, String label) {

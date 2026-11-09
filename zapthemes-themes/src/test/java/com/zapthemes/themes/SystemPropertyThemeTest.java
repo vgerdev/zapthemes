@@ -17,8 +17,9 @@ class SystemPropertyThemeTest {
         var theme = SystemPropertyTheme.resolve("zap-high-contrast", null);
 
         assertThat(theme.id()).isEqualTo("zap-high-contrast");
-        // From zap-dark and zap-base, which it extends.
-        assertThat(theme.names()).containsKeys("bg", "selection");
+        // From zap-dark and zap-base, which it extends: zap-base gives foreground its font.
+        assertThat(theme.names()).containsKeys("background", "selection", "avatar");
+        assertThat(theme.names().get("foreground").getAsJsonObject().keySet()).containsExactlyInAnyOrder("color", "font");
     }
 
     @Test

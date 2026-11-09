@@ -278,8 +278,12 @@ application sets. Following `display.getHighContrast()` keeps the rest of the UI
 
 A theme is one JSON object. Point your editor at the schema for completion and checks, at
 [`zapthemes/theme.schema.json`](../zapthemes-themes/src/main/resources/zapthemes/theme.schema.json) in the
-`zapthemes-themes` jar. The bundled [`zap-dark.json`](../zapthemes-themes/src/main/resources/zapthemes/themes/zap-dark.json)
-is the most complete reference.
+`zapthemes-themes` jar. The bundled themes are the most complete reference:
+[`zap-base.json`](../zapthemes-themes/src/main/resources/zapthemes/themes/zap-base.json) holds every
+rule, written against common names, and
+[`zap-dark.json`](../zapthemes-themes/src/main/resources/zapthemes/themes/zap-dark.json) and
+[`zap-light.json`](../zapthemes-themes/src/main/resources/zapthemes/themes/zap-light.json) give those
+names their colors.
 
 ```json
 {
@@ -292,13 +296,13 @@ is the most complete reference.
   "names": {
     "accent":   { "color": "$orange" },
     "danger":   { "color": "$red" },
-    "headline": { "color": "$fg", "font": { "name": ["Segoe UI Semibold", "Cantarell", ".AppleSystemUIFont"], "height": 14, "style": "bold" } }
+    "headline": { "color": "$foreground", "font": { "name": ["Segoe UI Semibold", "Cantarell", ".AppleSystemUIFont"], "height": 14, "style": "bold" } }
   },
-  "defaults": { "background": "$bg", "foreground": "$fg" },
+  "defaults": { "background": "$background", "foreground": "$foreground" },
   "controls": {
     "Table":        { "selectionBackground": "$selection", "states": { "hover": { "background": "$hover" } } },
     "Tree":         { "inherit": "Table" },
-    "Label[WRAP]":  { "foreground": "$qualifier" }
+    "Label[WRAP]":  { "foreground": "$muted" }
   },
   "classes":  { "Button.danger": { "background": "$danger" }, "*.headline": { "foreground": "$headline", "font": "$headline" } },
   "platform": { "*": { "darkThemePreferred": true }, "win32": { "darkScrollbars": true } },
@@ -314,7 +318,7 @@ is the most complete reference.
 
 | Block | Meaning |
 |---|---|
-| `formatVersion` | The format of the file, now `2`. A file without it is version 1, whose single `palette` held colors and fonts; it still loads, upgraded as it is read: each palette entry becomes a common name with that one part. A file of a newer version than the library is refused with a message to update. Themes are always written in the current format. |
+| `formatVersion` | The format of the file, now `2`. A file without it is version 1, whose single `palette` held colors and fonts; it still loads, upgraded as it is read: each palette entry becomes a common name with that one part. A file of a newer version than the library is refused with a message to update. Themes are always written in the current format. A version 1 theme that extends a bundled theme also has the bundled themes' old entry names renamed to their common names (`bg` → `background`, `fg` → `foreground`, `muted` → `raised`, `qualifier` → `muted`, `line` → `gridLine`, `font.default` → `foreground`, `font.strong` → `strong`, `font.header` → `heading1`), so it looks as it did. |
 | `id`, `name` | Unique id (what `registry.resolve` takes) and display name |
 | `extends` | Id of the theme this one is layered on. Each block is merged key by key, so a theme can change only what differs; a common name merges by part, so giving it only a color keeps the parent's font. A name or swatch replaced here also changes every rule of the parent that refers to it. |
 | `dark` | Whether the theme is dark, for tools such as the theme editor. Theming does not read it (use `platform` for what the OS draws). |
@@ -328,6 +332,27 @@ is the most complete reference.
 | `platform` | What the OS draws itself: `*` for all platforms, then `win32`, `gtk` or `cocoa` |
 | `registries` | Named resources of other toolkits: JFace `colors` and `fonts`, and `systemColors`, which replaces `Display.getSystemColor` constants inside the Nebula and JFace Text forks |
 | `editor` | The theme editor's own state (generator settings, locked swatches). Theming ignores it, and reading and writing a theme keeps it. |
+
+### The bundled themes' names
+
+Extending a bundled theme and changing its names restyles everything that uses them. The bundled
+themes define every base common name, the ones the theme editor and the property catalog's
+default map use:
+
+| Group | Names |
+|---|---|
+| Surfaces | `background`, `surface` (fields, lists, tables), `raised` (buttons, headers, bars), `stripe`, `hover`, `selection`, `chrome` (the ribbon's tab row) |
+| Text | `foreground` (its font is the default font), `muted` (secondary text), `disabled`, `onAccent`, `link`, `selectionForeground`, `onBadge` |
+| Headings | `heading1`, `heading2`, `heading3`, `strong`, `caption`: fonts derived from `foreground`'s with `inherit` |
+| Lines | `border`, `gridLine`, `focus` |
+| Accent and status | `accent`, `error`, `warning`, `success`, `info`, `badge` |
+| Title bar | `titleBar`, `titleBarForeground`, `titleBarInactive`, `titleBarInactiveForeground` |
+| Code | `code` (a font), `keyword`, `string`, `comment`, `number` (syntax colors) |
+
+They also define a few of their own: `avatar` and `onAvatar` (the title bar's account circle), and
+`warningBackground`, `warningBorder`, `infoBackground`, `errorBackground` and `successBackground`
+(the ribbon's message bar). Some names refer to others, such as `link` and `focus` to `accent`, so
+changing `accent` changes them too unless a theme gives them colors of their own.
 
 ### Which rule wins
 
