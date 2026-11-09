@@ -80,6 +80,34 @@ class FigureThemingTest {
     }
 
     @Test
+    void anXYGraphInAPreviewFollowsThePreviewTheme() {
+        com.zapthemes.swt.widgets.Composite pane = new com.zapthemes.swt.widgets.Composite(shell, SWT.NONE);
+        pane.setLayout(new FillLayout());
+        Canvas canvas = new com.zapthemes.swt.widgets.Canvas(pane, SWT.NONE);
+        XYGraph graph = new XYGraph();
+        new LightweightSystem(canvas).setContents(graph);
+        shell.open();
+        settle();
+        assertThat(FigureTheming.canvasOf(graph)).isSameAs(canvas);
+        assertGraph(graph, dark);
+
+        manager.preview(pane, light);
+        assertGraph(graph, light);
+
+        manager.setTheme(dark);
+        assertGraph(graph, light);
+
+        manager.endPreview(pane);
+        assertGraph(graph, dark);
+    }
+
+    private void settle() {
+        while (display.readAndDispatch()) {
+            // Settle.
+        }
+    }
+
+    @Test
     void figuresAddedLaterGetTheThemeAndTraceColorsStayTheApps() {
         XYGraph graph = new XYGraph();
         show(graph);

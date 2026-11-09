@@ -45,7 +45,7 @@ public final class SystemColors {
             return device.getSystemColor(id);
         }
         String name = NAMES.get(id);
-        Optional<RGBA> themed = name == null ? Optional.empty() : ThemeManager.get(display).registry(REGISTRY).color(name);
+        Optional<RGBA> themed = name == null ? Optional.empty() : ThemeManager.get(display).ambientRegistry(REGISTRY).color(name);
         if (themed.isPresent()) {
             return new Color(display, themed.get());
         }

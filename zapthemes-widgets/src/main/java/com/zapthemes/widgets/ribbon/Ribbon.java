@@ -107,7 +107,7 @@ public class Ribbon extends RibbonSurface {
         for (int type : new int[] { SWT.KeyDown, SWT.KeyUp, SWT.MouseDown, SWT.FocusIn }) {
             display.addFilter(type, filter);
         }
-        ThemeManager.get(display).addThemeChangeListener(themeListener);
+        ThemeManager.get(display).addThemeChangeListener(this, themeListener);
         addListener(SWT.Dispose, e -> ribbonDisposed());
     }
 
@@ -1181,7 +1181,7 @@ public class Ribbon extends RibbonSurface {
         for (int type : new int[] { SWT.KeyDown, SWT.KeyUp, SWT.MouseDown, SWT.FocusIn }) {
             display.removeFilter(type, filter);
         }
-        ThemeManager.get(display).removeThemeChangeListener(themeListener);
+        ThemeManager.get(display).removeThemeChangeListener(this, themeListener);
         listened.forEach(c -> c.removeListener(commandListener));
         listened.clear();
         closePopups();

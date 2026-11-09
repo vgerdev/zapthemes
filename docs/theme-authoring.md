@@ -1,4 +1,4 @@
-# Using ZapThemes and writing themes`focusColor` (focus), `useAppAccent` (true), `arc` (4), and the states `hover`, `pressed`, `checked`, `disabled`, `focused`, each with `background`, `foreground`, `borderColor` (they win over the `item…` keys) |
+# Using ZapThemes and writing themes
 
 This guide covers adding ZapThemes to an SWT or JFace application, choosing and switching themes,
 writing your own theme in JSON, and making your own widgets theme-aware. The
@@ -274,6 +274,35 @@ WCAG AAA contrast ratio of 7:1 against its background, which a test checks. When
 a contrast theme, some native controls draw with the system's contrast colors whatever the
 application sets. Following `display.getHighContrast()` keeps the rest of the UI consistent with them.
 
+### Preview a theme in part of a window
+
+`preview` themes one composite and everything in it with a theme of its own, while the rest of the
+display keeps the display's theme. A theme editor uses it for its preview pane, and a preferences
+page can use it to show a theme before it is chosen:
+
+```java
+themes.preview(pane, candidate);       // the pane and its children take candidate
+themes.preview(pane, edited);          // after an edit: re-themed in place, nothing re-created
+themes.endPreview(pane);               // back to the display's theme (also when pane is disposed)
+```
+
+Widgets added to the pane later take the preview's theme too, and `setTheme` leaves the pane alone.
+Inside the pane, the following follow the preview:
+
+- the stylers and `styleOf`;
+- Windows' native dark scrollbars, combos and tree arrows;
+- the ribbon, the title bar and Nebula Visualization's figures;
+- the system colors the Nebula painters use.
+
+`themeOf(widget)` gives the theme a widget is styled with. Some things keep the display's theme:
+
+- shells, with their title bars and the Windows menu bar;
+- menus, tool tips and dialogs opened from the pane;
+- JFace's `ColorRegistry` and `FontRegistry`.
+
+The zoom is the display's. `./gradlew :zapthemes-demo:runPreview` shows the same controls side by
+side, one pane in the window's theme and one previewing another theme.
+
 ## 4. Write a theme
 
 A theme is one JSON object. Point your editor at the schema for completion and checks, at
@@ -431,7 +460,10 @@ Do what the Nebula proxies do (see [Gauge](../zapthemes-samples/src/main/java/co
    does both steps 3 and 5.
 
 A widget that paints from the theme directly can instead call `themes.styleOf(this)` in its paint
-listener, as `FlatButton` does. To write a styler from scratch, implement `ControlStyler`. It must
+listener, as `FlatButton` does. If it caches colors, it should drop them in a
+`themes.addThemeChangeListener(this, listener)`. That listener is called when the theme of this
+widget changes, through `setTheme` or through a preview it sits in, and it is removed when the widget
+is disposed. The ribbon and the title bar work this way. To write a styler from scratch, implement `ControlStyler`. It must
 set every property it owns, with `null` where the theme has none, so that switching themes leaves
 nothing from the previous one behind.
 
@@ -456,7 +488,7 @@ name in brackets, so a theme on common names only sets what it wants different.
 
 | Type | Properties |
 |---|---|
-| `Ribbon` | `background` (raised), `foreground`, `tabStripBackground` (chrome), `tabForeground`, `tabHoverBackground` (hover: right commands), `tabHoverIndicatorColor` (the line under a hovered tab; between `tabStripBackground` and `tabForeground` by default), `selectedTabBackground` (chrome: then only the underline shows), `selectedTabForeground` (accent), `tabIndicatorColor` (accent), `tabFont`, `groupLabelForeground` (muted), `groupLabelFont` (caption), `separatorColor`, `borderColor` (border), `itemHoverBackground` (hover), `itemPressedBackground`, `itemCheckedBackground` (selection), `itemCheckedBorderColor` (accent), `disabledForeground` (disabled), `fieldBackground`, `galleryBackground` (surface), `galleryBorderColor`, `gallerySelectionColor`, `keyTipBackground` (badge), `keyTipForeground` (onBadge), `keyTipBorderColor`, `fileTabBackground`, `fileTabForeground` (the backstage nav's defaults; the File tab is drawn like the other tabs), `emphasisBackground`, `emphasisForeground` (accent, onAccent), `contextualAccent1` … `4` (accent, info, success, warning), `focusColor` (focus), `useAppAccent` (true), `arc` (4) |
+| `Ribbon` | `background` (raised), `foreground`, `tabStripBackground` (chrome), `tabForeground`, `tabHoverBackground` (hover: right commands), `tabHoverIndicatorColor` (the line under a hovered tab; between `tabStripBackground` and `tabForeground` by default), `selectedTabBackground` (chrome: then only the underline shows), `selectedTabForeground` (accent), `tabIndicatorColor` (accent), `tabFont`, `groupLabelForeground` (muted), `groupLabelFont` (caption), `separatorColor`, `borderColor` (border), `itemHoverBackground` (hover), `itemPressedBackground`, `itemCheckedBackground` (selection), `itemCheckedBorderColor` (accent), `disabledForeground` (disabled), `fieldBackground`, `galleryBackground` (surface), `galleryBorderColor`, `gallerySelectionColor`, `keyTipBackground` (badge), `keyTipForeground` (onBadge), `keyTipBorderColor`, `fileTabBackground`, `fileTabForeground` (the backstage nav's defaults; the File tab is drawn like the other tabs), `emphasisBackground`, `emphasisForeground` (accent, onAccent), `contextualAccent1` … `4` (accent, info, success, warning), `focusColor` (focus), `useAppAccent` (true), `arc` (4), and the states `hover`, `pressed`, `checked`, `disabled`, `focused`, each with `background`, `foreground`, `borderColor` (they win over the `item…` keys) |
 | `RibbonPopup` | `background`, `borderColor`: collapsed groups, the collapsed ribbon's overlay, galleries, color palettes |
 | `RibbonToolTip` | `background`, `foreground`, `borderColor`, `titleFont` (strong) |
 | `RibbonBackstage` | `background`, `foreground`, `navBackground` (accent), `navForeground` (onAccent), `navHoverBackground`, `navSelectedBackground`, `navSelectedForeground`, `navFont`, `titleFont` (heading1), `useAppAccent`; its pages use the style classes `backstage` (Composite) and `backstageTitle` (Label) |

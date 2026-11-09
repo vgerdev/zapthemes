@@ -186,7 +186,7 @@ haven't set yourself.
 | 1 ✅ | **Theme format v2** | `formatVersion`; `swatches`, `names` with color + font, references resolved by key type, chained references with cycle errors, font fallback lists and `inherit`, the `editor` section, `dark`; v1 → v2 upgrade on load; the schema, `ThemeJson.write`, and validator messages. Old themes keep loading. | Everything else is built on this format. |
 | 2 ✅ | **Property catalog + default map** | `PropertySpec`, registration in every styler provider and `FigureTheming`, variants, classes and states per type; the catalog coverage tests above. | Step 4 of the wizard and upgrades on load both need it. |
 | 3 ✅ | **Bundled themes on common names** | Rewrite the four bundled themes as v2 with the base names, turning literals into names where one fits. **Equivalence test:** every catalog type, variant, class and state resolves to the same colors and fonts before and after, and screenshot diffs show no change. | Shows that the format and names are enough for real themes before any UI exists. |
-| 4 | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
+| 4 ✅ | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
 | 5 | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
 | 6 | **Wizard: palette, names, colors and fonts** | `zapthemes-editor` with `ThemeWizard`, pages 1–3, the preview pane, and the editing model (an undo stack per page; "set by user" vs auto-filled). | |
 | 7 | **Wizard: controls, finish, round-trip** | Page 4 (tree, property table, overrides, adding variants, classes and states), the finish page, saving, reopening; a round-trip test (open, then save, gives the same file) on every bundled theme. | |
@@ -306,3 +306,59 @@ Found while rewriting: a theme's `states` replace the parent's whole `states` ob
 contrast's `FlatButton` has only its `focused` state (no hover, pressed or disabled colors) and its
 `Ribbon` only `hover` and `pressed`. The rewrite keeps that; whether to merge states by state is a
 question for later.
+
+## Step 4 in detail
+
+`ThemeManager.preview(Composite, Theme)` themes a composite and its subtree with a theme of its own.
+Calling it again with an edited theme re-themes the same widgets in place; `endPreview` or disposing
+the composite gives the subtree the theme around it again. Each preview keeps its own `StyleResolver`.
+Every lookup that used the display's resolver now asks for the widget's: the nearest preview among
+its parents, or the display's. A control's parent is `getParent()`; an item, a scroll bar or a caret is
+reached through its own `getParent()`. A shell is always the display's, so dialogs and popups opened
+from a preview are too. Nested previews work.
+
+What follows the preview:
+- `styleOf`, the stylers, and widgets created in the subtree later, both proxies and raw widgets
+  themed through `SWT.Skin`.
+- **Platform settings, per control.** On Windows the dark scrollbars, combos and tree arrows now use
+  the `DarkMode_Explorer` and `DarkMode_CFD` window themes. These are dark whatever the
+  application's mode, so a dark preview in a light window gets dark native parts. SWT's display-wide
+  switches (`beforeTheme`) stay with the display's theme.
+- **Widgets that paint from the theme.** `addThemeChangeListener(Widget, listener)` is called when
+  the theme of that widget changes, through `setTheme` or a preview, and is removed on dispose. The
+  ribbon and the title bar use it instead of the display-wide listener.
+- **draw2d figures.** `FigureTheming` finds the canvas showing a figure through its
+  `SWTEventDispatcher`, then reads rules with `ruleOf(canvas, type)` and listens on the canvas.
+- **System colors.** The Nebula and JFace Text forks call `SystemColors.get(display, id)` without a
+  widget, so `ambientRegistry` decides. While a preview is shown, it is the theme of the widget being
+  themed, or else of the last painting or input event's widget, set by display filters that are
+  installed only while a preview exists. A system color read outside any event (from a timer, say)
+  gets the theme of the last event's widget.
+
+What stays display-wide: shells (title bars, the Windows menu bar), menus, tool tips, dialogs, JFace's
+`ColorRegistry` and `FontRegistry`, and the zoom.
+
+Tests: `PreviewThemeTest` (zapthemes-swt) covers:
+- only the subtree, items included, takes the preview;
+- an edit in place disposes nothing;
+- widgets added later get the preview;
+- `setTheme` leaves the preview alone, and `endPreview` restores the display's theme;
+- nested previews, and disposal;
+- a shell cannot be previewed;
+- widget listeners;
+- system colors in paint events inside and outside the preview.
+
+`RibbonTest` and `FigureThemingTest` check that a ribbon and an XYGraph in a preview follow it.
+`PreviewDemo` (`./gradlew :zapthemes-demo:runPreview`) shows the same controls in the window's theme
+and in a previewed one: buttons, check and radio buttons, text, combo, table, tree, styled text, a
+Nebula Grid, an XYGraph and a progress bar. Its smoke test (`smokeTestPreview`, part of
+`smokeTest`) checks every pair of bundled themes, an edit in place and the end of a preview; its
+screenshots include the Grid and chart tabs.
+
+The fallback in Risks (theme the whole wizard, with a Safe mode button) is not needed.
+
+Open, seen in screenshots:
+- On Windows, a light preview in the high-contrast window shows its single-line text field dark in
+  `Control.print` captures. It is the same without the `DarkMode_` change, and GTK draws it light.
+  Whether the screen shows it too is still to be checked.
+- The Nebula Grid's unfocused selected row has dark text in zap-dark, inside or outside a preview.
