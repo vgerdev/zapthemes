@@ -53,6 +53,7 @@ public final class TitleBarDemo {
 
     static final RGB WORD_BLUE = new RGB(0x18, 0x5A, 0xBD);
     static final RGB EXCEL_GREEN = new RGB(0x10, 0x7C, 0x41);
+    static final RGB POWERPOINT_ORANGE = new RGB(0xC4, 0x3E, 0x1C);
 
     private final Display display;
     private final ThemeManager themes;
@@ -61,7 +62,7 @@ public final class TitleBarDemo {
     private final List<Image> images = new ArrayList<>();
     private Path preferencesDir = Path.of(System.getProperty("user.home"), ".zapthemes");
 
-    private record Window(String name, Shell shell, TitleBar bar, RGB accent) {
+    private record Window(String name, org.eclipse.swt.widgets.Shell shell, TitleBar bar, RGB accent) {
     }
 
     private TitleBarDemo(Display display) {
@@ -115,6 +116,7 @@ public final class TitleBarDemo {
         excel.shell.setBounds(140, 120, 1180, 760);
         word.shell.open();
         excel.shell.open();
+        windows.add(jfaceWindow());
         word.shell.forceActive();
     }
 
@@ -315,6 +317,101 @@ public final class TitleBarDemo {
         themes.setTheme(available.get(next));
     }
 
+    /** The same bar from JFace: a {@link TitleBarWindow} whose quick access commands are actions. */
+    private Window jfaceWindow() {
+        org.eclipse.jface.action.Action save = action("save", "&Save@Ctrl+S", org.eclipse.jface.action.IAction.AS_PUSH_BUTTON);
+        org.eclipse.jface.action.Action autosave = action("autosave", "AutoSave", org.eclipse.jface.action.IAction.AS_CHECK_BOX);
+        org.eclipse.jface.action.Action undo = action("undo", "&Undo", org.eclipse.jface.action.IAction.AS_PUSH_BUTTON);
+        org.eclipse.jface.action.Action redo = action("redo", "&Redo", org.eclipse.jface.action.IAction.AS_PUSH_BUTTON);
+        org.eclipse.jface.action.Action present = action("present", "From &Beginning", org.eclipse.jface.action.IAction.AS_PUSH_BUTTON);
+        Image icon = appIcon(POWERPOINT_ORANGE, 'P');
+        com.zapthemes.jface.TitleBarWindow window = new com.zapthemes.jface.TitleBarWindow(null) {
+            {
+                addToolBar(SWT.FLAT | SWT.RIGHT);
+                addStatusLine();
+                addMenuBar();
+                addQuickAccess(autosave);
+                addQuickAccess(save);
+                addQuickAccess(undo);
+                addQuickAccess(redo);
+                addQuickAccess(present, false);
+            }
+
+            @Override
+            protected void createTitleBar(TitleBar bar) {
+                bar.setAccent(POWERPOINT_ORANGE);
+                bar.setSearchHint("Search");
+                bar.setProfile(new TitleBarProfile("Pat Doe", "pat.doe@example.com")
+                        .action("View account", () -> System.out.println("View account"))
+                        .action("Sign out", () -> System.out.println("Sign out")));
+            }
+
+            @Override
+            protected Path getTitleBarPreferences() {
+                return preferencesDir.resolve("titlebar-demo-powerpoint.properties");
+            }
+
+            @Override
+            protected org.eclipse.jface.action.MenuManager createMenuManager() {
+                org.eclipse.jface.action.MenuManager menu = new org.eclipse.jface.action.MenuManager();
+                menu.add(save);
+                menu.add(present);
+                return menu;
+            }
+
+            @Override
+            protected org.eclipse.jface.action.ToolBarManager createToolBarManager(int style) {
+                org.eclipse.jface.action.ToolBarManager manager = new org.eclipse.jface.action.ToolBarManager(style);
+                manager.add(present);
+                return manager;
+            }
+
+            @Override
+            protected void configureShell(org.eclipse.swt.widgets.Shell shell) {
+                super.configureShell(shell);
+                shell.setText("Presentation1 - PowerPoint");
+                shell.setImage(icon);
+            }
+
+            @Override
+            protected org.eclipse.swt.graphics.Point getInitialSize() {
+                return new org.eclipse.swt.graphics.Point(1000, 620);
+            }
+
+            @Override
+            protected org.eclipse.swt.graphics.Point getInitialLocation(org.eclipse.swt.graphics.Point size) {
+                return new org.eclipse.swt.graphics.Point(220, 200);
+            }
+
+            @Override
+            protected Control createContents(org.eclipse.swt.widgets.Composite parent) {
+                Label slide = new Label(parent, SWT.CENTER);
+                slide.setText("Click to add title");
+                themes.setThemeClass(slide, "strong");
+                return slide;
+            }
+        };
+        window.setBlockOnOpen(false);
+        window.open();
+        window.setStatus("Slide 1 of 1");
+        TitleBar bar = window.getTitleBar();
+        bar.getItem("save").setGlyph(TitleBarGlyph.SAVE);
+        bar.getItem("undo").setGlyph(TitleBarGlyph.UNDO);
+        bar.getItem("redo").setGlyph(TitleBarGlyph.REDO);
+        return new Window("powerpoint", window.getShell(), bar, POWERPOINT_ORANGE);
+    }
+
+    private static org.eclipse.jface.action.Action action(String id, String text, int style) {
+        org.eclipse.jface.action.Action action = new org.eclipse.jface.action.Action(text.replace('@', '	'), style) {
+            @Override
+            public void run() {
+                System.out.println(id + (style == AS_CHECK_BOX ? " " + isChecked() : ""));
+            }
+        };
+        action.setId(id);
+        return action;
+    }
+
     // ------------------------------------------------------------------ smoke test and screenshots
 
     private void screenshots(Path dir) {
@@ -348,7 +445,7 @@ public final class TitleBarDemo {
      * Saves the shell's client area, composed from each child's {@link Control#print}: printing a
      * whole {@code NO_TRIM} shell on Windows draws its children offset.
      */
-    private void capture(Shell shell, Path dir, String name) {
+    private void capture(org.eclipse.swt.widgets.Shell shell, Path dir, String name) {
         try {
             java.nio.file.Files.createDirectories(dir);
         } catch (java.io.IOException e) {
