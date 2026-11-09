@@ -186,6 +186,35 @@ class Win32FrameTest {
     }
 
     @Test
+    void theWindowButtonsLightUpUnderTheRealPointer() {
+        // Real input: maximize is non-client (snap layouts), the others are the bar's. Moving
+        // between them used to drop the hover: the bar's MouseExit undid maximize's, and leaving
+        // maximize cleared close's.
+        Assumptions.assumeTrue(System.getenv("CI") == null, "needs the interactive desktop");
+        shell.forceActive();
+        settle();
+        for (Part part : new Part[] { Part.MINIMIZE, Part.MAXIMIZE, Part.CLOSE, Part.MAXIMIZE, Part.MINIMIZE }) {
+            Point at = bar.toDisplay(center(bar.getPartBounds(part)));
+            for (int dx = -6; dx <= 0; dx += 2) {
+                int x = at.x + dx;
+                post(SWT.MouseMove, e -> {
+                    e.x = x;
+                    e.y = at.y;
+                });
+                settle();
+            }
+            assertThat(bar.hoverPart()).as("hover over " + part).isEqualTo(part);
+        }
+        Point away = shell.toDisplay(400, 300);
+        post(SWT.MouseMove, e -> {
+            e.x = away.x;
+            e.y = away.y;
+        });
+        settle();
+        assertThat(bar.hoverPart()).isNull();
+    }
+
+    @Test
     void systemMenuCommandsComeBackAsSystemCommands() throws Exception {
         os.sendMessage(os.handle(shell), Win32Frame.WM_COMMAND, Win32Frame.SC_MAXIMIZE, 0);
         settle();

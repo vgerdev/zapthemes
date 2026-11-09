@@ -123,6 +123,9 @@ public class TitleBar extends Canvas {
     private TitleBarColors inactiveColors;
     private Hit hover;
     private Hit pressed;
+    /** Whether {@link #hover} and {@link #pressed} came from the native frame (see {@link #setFrameState}). */
+    private boolean frameHover;
+    private boolean framePressed;
     private int focusIndex = -1;
     private Menu customizeMenu;
     private Menu systemMenu;
@@ -158,7 +161,13 @@ public class TitleBar extends Canvas {
 
         addListener(SWT.Paint, this::paint);
         addListener(SWT.MouseMove, this::mouseMove);
-        addListener(SWT.MouseExit, e -> setHover(null));
+        // Moving onto a part the native frame tracks (maximize on Windows) leaves the client area
+        // too: that exit must not undo the frame's hover.
+        addListener(SWT.MouseExit, e -> {
+            if (!frameHover) {
+                setHover(null);
+            }
+        });
         addListener(SWT.MouseDown, this::mouseDown);
         addListener(SWT.MouseUp, this::mouseUp);
         addListener(SWT.MouseDoubleClick, this::mouseDoubleClick);
@@ -1064,11 +1073,32 @@ public class TitleBar extends Canvas {
         return !hasTitleMenu();
     }
 
-    /** Hover and press of a part the native frame tracks (the maximize button on Windows). */
+    /**
+     * Hover and press of a part the native frame tracks (the maximize button on Windows). A
+     * {@code null} clears only what the frame set, never the bar's own hover or press.
+     */
     void setFrameState(Part hoverPart, Part pressedPart) {
-        hover = hoverPart != null ? find(hoverPart) : null;
-        pressed = pressedPart != null ? find(pressedPart) : null;
+        if (hoverPart != null) {
+            hover = find(hoverPart);
+            frameHover = hover != null;
+            setToolTipText(null);
+        } else if (frameHover) {
+            hover = null;
+            frameHover = false;
+        }
+        if (pressedPart != null) {
+            pressed = find(pressedPart);
+            framePressed = pressed != null;
+        } else if (framePressed) {
+            pressed = null;
+            framePressed = false;
+        }
         redraw();
+    }
+
+    /** The part the pointer is over, as painted; {@code null} for none. */
+    Part hoverPart() {
+        return hover != null ? hover.part : null;
     }
 
     private boolean hasTitleMenu() {
@@ -1517,6 +1547,7 @@ public class TitleBar extends Canvas {
             return;
         }
         hover = hit;
+        frameHover = false;
         setToolTipText(hit != null ? tooltip(hit) : null);
         redraw();
     }
@@ -1587,6 +1618,7 @@ public class TitleBar extends Canvas {
             default -> {
                 if (hit.item == null || hit.item.getEnabled()) {
                     pressed = hit;
+                    framePressed = false;
                     redraw();
                 }
             }
@@ -1603,6 +1635,7 @@ public class TitleBar extends Canvas {
             return;
         }
         pressed = null;
+        framePressed = false;
         redraw();
         Hit hit = hitAt(event.x, event.y);
         if (hit != null && hit.part == was.part && hit.item == was.item) {

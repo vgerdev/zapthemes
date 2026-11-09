@@ -334,6 +334,13 @@ included.
 Not verified by hand in this step: dragging, Aero snap and shake, the snap-layout flyout and the
 shadow were not exercised with a real mouse; the hit codes that drive them are tested.
 
+Later, with real input (SendInput) on Windows 11: dragging the caption to the top edge maximizes
+and to a free left edge snaps to the left half. The maximize button's hover was lost: moving onto
+it leaves the bar's client area, and the bar's `MouseExit`, or a stray client move, cleared what
+the frame had just set (and leaving maximize for close cleared close's). The bar now keeps the
+frame's hover and press apart from its own (`setFrameState` clears only what the frame set), and
+`Win32FrameTest.theWindowButtonsLightUpUnderTheRealPointer` moves the real pointer across them.
+
 ## Step 3 in detail
 
 `TitleBarCustomization` (a record: shown ids in order, known ids, below) is the state; `of(bar)`,

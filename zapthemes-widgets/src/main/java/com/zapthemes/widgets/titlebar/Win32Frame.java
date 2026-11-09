@@ -97,7 +97,12 @@ final class Win32Frame extends WindowFrame {
     private long barOld;
     private Part nativeHover;
     private Part nativePressed;
-    private final Listener clientMouse = e -> setNative(null, null);
+    /** The pointer is back on the bar's own parts (client moves can still come while it's over maximize). */
+    private final Listener clientMouse = e -> {
+        if (nativeHover == null || bar.getPart(e.x, e.y) != nativeHover) {
+            setNative(null, null);
+        }
+    };
 
     Win32Frame(TitleBar bar) {
         super(bar);

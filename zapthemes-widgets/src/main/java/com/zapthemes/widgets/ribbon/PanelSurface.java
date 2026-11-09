@@ -103,16 +103,36 @@ final class PanelSurface extends RibbonSurface {
                     gc.fillRoundRectangle(b.x, b.y, b.width, b.height, colors.arc, colors.arc);
                 }
                 gc.setForeground(colors.foreground);
-                int cx = b.x + b.width / 2;
-                int cy = b.y + b.height / 2;
-                int s = m.px(4);
-                gc.drawLine(cx - s, cy - s, cx - s, cy + s);
-                gc.drawLine(cx - s, cy, cx + s + 1, cy);
-                gc.drawRectangle(cx - s + 2, cy - s / 2 - 1, 2 * s - 2, s + 2);
+                drawPin(gc, b.x + b.width / 2, b.y + b.height / 2, m.px(1));
             }
         }
         gc.setForeground(theme.color("borderColor", colors.border));
         gc.drawRectangle(0, 0, area.width - 1, area.height - 1);
+    }
+
+    /**
+     * A push pin, upright, centered on {@code cx, cy}, about 14 units tall: a head, a body that
+     * narrows to a wide flange, and the needle, outlined in the GC's foreground.
+     */
+    static void drawPin(GC gc, int cx, int cy, int unit) {
+        int u = Math.max(1, unit);
+        int top = cy - 7 * u;
+        int flange = cy + 2 * u;
+        int[] outline = {
+            cx - 3 * u, top, cx + 3 * u, top,           // the head
+            cx + 3 * u, top + u, cx + 2 * u, top + 2 * u, // into the body
+            cx + 2 * u, flange - 2 * u, cx + 4 * u, flange, // out to the flange
+            cx - 4 * u, flange, cx - 2 * u, flange - 2 * u,
+            cx - 2 * u, top + 2 * u, cx - 3 * u, top + u,
+        };
+        int antialias = gc.getAntialias();
+        int width = gc.getLineWidth();
+        gc.setAntialias(SWT.ON);
+        gc.setLineWidth(u);
+        gc.drawPolygon(outline);
+        gc.drawLine(cx, flange, cx, cy + 7 * u);
+        gc.setLineWidth(width);
+        gc.setAntialias(antialias);
     }
 
     @Override
