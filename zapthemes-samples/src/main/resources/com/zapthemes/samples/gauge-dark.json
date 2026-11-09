@@ -1,13 +1,14 @@
 {
+  "formatVersion": 2,
   "id": "gauge-dark",
   "name": "Gauge Dark",
   "extends": "zap-dark",
   "controls": {
     "Gauge": {
-      "background": "$bg",
-      "trackColor": "$muted",
+      "background": "$background",
+      "trackColor": "$raised",
       "needleColor": "$accent",
-      "labelColor": "$fg",
+      "labelColor": "$foreground",
       "thickness": 10
     }
   }

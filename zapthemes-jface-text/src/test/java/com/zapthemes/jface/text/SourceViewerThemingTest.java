@@ -159,7 +159,7 @@ class SourceViewerThemingTest {
         assertThat(context.getBackground().getRGB()).as("frame").isEqualTo(palette(dark, "border"));
         StyledText text = findAll(context, StyledText.class).getFirst();
         assertThat(text.getBackground().getRGB()).isEqualTo(palette(dark, "surface"));
-        assertThat(text.getForeground().getRGB()).isEqualTo(palette(dark, "fg"));
+        assertThat(text.getForeground().getRGB()).isEqualTo(palette(dark, "foreground"));
     }
 
     @Test
@@ -198,7 +198,7 @@ class SourceViewerThemingTest {
 
     private void assertRuler(Theme theme) {
         Canvas canvas = (Canvas) lineNumbers.getControl();
-        assertThat(canvas.getForeground().getRGB()).as("line numbers").isEqualTo(palette(theme, "qualifier"));
+        assertThat(canvas.getForeground().getRGB()).as("line numbers").isEqualTo(palette(theme, "muted"));
         assertThat(painted(canvas)).as("painted ruler background").isEqualTo(palette(theme, "surface"));
     }
 
@@ -218,7 +218,7 @@ class SourceViewerThemingTest {
         assertThat(popup.getBackground().getRGB()).as("shell").isEqualTo(palette(theme, "surface"));
         StyledText text = findAll(popup, StyledText.class).getFirst();
         assertThat(text.getBackground().getRGB()).as("text").isEqualTo(palette(theme, "surface"));
-        assertThat(text.getForeground().getRGB()).as("text").isEqualTo(palette(theme, "fg"));
+        assertThat(text.getForeground().getRGB()).as("text").isEqualTo(palette(theme, "foreground"));
     }
 
     /** A source viewer with line numbers, an annotation column, an overview ruler and content assist. */

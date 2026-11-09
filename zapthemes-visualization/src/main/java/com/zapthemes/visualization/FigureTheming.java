@@ -34,8 +34,8 @@ import com.zapthemes.core.style.ThemeContext;
  * {@code GaugeFigure}, which are not SWT widgets and so are out of reach of the control stylers.
  * The theme gives rules for figure types in {@code controls}, by simple class name:
  *
- * <pre>{@code "Axis": { "foreground": "$fg", "majorGridColor": "$border" },
- * "AbstractScaledWidgetFigure": { "foreground": "$fg" }}</pre>
+ * <pre>{@code "Axis": { "foreground": "$foreground", "majorGridColor": "$border" },
+ * "AbstractScaledWidgetFigure": { "foreground": "$foreground" }}</pre>
  *
  * For each figure, the rules of its class and of its Nebula Visualization superclasses apply, the
  * most general first. draw2d's own figures ({@code Label}, {@code Button}, ...) are not types here,

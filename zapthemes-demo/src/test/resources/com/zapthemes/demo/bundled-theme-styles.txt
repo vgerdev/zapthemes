@@ -1,0 +1,1306 @@
+# zap-light
+dark = false
+defaults
+  background = #F7F8FAFF
+  font = font [] 9 0
+  foreground = #1F2328FF
+AbstractLinearMarkedFigure
+  fillBackgroundColor = #EBECF0FF
+  fillColor = #3574F0FF
+AbstractScaledWidgetFigure
+  foreground = #1F2328FF
+Annotation
+  annotationColor = #1F2328FF
+Axis
+  background = #FFFFFFFF
+  foreground = #1F2328FF
+  majorGridColor = #C9CCD1FF
+  minorGridColor = #EBECF0FF
+BadgedLabel
+  backgroundColor = #EBECF0FF
+  badgeBackground = #3574F0FF
+  badgeForeground = #FFFFFFFF
+  borderColor = #C9CCD1FF
+  textColor = #1F2328FF
+BreadcrumbItem
+  textColor = #1F2328FF
+  textColorSelected = #3574F0FF
+CCombo
+  background = #FFFFFFFF
+CDateTime
+  background = #FFFFFFFF
+  buttonHoverBackgroundColor = #DFE1E5FF
+  buttonHoverBorderColor = #C9CCD1FF
+  buttonSelectedBackgroundColor = #3574F0FF
+  buttonSelectedBorderColor = #3574F0FF
+  pickerActiveDayColor = #1F2328FF
+  pickerBackgroundColor = #FFFFFFFF
+  pickerForegroundColor = #1F2328FF
+  pickerInactiveDayColor = #8C8F94FF
+  pickerTodayColor = #3574F0FF
+CTabFolder
+  highlight = true
+  selectionBackground = #FFFFFFFF
+  selectionBarThickness = 2
+  selectionForeground = #3574F0FF
+CTreeCombo
+  background = #FFFFFFFF
+CTreeComboItem
+  background = #FFFFFFFF
+Carousel
+  arrowColor = #1F2328FF
+  circleBackground = #EBECF0FF
+  circleForeground = #3574F0FF
+  circleHoverColor = #DFE1E5FF
+Chips
+  borderColor = #C9CCD1FF
+  chipsBackground = #EBECF0FF
+  closeButtonBackground = #EBECF0FF
+  closeButtonForeground = #1F2328FF
+  closeButtonHoverBackground = #3574F0FF
+  closeButtonHoverForeground = #FFFFFFFF
+  hoverBackground = #DFE1E5FF
+  hoverBorderColor = #C9CCD1FF
+  hoverForeground = #1F2328FF
+  pushedStateBackground = #3574F0FF
+  pushedStateBorderColor = #3574F0FF
+  pushedStateForeground = #FFFFFFFF
+CollapsibleButtons
+  borderColor = #C9CCD1FF
+  buttonBackgroundColorBottom = #EBECF0FF
+  buttonBackgroundColorMiddle = #EBECF0FF
+  buttonBackgroundColorTop = #EBECF0FF
+  buttonTextColor = #1F2328FF
+  darkResizeColor = #C9CCD1FF
+  dotDarkColor = #8C8F94FF
+  dotLightColor = #EBECF0FF
+  dotMiddleColor = #C9CCD1FF
+  hoverButtonBackgroundColorBottom = #DFE1E5FF
+  hoverButtonBackgroundColorMiddle = #DFE1E5FF
+  hoverButtonBackgroundColorTop = #DFE1E5FF
+  hoverSelectedButtonBackgroundColorBottom = #3574F0FF
+  hoverSelectedButtonBackgroundColorMiddle = #3574F0FF
+  hoverSelectedButtonBackgroundColorTop = #3574F0FF
+  lightResizeColor = #EBECF0FF
+  selectedButtonBackgroundColorBottom = #3574F0FF
+  selectedButtonBackgroundColorMiddle = #3574F0FF
+  selectedButtonBackgroundColorTop = #3574F0FF
+Combo
+  background = #FFFFFFFF
+DateChooser
+  background = #FFFFFFFF
+DateTime
+  background = #FFFFFFFF
+FlatButton
+  accentColor = #3574F0FF
+  arc = 6
+  background = #EBECF0FF
+  borderColor = #8C8F94FF
+  disabled:borderColor = #EBECF0FF
+  disabled:foreground = #8C8F94FF
+  focused:borderColor = #3574F0FF
+  hover:background = #DFE1E5FF
+  pressed:background = #3574F0FF
+  pressed:foreground = #FFFFFFFF
+FlatGroup
+  borderColor = #EBECF0FF
+  titleFont = font [] 9 1
+  titleForeground = #1F2328FF
+FlatProgressBar
+  background = #EBECF0FF
+  barColor = #3574F0FF
+  errorColor = #C62828FF
+Gallery
+  background = #FFFFFFFF
+  groupRenderer.titleBackground = #EBECF0FF
+  groupRenderer.titleForeground = #1F2328FF
+  itemRenderer.backgroundColor = #FFFFFFFF
+  itemRenderer.foregroundColor = #1F2328FF
+  itemRenderer.selectionBackgroundColor = #3574F0FF
+  itemRenderer.selectionForegroundColor = #FFFFFFFF
+GalleryItem
+  background = #FFFFFFFF
+Grid
+  background = #FFFFFFFF
+  cellHeaderSelectionBackground = #CFDEFCFF
+  lineColor = #C9CCD1FF
+GridItem
+  background = #FFFFFFFF
+Header
+  gradientEnd = #F7F8FAFF
+  gradientStart = #FFFFFFFF
+  separatorColor = #C9CCD1FF
+  titleColor = #1F2328FF
+KnobFigure
+  thumbColor = #DFE1E5FF
+Legend
+  foreground = #1F2328FF
+Link
+  linkForeground = #3574F0FF
+List
+  background = #FFFFFFFF
+NatTable
+  accentColor = #3574F0FF
+  alternateRowBackground = #F3F4F6FF
+  background = #FFFFFFFF
+  errorForeground = #C62828FF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  freezeSeparatorColor = #C9CCD1FF
+  gridLineColor = #EBECF0FF
+  headerBackground = #EBECF0FF
+  headerForeground = #1F2328FF
+  hover:background = #DFE1E5FF
+  selectionBackground = #CFDEFCFF
+  selectionForeground = #1F2328FF
+PGroup
+  strategy.borderColor = #C9CCD1FF
+  titleBackground = #FFFFFFFF
+  titleBackgroundGradient = #EBECF0FF
+PShelf
+  renderer.shadeColor = #EBECF0FF
+PasswordRevealer
+  background = #FFFFFFFF
+PlotArea
+  background = #FFFFFFFF
+ProgressBar
+  background = #EBECF0FF
+  foreground = #3574F0FF
+ProgressCircle
+  foreground = #EBECF0FF
+  highlightColor = #3574F0FF
+RangeSlider
+  foreground = #C9CCD1FF
+Ribbon
+  arc = 4
+  background = #FFFFFFFF
+  borderColor = #C9CCD1FF
+  contextualAccent1 = #3574F0FF
+  contextualAccent2 = #7A3EB1FF
+  contextualAccent3 = #1E7B4BFF
+  contextualAccent4 = #B35C00FF
+  disabledForeground = #8C8F94FF
+  emphasisBackground = #3574F0FF
+  emphasisForeground = #FFFFFFFF
+  fieldBackground = #FFFFFFFF
+  fileTabBackground = #3574F0FF
+  fileTabForeground = #FFFFFFFF
+  focusColor = #3574F0FF
+  galleryBackground = #FFFFFFFF
+  galleryBorderColor = #C9CCD1FF
+  gallerySelectionColor = #3574F0FF
+  groupLabelForeground = #6A737DFF
+  itemCheckedBackground = #CFDEFCFF
+  itemCheckedBorderColor = #3574F0FF
+  itemHoverBackground = #DFE1E5FF
+  itemPressedBackground = #CFDEFCFF
+  keyTipBackground = #3B3F45FF
+  keyTipBorderColor = #C9CCD1FF
+  keyTipForeground = #FFFFFFFF
+  selectedTabBackground = #E9EBEFFF
+  selectedTabForeground = #3574F0FF
+  separatorColor = #C9CCD1FF
+  tabForeground = #1F2328FF
+  tabHoverBackground = #DFE1E5FF
+  tabIndicatorColor = #3574F0FF
+  tabStripBackground = #E9EBEFFF
+RibbonBackstage
+  navBackground = #3574F0FF
+  navForeground = #FFFFFFFF
+  navSelectedForeground = #FFFFFFFF
+  titleFont = font [] 12 1
+RibbonMessageBar
+  background = #FFF4CEFF
+  borderColor = #E8D28AFF
+  error:background = #FDE7E9FF
+  error:borderColor = #C62828FF
+  error:iconColor = #C62828FF
+  iconColor = #1F2328FF
+  info:background = #EAF1FDFF
+  info:borderColor = #C9CCD1FF
+  success:background = #DFF6DDFF
+  success:borderColor = #C9CCD1FF
+  titleFont = font [] 9 1
+RibbonPopup
+  background = #FFFFFFFF
+  borderColor = #C9CCD1FF
+RibbonToolTip
+  background = #FFFFFFFF
+  borderColor = #C9CCD1FF
+  titleFont = font [] 9 1
+RoundedToolItem
+  textColor = #1F2328FF
+  textColorSelected = #FFFFFFFF
+RoundedToolbar
+  borderColor = #C9CCD1FF
+Spinner
+  background = #FFFFFFFF
+StyledText
+  background = #FFFFFFFF
+  marginColor = #FFFFFFFF
+  selectionBackground = #CFDEFCFF
+  selectionForeground = #1F2328FF
+SwitchButton
+  borderColor = #C9CCD1FF
+  buttonBackgroundColor1 = #FFFFFFFF
+  buttonBackgroundColor2 = #FFFFFFFF
+  buttonBorderColor = #C9CCD1FF
+  focusColor = #3574F0FF
+  selectedBackgroundColor = #3574F0FF
+  selectedForegroundColor = #FFFFFFFF
+  unselectedBackgroundColor = #EBECF0FF
+  unselectedForegroundColor = #1F2328FF
+Table
+  alternateRowBackground = #F3F4F6FF
+  background = #FFFFFFFF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #EBECF0FF
+  headerBackground = #EBECF0FF
+  headerForeground = #1F2328FF
+  hover:background = #DFE1E5FF
+  selectionBackground = #CFDEFCFF
+  selectionForeground = #1F2328FF
+TableCombo
+  background = #FFFFFFFF
+  borderColor = #C9CCD1FF
+  evenLinesBackgroundColor = #F3F4F6FF
+  evenLinesForegroundColor = #1F2328FF
+  oddLinesBackgroundColor = #FFFFFFFF
+  oddLinesForegroundColor = #1F2328FF
+TableItem
+  alternateRowBackground = #F3F4F6FF
+  background = #FFFFFFFF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #EBECF0FF
+  headerBackground = #EBECF0FF
+  headerForeground = #1F2328FF
+  hover:background = #DFE1E5FF
+  selectionBackground = #CFDEFCFF
+  selectionForeground = #1F2328FF
+Text
+  background = #FFFFFFFF
+TextAssist
+  background = #FFFFFFFF
+Tiles
+  background = #FFFFFFFF
+TimelineComposite
+  background = #FFFFFFFF
+  cursorColor = #3574F0FF
+  gridColor = #C9CCD1FF
+  overviewSelectionBackgroundColor = #3574F0FF
+  selectedCursorColor = #C62828FF
+TitleBar
+  avatarBackground = #CA5010FF
+  avatarForeground = #FFFFFFFF
+  background = #3574F0FF
+  foreground = #FFFFFFFF
+  inactiveBackground = #6F9AF3FF
+  inactiveForeground = #E3EBFCFF
+  useAccent = true
+ToolbarArmedXYGraph
+  background = #F7F8FAFF
+Tree
+  alternateRowBackground = #F3F4F6FF
+  background = #FFFFFFFF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #EBECF0FF
+  headerBackground = #EBECF0FF
+  headerForeground = #1F2328FF
+  hover:background = #DFE1E5FF
+  selectionBackground = #CFDEFCFF
+  selectionForeground = #1F2328FF
+TreeItem
+  alternateRowBackground = #F3F4F6FF
+  background = #FFFFFFFF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #EBECF0FF
+  headerBackground = #EBECF0FF
+  headerForeground = #1F2328FF
+  hover:background = #DFE1E5FF
+  selectionBackground = #CFDEFCFF
+  selectionForeground = #1F2328FF
+XYGraph
+  background = #FFFFFFFF
+  foreground = #1F2328FF
+  titleColor = #1F2328FF
+Button[PUSH]
+  background = #EBECF0FF
+FlatButton[CHECK]
+  background = #F7F8FAFF
+  borderColor = #8C8F94FF
+  boxBackground = #FFFFFFFF
+FlatButton[RADIO]
+  background = #F7F8FAFF
+  borderColor = #8C8F94FF
+  boxBackground = #FFFFFFFF
+classes.*.banner
+  background = #FFFFFFFF
+  foreground = #1F2328FF
+classes.*.error
+  foreground = #C62828FF
+classes.*.frame
+  background = #C9CCD1FF
+classes.*.info
+  background = #EBECF0FF
+  foreground = #1F2328FF
+classes.*.notification
+  background = #C9CCD1FF
+classes.*.pane
+  background = #FFFFFFFF
+classes.*.popup
+  background = #FFFFFFFF
+  foreground = #1F2328FF
+classes.*.ruler
+  background = #FFFFFFFF
+  foreground = #6A737DFF
+classes.*.strong
+  font = font [] 9 1
+classes.*.title
+  font = font [] 9 1
+classes.Button.primary
+  background = #3574F0FF
+  foreground = #FFFFFFFF
+classes.FlatButton.primary
+  background = #3574F0FF
+  borderColor = #3574F0FF
+  foreground = #FFFFFFFF
+classes.Label.backstageTitle
+  font = font [] 12 1
+classes.Label.muted
+  foreground = #8C8F94FF
+classes.Table.popup
+  alternateRowBackground = #FFFFFFFF
+classes.Text.plain
+  background = #F7F8FAFF
+registries.colors
+  ACTIVE_HYPERLINK_COLOR = #3574F0FF
+  CONTENT_ASSIST_BACKGROUND_COLOR = #FFFFFFFF
+  CONTENT_ASSIST_FOREGROUND_COLOR = #1F2328FF
+  COUNTER_COLOR = #3574F0FF
+  DECORATIONS_COLOR = #6A737DFF
+  ERROR_COLOR = #C62828FF
+  HYPERLINK_COLOR = #3574F0FF
+  QUALIFIER_COLOR = #6A737DFF
+  com.zapthemes.text.comment = #8C8C8CFF
+  com.zapthemes.text.keyword = #0033B3FF
+  com.zapthemes.text.number = #1750EBFF
+  com.zapthemes.text.string = #067D17FF
+  org.eclipse.ui.workbench.INFORMATION_BACKGROUND = #FFFFFFFF
+  org.eclipse.ui.workbench.INFORMATION_FOREGROUND = #1F2328FF
+registries.fonts
+  org.eclipse.jface.bannerfont = font [] 9 1
+  org.eclipse.jface.defaultfont = font [] 9 0
+  org.eclipse.jface.dialogfont = font [] 9 0
+  org.eclipse.jface.headerfont = font [] 12 1
+  org.eclipse.jface.viewerfont = font [] 9 0
+  org.eclipse.jface.windowfont = font [] 9 0
+registries.systemColors
+  COLOR_INFO_BACKGROUND = #EBECF0FF
+  COLOR_INFO_FOREGROUND = #1F2328FF
+  COLOR_LINK_FOREGROUND = #3574F0FF
+  COLOR_LIST_BACKGROUND = #FFFFFFFF
+  COLOR_LIST_FOREGROUND = #1F2328FF
+  COLOR_LIST_SELECTION = #3574F0FF
+  COLOR_LIST_SELECTION_TEXT = #FFFFFFFF
+  COLOR_TEXT_DISABLED_BACKGROUND = #EBECF0FF
+  COLOR_TITLE_BACKGROUND = #FFFFFFFF
+  COLOR_TITLE_BACKGROUND_GRADIENT = #EBECF0FF
+  COLOR_TITLE_FOREGROUND = #1F2328FF
+  COLOR_TITLE_INACTIVE_BACKGROUND = #EBECF0FF
+  COLOR_TITLE_INACTIVE_BACKGROUND_GRADIENT = #EBECF0FF
+  COLOR_TITLE_INACTIVE_FOREGROUND = #8C8F94FF
+  COLOR_WIDGET_BACKGROUND = #F7F8FAFF
+  COLOR_WIDGET_BORDER = #C9CCD1FF
+  COLOR_WIDGET_DARK_SHADOW = #8C8F94FF
+  COLOR_WIDGET_DISABLED_FOREGROUND = #8C8F94FF
+  COLOR_WIDGET_FOREGROUND = #1F2328FF
+  COLOR_WIDGET_HIGHLIGHT_SHADOW = #FFFFFFFF
+  COLOR_WIDGET_LIGHT_SHADOW = #EBECF0FF
+  COLOR_WIDGET_NORMAL_SHADOW = #C9CCD1FF
+platform.*
+  darkThemePreferred = false
+platform.cocoa
+  darkThemePreferred = false
+platform.gtk
+  darkThemePreferred = false
+  menuBackground = "#FFFFFF"
+  menuBarBackground = "#F7F8FA"
+  menuBarForeground = "#1F2328"
+  menuForeground = "#1F2328"
+  menuSelectionBackground = "#CFDEFC"
+  menuSelectionForeground = "#1F2328"
+platform.win32
+  darkCombos = false
+  darkScrollbars = false
+  darkTextIcons = false
+  darkThemePreferred = false
+  disabledLabelForeground = "#8C8F94"
+  menuBarBackground = "#F7F8FA"
+  menuBarBorderColor = "#EBECF0"
+  menuBarForeground = "#1F2328"
+  progressBarColors = true
+  tableHeaderLineColor = "#EBECF0"
+
+# zap-dark
+dark = true
+defaults
+  background = #1E1F22FF
+  font = font [] 9 0
+  foreground = #DFE1E5FF
+AbstractLinearMarkedFigure
+  fillBackgroundColor = #393B40FF
+  fillColor = #3574F0FF
+AbstractScaledWidgetFigure
+  foreground = #DFE1E5FF
+Annotation
+  annotationColor = #DFE1E5FF
+Axis
+  background = #2B2D30FF
+  foreground = #DFE1E5FF
+  majorGridColor = #4A4D52FF
+  minorGridColor = #393B40FF
+BadgedLabel
+  backgroundColor = #393B40FF
+  badgeBackground = #3574F0FF
+  badgeForeground = #FFFFFFFF
+  borderColor = #4A4D52FF
+  textColor = #DFE1E5FF
+BreadcrumbItem
+  textColor = #DFE1E5FF
+  textColorSelected = #3574F0FF
+CCombo
+  background = #2B2D30FF
+CDateTime
+  background = #2B2D30FF
+  buttonHoverBackgroundColor = #43454AFF
+  buttonHoverBorderColor = #4A4D52FF
+  buttonSelectedBackgroundColor = #3574F0FF
+  buttonSelectedBorderColor = #3574F0FF
+  pickerActiveDayColor = #DFE1E5FF
+  pickerBackgroundColor = #2B2D30FF
+  pickerForegroundColor = #DFE1E5FF
+  pickerInactiveDayColor = #6F737AFF
+  pickerTodayColor = #3574F0FF
+CTabFolder
+  highlight = true
+  selectionBackground = #2B2D30FF
+  selectionBarThickness = 2
+  selectionForeground = #3574F0FF
+CTreeCombo
+  background = #2B2D30FF
+CTreeComboItem
+  background = #2B2D30FF
+Carousel
+  arrowColor = #DFE1E5FF
+  circleBackground = #393B40FF
+  circleForeground = #3574F0FF
+  circleHoverColor = #43454AFF
+Chips
+  borderColor = #4A4D52FF
+  chipsBackground = #393B40FF
+  closeButtonBackground = #393B40FF
+  closeButtonForeground = #DFE1E5FF
+  closeButtonHoverBackground = #3574F0FF
+  closeButtonHoverForeground = #FFFFFFFF
+  hoverBackground = #43454AFF
+  hoverBorderColor = #4A4D52FF
+  hoverForeground = #DFE1E5FF
+  pushedStateBackground = #3574F0FF
+  pushedStateBorderColor = #3574F0FF
+  pushedStateForeground = #FFFFFFFF
+CollapsibleButtons
+  borderColor = #4A4D52FF
+  buttonBackgroundColorBottom = #393B40FF
+  buttonBackgroundColorMiddle = #393B40FF
+  buttonBackgroundColorTop = #393B40FF
+  buttonTextColor = #DFE1E5FF
+  darkResizeColor = #4A4D52FF
+  dotDarkColor = #6F737AFF
+  dotLightColor = #393B40FF
+  dotMiddleColor = #4A4D52FF
+  hoverButtonBackgroundColorBottom = #43454AFF
+  hoverButtonBackgroundColorMiddle = #43454AFF
+  hoverButtonBackgroundColorTop = #43454AFF
+  hoverSelectedButtonBackgroundColorBottom = #3574F0FF
+  hoverSelectedButtonBackgroundColorMiddle = #3574F0FF
+  hoverSelectedButtonBackgroundColorTop = #3574F0FF
+  lightResizeColor = #393B40FF
+  selectedButtonBackgroundColorBottom = #3574F0FF
+  selectedButtonBackgroundColorMiddle = #3574F0FF
+  selectedButtonBackgroundColorTop = #3574F0FF
+Combo
+  background = #2B2D30FF
+DateChooser
+  background = #2B2D30FF
+DateTime
+  background = #2B2D30FF
+FlatButton
+  accentColor = #3574F0FF
+  arc = 6
+  background = #393B40FF
+  borderColor = #6F737AFF
+  disabled:borderColor = #393B40FF
+  disabled:foreground = #6F737AFF
+  focused:borderColor = #3574F0FF
+  hover:background = #43454AFF
+  pressed:background = #3574F0FF
+  pressed:foreground = #FFFFFFFF
+FlatGroup
+  borderColor = #393B40FF
+  titleFont = font [] 9 1
+  titleForeground = #DFE1E5FF
+FlatProgressBar
+  background = #393B40FF
+  barColor = #3574F0FF
+  errorColor = #F07178FF
+Gallery
+  background = #2B2D30FF
+  groupRenderer.titleBackground = #393B40FF
+  groupRenderer.titleForeground = #DFE1E5FF
+  itemRenderer.backgroundColor = #2B2D30FF
+  itemRenderer.foregroundColor = #DFE1E5FF
+  itemRenderer.selectionBackgroundColor = #3574F0FF
+  itemRenderer.selectionForegroundColor = #FFFFFFFF
+GalleryItem
+  background = #2B2D30FF
+Grid
+  background = #2B2D30FF
+  cellHeaderSelectionBackground = #2E436EFF
+  lineColor = #4A4D52FF
+GridItem
+  background = #2B2D30FF
+Header
+  gradientEnd = #1E1F22FF
+  gradientStart = #2B2D30FF
+  separatorColor = #4A4D52FF
+  titleColor = #DFE1E5FF
+KnobFigure
+  thumbColor = #43454AFF
+Legend
+  foreground = #DFE1E5FF
+Link
+  linkForeground = #3574F0FF
+List
+  background = #2B2D30FF
+NatTable
+  accentColor = #3574F0FF
+  alternateRowBackground = #303236FF
+  background = #2B2D30FF
+  errorForeground = #F07178FF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  freezeSeparatorColor = #4A4D52FF
+  gridLineColor = #393B40FF
+  headerBackground = #393B40FF
+  headerForeground = #DFE1E5FF
+  hover:background = #43454AFF
+  selectionBackground = #2E436EFF
+  selectionForeground = #DFE1E5FF
+PGroup
+  strategy.borderColor = #4A4D52FF
+  titleBackground = #2B2D30FF
+  titleBackgroundGradient = #393B40FF
+PShelf
+  renderer.shadeColor = #393B40FF
+PasswordRevealer
+  background = #2B2D30FF
+PlotArea
+  background = #2B2D30FF
+ProgressBar
+  background = #393B40FF
+  foreground = #3574F0FF
+ProgressCircle
+  foreground = #393B40FF
+  highlightColor = #3574F0FF
+RangeSlider
+  foreground = #4A4D52FF
+Ribbon
+  arc = 4
+  background = #2B2D30FF
+  borderColor = #4A4D52FF
+  contextualAccent1 = #3574F0FF
+  contextualAccent2 = #B98BE8FF
+  contextualAccent3 = #5FC48AFF
+  contextualAccent4 = #E5A050FF
+  disabledForeground = #6F737AFF
+  emphasisBackground = #3574F0FF
+  emphasisForeground = #FFFFFFFF
+  fieldBackground = #2B2D30FF
+  fileTabBackground = #3574F0FF
+  fileTabForeground = #FFFFFFFF
+  focusColor = #3574F0FF
+  galleryBackground = #2B2D30FF
+  galleryBorderColor = #4A4D52FF
+  gallerySelectionColor = #3574F0FF
+  groupLabelForeground = #8C8F94FF
+  itemCheckedBackground = #2E436EFF
+  itemCheckedBorderColor = #3574F0FF
+  itemHoverBackground = #43454AFF
+  itemPressedBackground = #2E436EFF
+  keyTipBackground = #DFE1E5FF
+  keyTipBorderColor = #4A4D52FF
+  keyTipForeground = #1E1F22FF
+  selectedTabBackground = #18191BFF
+  selectedTabForeground = #3574F0FF
+  separatorColor = #4A4D52FF
+  tabForeground = #DFE1E5FF
+  tabHoverBackground = #43454AFF
+  tabIndicatorColor = #3574F0FF
+  tabStripBackground = #18191BFF
+RibbonBackstage
+  navBackground = #3574F0FF
+  navForeground = #FFFFFFFF
+  navSelectedForeground = #FFFFFFFF
+  titleFont = font [] 12 1
+RibbonMessageBar
+  background = #433519FF
+  borderColor = #6B5A2AFF
+  error:background = #442726FF
+  error:borderColor = #F07178FF
+  error:iconColor = #F07178FF
+  iconColor = #DFE1E5FF
+  info:background = #1F2D45FF
+  info:borderColor = #4A4D52FF
+  success:background = #22382AFF
+  success:borderColor = #4A4D52FF
+  titleFont = font [] 9 1
+RibbonPopup
+  background = #2B2D30FF
+  borderColor = #4A4D52FF
+RibbonToolTip
+  background = #2B2D30FF
+  borderColor = #4A4D52FF
+  titleFont = font [] 9 1
+RoundedToolItem
+  textColor = #DFE1E5FF
+  textColorSelected = #FFFFFFFF
+RoundedToolbar
+  borderColor = #4A4D52FF
+Spinner
+  background = #2B2D30FF
+StyledText
+  background = #2B2D30FF
+  marginColor = #2B2D30FF
+  selectionBackground = #2E436EFF
+  selectionForeground = #DFE1E5FF
+SwitchButton
+  borderColor = #4A4D52FF
+  buttonBackgroundColor1 = #2B2D30FF
+  buttonBackgroundColor2 = #2B2D30FF
+  buttonBorderColor = #4A4D52FF
+  focusColor = #3574F0FF
+  selectedBackgroundColor = #3574F0FF
+  selectedForegroundColor = #FFFFFFFF
+  unselectedBackgroundColor = #393B40FF
+  unselectedForegroundColor = #DFE1E5FF
+Table
+  alternateRowBackground = #303236FF
+  background = #2B2D30FF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #393B40FF
+  headerBackground = #393B40FF
+  headerForeground = #DFE1E5FF
+  hover:background = #43454AFF
+  selectionBackground = #2E436EFF
+  selectionForeground = #DFE1E5FF
+TableCombo
+  background = #2B2D30FF
+  borderColor = #4A4D52FF
+  evenLinesBackgroundColor = #303236FF
+  evenLinesForegroundColor = #DFE1E5FF
+  oddLinesBackgroundColor = #2B2D30FF
+  oddLinesForegroundColor = #DFE1E5FF
+TableItem
+  alternateRowBackground = #303236FF
+  background = #2B2D30FF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #393B40FF
+  headerBackground = #393B40FF
+  headerForeground = #DFE1E5FF
+  hover:background = #43454AFF
+  selectionBackground = #2E436EFF
+  selectionForeground = #DFE1E5FF
+Text
+  background = #2B2D30FF
+TextAssist
+  background = #2B2D30FF
+Tiles
+  background = #2B2D30FF
+TimelineComposite
+  background = #2B2D30FF
+  cursorColor = #3574F0FF
+  gridColor = #4A4D52FF
+  overviewSelectionBackgroundColor = #3574F0FF
+  selectedCursorColor = #F07178FF
+TitleBar
+  avatarBackground = #CA5010FF
+  avatarForeground = #FFFFFFFF
+  background = #2B2D30FF
+  focusColor = #3574F0FF
+  hoverBackground = #43454AFF
+  inactiveBackground = #25262AFF
+  inactiveForeground = #8C8F94FF
+  pressedBackground = #393B40FF
+  searchBackground = #1E1F22FF
+  searchBorderColor = #4A4D52FF
+  useAccent = false
+ToolbarArmedXYGraph
+  background = #1E1F22FF
+Tree
+  alternateRowBackground = #303236FF
+  background = #2B2D30FF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #393B40FF
+  headerBackground = #393B40FF
+  headerForeground = #DFE1E5FF
+  hover:background = #43454AFF
+  selectionBackground = #2E436EFF
+  selectionForeground = #DFE1E5FF
+TreeItem
+  alternateRowBackground = #303236FF
+  background = #2B2D30FF
+  focusCellBackground = #3574F0FF
+  focusCellForeground = #FFFFFFFF
+  gridLineColor = #393B40FF
+  headerBackground = #393B40FF
+  headerForeground = #DFE1E5FF
+  hover:background = #43454AFF
+  selectionBackground = #2E436EFF
+  selectionForeground = #DFE1E5FF
+XYGraph
+  background = #2B2D30FF
+  foreground = #DFE1E5FF
+  titleColor = #DFE1E5FF
+Button[PUSH]
+  background = #393B40FF
+FlatButton[CHECK]
+  background = #1E1F22FF
+  borderColor = #6F737AFF
+  boxBackground = #2B2D30FF
+FlatButton[RADIO]
+  background = #1E1F22FF
+  borderColor = #6F737AFF
+  boxBackground = #2B2D30FF
+classes.*.banner
+  background = #2B2D30FF
+  foreground = #DFE1E5FF
+classes.*.error
+  foreground = #F07178FF
+classes.*.frame
+  background = #4A4D52FF
+classes.*.info
+  background = #393B40FF
+  foreground = #DFE1E5FF
+classes.*.notification
+  background = #4A4D52FF
+classes.*.pane
+  background = #2B2D30FF
+classes.*.popup
+  background = #2B2D30FF
+  foreground = #DFE1E5FF
+classes.*.ruler
+  background = #2B2D30FF
+  foreground = #8C8F94FF
+classes.*.strong
+  font = font [] 9 1
+classes.*.title
+  font = font [] 9 1
+classes.Button.primary
+  background = #3574F0FF
+  foreground = #FFFFFFFF
+classes.FlatButton.primary
+  background = #3574F0FF
+  borderColor = #3574F0FF
+  foreground = #FFFFFFFF
+classes.Label.backstageTitle
+  font = font [] 12 1
+classes.Label.muted
+  foreground = #6F737AFF
+classes.Table.popup
+  alternateRowBackground = #2B2D30FF
+classes.Text.plain
+  background = #1E1F22FF
+registries.colors
+  ACTIVE_HYPERLINK_COLOR = #3574F0FF
+  CONTENT_ASSIST_BACKGROUND_COLOR = #2B2D30FF
+  CONTENT_ASSIST_FOREGROUND_COLOR = #DFE1E5FF
+  COUNTER_COLOR = #3574F0FF
+  DECORATIONS_COLOR = #8C8F94FF
+  ERROR_COLOR = #F07178FF
+  HYPERLINK_COLOR = #3574F0FF
+  QUALIFIER_COLOR = #8C8F94FF
+  com.zapthemes.text.comment = #7A7E85FF
+  com.zapthemes.text.keyword = #CF8E6DFF
+  com.zapthemes.text.number = #2AACB8FF
+  com.zapthemes.text.string = #6AAB73FF
+  org.eclipse.ui.workbench.INFORMATION_BACKGROUND = #2B2D30FF
+  org.eclipse.ui.workbench.INFORMATION_FOREGROUND = #DFE1E5FF
+registries.fonts
+  org.eclipse.jface.bannerfont = font [] 9 1
+  org.eclipse.jface.defaultfont = font [] 9 0
+  org.eclipse.jface.dialogfont = font [] 9 0
+  org.eclipse.jface.headerfont = font [] 12 1
+  org.eclipse.jface.viewerfont = font [] 9 0
+  org.eclipse.jface.windowfont = font [] 9 0
+registries.systemColors
+  COLOR_INFO_BACKGROUND = #393B40FF
+  COLOR_INFO_FOREGROUND = #DFE1E5FF
+  COLOR_LINK_FOREGROUND = #3574F0FF
+  COLOR_LIST_BACKGROUND = #2B2D30FF
+  COLOR_LIST_FOREGROUND = #DFE1E5FF
+  COLOR_LIST_SELECTION = #3574F0FF
+  COLOR_LIST_SELECTION_TEXT = #FFFFFFFF
+  COLOR_TEXT_DISABLED_BACKGROUND = #393B40FF
+  COLOR_TITLE_BACKGROUND = #2B2D30FF
+  COLOR_TITLE_BACKGROUND_GRADIENT = #393B40FF
+  COLOR_TITLE_FOREGROUND = #DFE1E5FF
+  COLOR_TITLE_INACTIVE_BACKGROUND = #393B40FF
+  COLOR_TITLE_INACTIVE_BACKGROUND_GRADIENT = #393B40FF
+  COLOR_TITLE_INACTIVE_FOREGROUND = #6F737AFF
+  COLOR_WIDGET_BACKGROUND = #1E1F22FF
+  COLOR_WIDGET_BORDER = #4A4D52FF
+  COLOR_WIDGET_DARK_SHADOW = #6F737AFF
+  COLOR_WIDGET_DISABLED_FOREGROUND = #6F737AFF
+  COLOR_WIDGET_FOREGROUND = #DFE1E5FF
+  COLOR_WIDGET_HIGHLIGHT_SHADOW = #2B2D30FF
+  COLOR_WIDGET_LIGHT_SHADOW = #393B40FF
+  COLOR_WIDGET_NORMAL_SHADOW = #4A4D52FF
+platform.*
+  darkThemePreferred = true
+platform.cocoa
+  darkThemePreferred = true
+platform.gtk
+  darkThemePreferred = true
+  menuBackground = "#2B2D30"
+  menuBarBackground = "#1E1F22"
+  menuBarForeground = "#DFE1E5"
+  menuForeground = "#DFE1E5"
+  menuSelectionBackground = "#2E436E"
+  menuSelectionForeground = "#DFE1E5"
+platform.win32
+  darkCombos = true
+  darkScrollbars = true
+  darkTextIcons = true
+  darkThemePreferred = true
+  disabledLabelForeground = "#6F737A"
+  menuBarBackground = "#1E1F22"
+  menuBarBorderColor = "#393B40"
+  menuBarForeground = "#DFE1E5"
+  progressBarColors = true
+  tableHeaderLineColor = "#393B40"
+
+# zap-high-contrast
+dark = true
+defaults
+  background = #000000FF
+  font = font [] 9 0
+  foreground = #FFFFFFFF
+AbstractLinearMarkedFigure
+  fillBackgroundColor = #1F1F1FFF
+  fillColor = #0037DAFF
+AbstractScaledWidgetFigure
+  foreground = #FFFFFFFF
+Annotation
+  annotationColor = #FFFFFFFF
+Axis
+  background = #000000FF
+  foreground = #FFFFFFFF
+  majorGridColor = #FFFFFFFF
+  minorGridColor = #1F1F1FFF
+BadgedLabel
+  backgroundColor = #1F1F1FFF
+  badgeBackground = #FFFF00FF
+  badgeForeground = #000000FF
+  borderColor = #FFFFFFFF
+  textColor = #FFFFFFFF
+BreadcrumbItem
+  textColor = #FFFFFFFF
+  textColorSelected = #FFFF00FF
+CDateTime
+  buttonHoverBackgroundColor = #3A3A3AFF
+  buttonHoverBorderColor = #FFFFFFFF
+  buttonSelectedBackgroundColor = #0037DAFF
+  buttonSelectedBorderColor = #FFFF00FF
+  pickerActiveDayColor = #FFFFFFFF
+  pickerBackgroundColor = #000000FF
+  pickerForegroundColor = #FFFFFFFF
+  pickerInactiveDayColor = #A6A6A6FF
+  pickerTodayColor = #FFFF00FF
+CTabFolder
+  highlight = true
+  selectionBackground = #000000FF
+  selectionBarThickness = 3
+  selectionForeground = #FFFF00FF
+Carousel
+  arrowColor = #FFFFFFFF
+  circleBackground = #1F1F1FFF
+  circleForeground = #FFFF00FF
+  circleHoverColor = #3A3A3AFF
+Chips
+  borderColor = #FFFFFFFF
+  chipsBackground = #1F1F1FFF
+  closeButtonBackground = #1F1F1FFF
+  closeButtonForeground = #FFFFFFFF
+  closeButtonHoverBackground = #FFFF00FF
+  closeButtonHoverForeground = #000000FF
+  hoverBackground = #3A3A3AFF
+  hoverBorderColor = #FFFFFFFF
+  hoverForeground = #FFFFFFFF
+  pushedStateBackground = #FFFF00FF
+  pushedStateBorderColor = #FFFF00FF
+  pushedStateForeground = #000000FF
+CollapsibleButtons
+  borderColor = #FFFFFFFF
+  buttonBackgroundColorBottom = #1F1F1FFF
+  buttonBackgroundColorMiddle = #1F1F1FFF
+  buttonBackgroundColorTop = #1F1F1FFF
+  buttonTextColor = #FFFFFFFF
+  darkResizeColor = #FFFFFFFF
+  dotDarkColor = #A6A6A6FF
+  dotLightColor = #1F1F1FFF
+  dotMiddleColor = #FFFFFFFF
+  hoverButtonBackgroundColorBottom = #3A3A3AFF
+  hoverButtonBackgroundColorMiddle = #3A3A3AFF
+  hoverButtonBackgroundColorTop = #3A3A3AFF
+  hoverSelectedButtonBackgroundColorBottom = #FFFF00FF
+  hoverSelectedButtonBackgroundColorMiddle = #FFFF00FF
+  hoverSelectedButtonBackgroundColorTop = #FFFF00FF
+  lightResizeColor = #1F1F1FFF
+  selectedButtonBackgroundColorBottom = #FFFF00FF
+  selectedButtonBackgroundColorMiddle = #FFFF00FF
+  selectedButtonBackgroundColorTop = #FFFF00FF
+FlatButton
+  accentColor = #FFFF00FF
+  arc = 6
+  background = #1F1F1FFF
+  borderColor = #FFFFFFFF
+  focused:borderColor = #FFFF00FF
+FlatGroup
+  borderColor = #FFFFFFFF
+  titleFont = font [] 9 1
+  titleForeground = #FFFFFFFF
+FlatProgressBar
+  background = #1F1F1FFF
+  barColor = #FFFF00FF
+  errorColor = #FF8080FF
+Gallery
+  groupRenderer.titleBackground = #1F1F1FFF
+  groupRenderer.titleForeground = #FFFFFFFF
+  itemRenderer.backgroundColor = #000000FF
+  itemRenderer.foregroundColor = #FFFFFFFF
+  itemRenderer.selectionBackgroundColor = #FFFF00FF
+  itemRenderer.selectionForegroundColor = #000000FF
+Grid
+  cellHeaderSelectionBackground = #0037DAFF
+  lineColor = #FFFFFFFF
+Header
+  gradientEnd = #000000FF
+  gradientStart = #000000FF
+  separatorColor = #FFFFFFFF
+  titleColor = #FFFFFFFF
+KnobFigure
+  thumbColor = #3A3A3AFF
+Legend
+  foreground = #FFFFFFFF
+Link
+  linkForeground = #00FFFFFF
+NatTable
+  accentColor = #FFFF00FF
+  alternateRowBackground = #141414FF
+  errorForeground = #FF8080FF
+  focusCellBackground = #FFFF00FF
+  focusCellForeground = #000000FF
+  freezeSeparatorColor = #FFFFFFFF
+  gridLineColor = #8A8A8AFF
+  headerBackground = #1F1F1FFF
+  headerForeground = #FFFFFFFF
+  hover:background = #3A3A3AFF
+  selectionBackground = #0037DAFF
+  selectionForeground = #FFFFFFFF
+PGroup
+  strategy.borderColor = #FFFFFFFF
+  titleBackground = #000000FF
+  titleBackgroundGradient = #1F1F1FFF
+PShelf
+  renderer.shadeColor = #1F1F1FFF
+PlotArea
+  background = #000000FF
+ProgressBar
+  background = #1F1F1FFF
+  foreground = #FFFF00FF
+ProgressCircle
+  foreground = #1F1F1FFF
+  highlightColor = #FFFF00FF
+Ribbon
+  arc = 4
+  borderColor = #FFFFFFFF
+  contextualAccent1 = #FFFF00FF
+  contextualAccent2 = #00FFFFFF
+  contextualAccent3 = #00FF00FF
+  contextualAccent4 = #FF8000FF
+  disabledForeground = #A6A6A6FF
+  emphasisBackground = #FFFF00FF
+  emphasisForeground = #000000FF
+  fieldBackground = #000000FF
+  fileTabBackground = #FFFF00FF
+  fileTabForeground = #000000FF
+  focusColor = #FFFF00FF
+  galleryBackground = #000000FF
+  galleryBorderColor = #FFFFFFFF
+  gallerySelectionColor = #FFFF00FF
+  groupLabelForeground = #C8C8C8FF
+  hover:borderColor = #FFFF00FF
+  itemCheckedBackground = #000000FF
+  itemCheckedBorderColor = #FFFF00FF
+  itemHoverBackground = #3A3A3AFF
+  itemPressedBackground = #0037DAFF
+  keyTipBackground = #FFFF00FF
+  keyTipBorderColor = #000000FF
+  keyTipForeground = #000000FF
+  pressed:background = #FFFF00FF
+  pressed:borderColor = #FFFF00FF
+  pressed:foreground = #000000FF
+  selectedTabBackground = #000000FF
+  selectedTabForeground = #FFFF00FF
+  separatorColor = #FFFFFFFF
+  tabForeground = #FFFFFFFF
+  tabHoverBackground = #3A3A3AFF
+  tabHoverIndicatorColor = #FFFF00FF
+  tabIndicatorColor = #FFFF00FF
+  tabStripBackground = #000000FF
+  useAppAccent = false
+RibbonBackstage
+  navBackground = #000000FF
+  navForeground = #FFFFFFFF
+  navHoverBackground = #3A3A3AFF
+  navSelectedBackground = #0037DAFF
+  navSelectedForeground = #FFFFFFFF
+  titleFont = font [] 12 1
+  useAppAccent = false
+RibbonMessageBar
+  borderColor = #FFFFFFFF
+  error:background = #000000FF
+  error:borderColor = #FF8080FF
+  error:iconColor = #FF8080FF
+  iconColor = #FFFFFFFF
+  info:background = #000000FF
+  success:background = #000000FF
+  titleFont = font [] 9 1
+RibbonPopup
+  borderColor = #FFFFFFFF
+RibbonToolTip
+  borderColor = #FFFFFFFF
+  titleFont = font [] 9 1
+RoundedToolItem
+  textColor = #FFFFFFFF
+  textColorSelected = #000000FF
+RoundedToolbar
+  borderColor = #FFFFFFFF
+StyledText
+  marginColor = #000000FF
+  selectionBackground = #0037DAFF
+  selectionForeground = #FFFFFFFF
+SwitchButton
+  borderColor = #FFFFFFFF
+  buttonBackgroundColor1 = #000000FF
+  buttonBackgroundColor2 = #000000FF
+  buttonBorderColor = #FFFFFFFF
+  focusColor = #FFFF00FF
+  selectedBackgroundColor = #0037DAFF
+  selectedForegroundColor = #FFFFFFFF
+  unselectedBackgroundColor = #1F1F1FFF
+  unselectedForegroundColor = #FFFFFFFF
+Table
+  alternateRowBackground = #141414FF
+  focusCellBackground = #FFFF00FF
+  focusCellForeground = #000000FF
+  gridLineColor = #8A8A8AFF
+  headerBackground = #1F1F1FFF
+  headerForeground = #FFFFFFFF
+  hover:background = #3A3A3AFF
+  selectionBackground = #0037DAFF
+  selectionForeground = #FFFFFFFF
+TableCombo
+  borderColor = #FFFFFFFF
+  evenLinesBackgroundColor = #141414FF
+  evenLinesForegroundColor = #FFFFFFFF
+  oddLinesBackgroundColor = #000000FF
+  oddLinesForegroundColor = #FFFFFFFF
+TableItem
+  alternateRowBackground = #141414FF
+  focusCellBackground = #FFFF00FF
+  focusCellForeground = #000000FF
+  gridLineColor = #8A8A8AFF
+  headerBackground = #1F1F1FFF
+  headerForeground = #FFFFFFFF
+  hover:background = #3A3A3AFF
+  selectionBackground = #0037DAFF
+  selectionForeground = #FFFFFFFF
+TimelineComposite
+  cursorColor = #FFFF00FF
+  gridColor = #FFFFFFFF
+  overviewSelectionBackgroundColor = #FFFF00FF
+  selectedCursorColor = #00FFFFFF
+TitleBar
+  avatarBackground = #FFFF00FF
+  avatarForeground = #000000FF
+  focusColor = #FFFF00FF
+  hoverBackground = #0037DAFF
+  inactiveBackground = #000000FF
+  inactiveForeground = #A6A6A6FF
+  pressedBackground = #0037DAFF
+  searchBackground = #000000FF
+  searchBorderColor = #FFFFFFFF
+  searchForeground = #FFFFFFFF
+  useAccent = false
+ToolbarArmedXYGraph
+  background = #000000FF
+Tree
+  alternateRowBackground = #141414FF
+  focusCellBackground = #FFFF00FF
+  focusCellForeground = #000000FF
+  gridLineColor = #8A8A8AFF
+  headerBackground = #1F1F1FFF
+  headerForeground = #FFFFFFFF
+  hover:background = #3A3A3AFF
+  selectionBackground = #0037DAFF
+  selectionForeground = #FFFFFFFF
+TreeItem
+  alternateRowBackground = #141414FF
+  focusCellBackground = #FFFF00FF
+  focusCellForeground = #000000FF
+  gridLineColor = #8A8A8AFF
+  headerBackground = #1F1F1FFF
+  headerForeground = #FFFFFFFF
+  hover:background = #3A3A3AFF
+  selectionBackground = #0037DAFF
+  selectionForeground = #FFFFFFFF
+XYGraph
+  background = #000000FF
+  foreground = #FFFFFFFF
+  titleColor = #FFFFFFFF
+Button[PUSH]
+  background = #1F1F1FFF
+FlatButton[CHECK]
+  background = #000000FF
+  borderColor = #FFFFFFFF
+  boxBackground = #000000FF
+FlatButton[RADIO]
+  background = #000000FF
+  borderColor = #FFFFFFFF
+  boxBackground = #000000FF
+classes.*.banner
+  background = #000000FF
+  foreground = #FFFFFFFF
+classes.*.error
+  foreground = #FF8080FF
+classes.*.frame
+  background = #FFFFFFFF
+classes.*.info
+  background = #1F1F1FFF
+  foreground = #FFFFFFFF
+classes.*.notification
+  background = #FFFFFFFF
+classes.*.pane
+  background = #000000FF
+classes.*.popup
+  background = #000000FF
+  foreground = #FFFFFFFF
+classes.*.ruler
+  background = #000000FF
+  foreground = #8A8A8AFF
+classes.*.strong
+  font = font [] 9 1
+classes.*.title
+  font = font [] 9 1
+classes.Button.primary
+  background = #FFFF00FF
+  foreground = #000000FF
+classes.FlatButton.primary
+  background = #FFFF00FF
+  borderColor = #FFFF00FF
+  foreground = #000000FF
+classes.Label.backstageTitle
+  font = font [] 12 1
+classes.Label.muted
+  foreground = #C8C8C8FF
+classes.Table.popup
+  alternateRowBackground = #000000FF
+classes.Text.plain
+  background = #000000FF
+registries.colors
+  ACTIVE_HYPERLINK_COLOR = #FFFF00FF
+  CONTENT_ASSIST_BACKGROUND_COLOR = #000000FF
+  CONTENT_ASSIST_FOREGROUND_COLOR = #FFFFFFFF
+  COUNTER_COLOR = #FFFF00FF
+  DECORATIONS_COLOR = #C8C8C8FF
+  ERROR_COLOR = #FF8080FF
+  HYPERLINK_COLOR = #00FFFFFF
+  QUALIFIER_COLOR = #C8C8C8FF
+  com.zapthemes.text.comment = #C8C8C8FF
+  com.zapthemes.text.keyword = #FFFF00FF
+  com.zapthemes.text.number = #00FFFFFF
+  com.zapthemes.text.string = #00FF00FF
+  org.eclipse.ui.workbench.INFORMATION_BACKGROUND = #000000FF
+  org.eclipse.ui.workbench.INFORMATION_FOREGROUND = #FFFFFFFF
+registries.fonts
+  org.eclipse.jface.bannerfont = font [] 9 1
+  org.eclipse.jface.defaultfont = font [] 9 0
+  org.eclipse.jface.dialogfont = font [] 9 0
+  org.eclipse.jface.headerfont = font [] 12 1
+  org.eclipse.jface.viewerfont = font [] 9 0
+  org.eclipse.jface.windowfont = font [] 9 0
+registries.systemColors
+  COLOR_INFO_BACKGROUND = #1F1F1FFF
+  COLOR_INFO_FOREGROUND = #FFFFFFFF
+  COLOR_LINK_FOREGROUND = #00FFFFFF
+  COLOR_LIST_BACKGROUND = #000000FF
+  COLOR_LIST_FOREGROUND = #FFFFFFFF
+  COLOR_LIST_SELECTION = #0037DAFF
+  COLOR_LIST_SELECTION_TEXT = #FFFFFFFF
+  COLOR_TEXT_DISABLED_BACKGROUND = #1F1F1FFF
+  COLOR_TITLE_BACKGROUND = #000000FF
+  COLOR_TITLE_BACKGROUND_GRADIENT = #1F1F1FFF
+  COLOR_TITLE_FOREGROUND = #FFFFFFFF
+  COLOR_TITLE_INACTIVE_BACKGROUND = #1F1F1FFF
+  COLOR_TITLE_INACTIVE_BACKGROUND_GRADIENT = #1F1F1FFF
+  COLOR_TITLE_INACTIVE_FOREGROUND = #A6A6A6FF
+  COLOR_WIDGET_BACKGROUND = #000000FF
+  COLOR_WIDGET_BORDER = #FFFFFFFF
+  COLOR_WIDGET_DARK_SHADOW = #FFFFFFFF
+  COLOR_WIDGET_DISABLED_FOREGROUND = #A6A6A6FF
+  COLOR_WIDGET_FOREGROUND = #FFFFFFFF
+  COLOR_WIDGET_HIGHLIGHT_SHADOW = #000000FF
+  COLOR_WIDGET_LIGHT_SHADOW = #FFFFFFFF
+  COLOR_WIDGET_NORMAL_SHADOW = #FFFFFFFF
+platform.*
+  darkThemePreferred = true
+platform.cocoa
+  darkThemePreferred = true
+platform.gtk
+  darkThemePreferred = true
+  menuBackground = "#000000"
+  menuBarBackground = "#000000"
+  menuBarForeground = "#FFFFFF"
+  menuForeground = "#FFFFFF"
+  menuSelectionBackground = "#0037DA"
+  menuSelectionForeground = "#FFFFFF"
+platform.win32
+  darkCombos = true
+  darkScrollbars = true
+  darkTextIcons = true
+  darkThemePreferred = true
+  disabledLabelForeground = "#A6A6A6"
+  menuBarBackground = "#000000"
+  menuBarBorderColor = "#FFFFFF"
+  menuBarForeground = "#FFFFFF"
+  progressBarColors = true
+  tableHeaderLineColor = "#8A8A8A"
+

@@ -1,13 +1,14 @@
 {
+  "formatVersion": 2,
   "id": "gauge-light",
   "name": "Gauge Light",
   "extends": "zap-light",
   "controls": {
     "Gauge": {
-      "background": "$bg",
-      "trackColor": "$muted",
+      "background": "$background",
+      "trackColor": "$raised",
       "needleColor": "$accent",
-      "labelColor": "$fg",
+      "labelColor": "$foreground",
       "thickness": 10
     }
   }

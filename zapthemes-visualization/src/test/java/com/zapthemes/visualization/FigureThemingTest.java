@@ -90,7 +90,7 @@ class FigureThemingTest {
         graph.getUpdateManager().performValidation();
 
         var legend = graph.getLegendMap().get(graph.getPrimaryYAxis());
-        assertThat(legend.getForegroundColor().getRGB()).isEqualTo(palette(dark, "fg"));
+        assertThat(legend.getForegroundColor().getRGB()).isEqualTo(palette(dark, "foreground"));
         assertThat(trace.getTraceColor().getRGB()).isEqualTo(new RGB(10, 20, 30));
     }
 
@@ -99,9 +99,9 @@ class FigureThemingTest {
         TankFigure tank = new TankFigure();
         show(tank);
 
-        assertThat(tank.getForegroundColor().getRGB()).isEqualTo(palette(dark, "fg"));
+        assertThat(tank.getForegroundColor().getRGB()).isEqualTo(palette(dark, "foreground"));
         assertThat(tank.getFillColor().getRGB()).isEqualTo(palette(dark, "accent"));
-        assertThat(tank.getFillBackgroundColor().getRGB()).isEqualTo(palette(dark, "muted"));
+        assertThat(tank.getFillBackgroundColor().getRGB()).isEqualTo(palette(dark, "raised"));
     }
 
     @Test
@@ -125,7 +125,7 @@ class FigureThemingTest {
         manager.setTheme(light);
 
         assertThat(tank.getFillColor().getRGB()).as("still dark's").isEqualTo(palette(dark, "accent"));
-        assertThat(tank.getForegroundColor().getRGB()).isEqualTo(palette(dark, "fg"));
+        assertThat(tank.getForegroundColor().getRGB()).isEqualTo(palette(dark, "foreground"));
     }
 
     private void show(org.eclipse.draw2d.IFigure figure) {
@@ -140,9 +140,9 @@ class FigureThemingTest {
 
     private static void assertGraph(XYGraph graph, Theme theme) {
         assertThat(graph.getPlotArea().getBackgroundColor().getRGB()).as("plot area").isEqualTo(palette(theme, "surface"));
-        assertThat(graph.getPrimaryXAxis().getForegroundColor().getRGB()).as("axis").isEqualTo(palette(theme, "fg"));
+        assertThat(graph.getPrimaryXAxis().getForegroundColor().getRGB()).as("axis").isEqualTo(palette(theme, "foreground"));
         assertThat(graph.getPrimaryYAxis().getMajorGridColor().getRGB()).as("grid").isEqualTo(palette(theme, "border"));
-        assertThat(graph.getTitleColor().getRGB()).as("title").isEqualTo(palette(theme, "fg"));
+        assertThat(graph.getTitleColor().getRGB()).as("title").isEqualTo(palette(theme, "foreground"));
     }
 
     private static RGB palette(Theme theme, String name) {

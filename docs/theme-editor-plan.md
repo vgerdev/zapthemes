@@ -185,7 +185,7 @@ haven't set yourself.
 |---|---|---|---|
 | 1 ✅ | **Theme format v2** | `formatVersion`; `swatches`, `names` with color + font, references resolved by key type, chained references with cycle errors, font fallback lists and `inherit`, the `editor` section, `dark`; v1 → v2 upgrade on load; the schema, `ThemeJson.write`, and validator messages. Old themes keep loading. | Everything else is built on this format. |
 | 2 ✅ | **Property catalog + default map** | `PropertySpec`, registration in every styler provider and `FigureTheming`, variants, classes and states per type; the catalog coverage tests above. | Step 4 of the wizard and upgrades on load both need it. |
-| 3 | **Bundled themes on common names** | Rewrite the four bundled themes as v2 with the base names, turning literals into names where one fits. **Equivalence test:** every catalog type, variant, class and state resolves to the same colors and fonts before and after, and screenshot diffs show no change. | Shows that the format and names are enough for real themes before any UI exists. |
+| 3 ✅ | **Bundled themes on common names** | Rewrite the four bundled themes as v2 with the base names, turning literals into names where one fits. **Equivalence test:** every catalog type, variant, class and state resolves to the same colors and fonts before and after, and screenshot diffs show no change. | Shows that the format and names are enough for real themes before any UI exists. |
 | 4 | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
 | 5 | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
 | 6 | **Wizard: palette, names, colors and fonts** | `zapthemes-editor` with `ThemeWizard`, pages 1–3, the preview pane, and the editing model (an undo stack per page; "set by user" vs auto-filled). | |
@@ -235,7 +235,7 @@ passed through as before) and `inherit`. `extends` merges names by part. The val
 swatches (plain colors, no clash with a name), names (only `color` and `font`, both resolve) and
 every reference; the schema documents the new sections and is now valid JSON.
 
-The bundled themes stay version 1 until step 3, so every test, demo and smoke test runs them through
+The bundled themes stayed version 1 until step 3, so every test, demo and smoke test ran them through
 the upgrader. `ThemeFormatTest` covers the format, and checks that every reference in the bundled
 themes resolves after the upgrade to the same value as under version 1's rules (over 300
 references) and that the upgraded themes write and read back unchanged; it also checks that the
@@ -270,3 +270,39 @@ Tests: `PropertyCatalogTest` (base names, the core types and defaults, reflectio
 `undescribed`, `describesRead`) and, in zapthemes-demo with every module, `CatalogCoverageTest`
 (every module described, every bundled theme fully described, every default a base name with the
 right part).
+
+## Step 3 in detail
+
+The bundled themes are format 2 on the common names. zap-dark and zap-light had the same rules with
+different colors, so `zap-base` now holds every rule, written against names, plus the fonts
+(`foreground`'s font is the default font; `heading1`-`heading3`, `strong` and `caption` derive from it
+with `inherit`; `code` lists monospace families). zap-dark and zap-light give every base name a color
+and keep only what really differs (dark's title bar hover, pressed, search and focus colors, and the
+platform's dark flags); zap-high-contrast keeps only its overrides of zap-dark. 1,213 lines became 703.
+
+Literal colors became names: syntax colors are `keyword`, `string`, `comment` and `number`; the
+ribbon's contextual accents are `info`, `success` and `warning`; the message bar's backgrounds and
+the title bar's account circle got theme names of their own (`warningBackground`, ..., `avatar`).
+References use the most specific name that fits: `selectionForeground`, `link`, `focus` and
+`gridLine` instead of the foreground, accent and raised colors they equal, so a theme can change them
+apart. In high contrast the title bar's literal search and focus colors now follow its names.
+
+**Equivalence test:** `BundledThemeStylesTest` (zapthemes-demo, with the whole catalog) resolves every
+catalog and theme type (what differs from `defaults`; a figure's own rule), every style-bit and class
+rule, every state, registry and platform setting of each bundled theme, with references followed to
+colors, fonts and values, and compares it with a reviewed snapshot (`bundled-theme-styles.txt`). It was
+written from the version 1 themes and passes unchanged with the rewrite. It stays as a regression
+check: a change to a bundled theme that changes how it looks fails it and writes the new snapshot to
+`build/` for review.
+
+**Older themes that extend a bundled theme:** a version 1 theme referring to the old entry names
+(`$bg`, `$qualifier`, `$font.strong`, ...) or overriding them would have broken. The v1 -> v2 upgrade
+renames them when the theme extends a bundled theme, and pins `strong` and `heading1` to their old
+fonts when the theme changes `font.default` (they now derive from it). `ThemeFormatTest` checks that a
+v1 child of each bundled theme looks as it did over the v1 bundled themes, kept as test resources
+(which also keep the upgrade's real-size test). The samples' themes use the new names.
+
+Found while rewriting: a theme's `states` replace the parent's whole `states` object, so high
+contrast's `FlatButton` has only its `focused` state (no hover, pressed or disabled colors) and its
+`Ribbon` only `hover` and `pressed`. The rewrite keeps that; whether to merge states by state is a
+question for later.

@@ -91,7 +91,7 @@ class NotificationPopupThemingTest {
         List<Label> withImage = findAll(popup, Label.class).stream().filter(l -> l.getImage() != null).toList();
         assertThat(withImage).as("close button image (icons found outside Eclipse)").isNotEmpty();
         Label title = findAll(popup, Label.class).stream().filter(l -> "Notification".equals(l.getText())).findFirst().orElseThrow();
-        assertThat(title.getForeground().getRGB()).isEqualTo(palette(dark, "fg"));
+        assertThat(title.getForeground().getRGB()).isEqualTo(palette(dark, "foreground"));
     }
 
     @Test
@@ -109,10 +109,10 @@ class NotificationPopupThemingTest {
         Label text = content(popup);
         assertThat(text.getBackground().getRGB()).as("content").isEqualTo(palette(theme, "surface"));
         assertThat(text.getParent().getBackground().getRGB()).as("content area").isEqualTo(palette(theme, "surface"));
-        assertThat(text.getForeground().getRGB()).as("content text").isEqualTo(palette(theme, "fg"));
+        assertThat(text.getForeground().getRGB()).as("content text").isEqualTo(palette(theme, "foreground"));
         Label title = findAll(popup, Label.class).stream().filter(l -> "Build finished".equals(l.getText())).findFirst().orElseThrow();
-        assertThat(title.getForeground().getRGB()).as("title").isEqualTo(palette(theme, "fg"));
-        assertThat(title.getBackground().getRGB()).as("title area").isEqualTo(palette(theme, "bg"));
+        assertThat(title.getForeground().getRGB()).as("title").isEqualTo(palette(theme, "foreground"));
+        assertThat(title.getBackground().getRGB()).as("title area").isEqualTo(palette(theme, "background"));
     }
 
     private static Label content(Shell popup) {
