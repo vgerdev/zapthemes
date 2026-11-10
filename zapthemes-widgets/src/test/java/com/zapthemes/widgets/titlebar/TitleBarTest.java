@@ -40,7 +40,7 @@ import com.zapthemes.widgets.titlebar.TitleBar.Part;
 class TitleBarTest {
 
     private static final RGB DARK_BAR = new RGB(0x2B, 0x2D, 0x30);
-    private static final RGB LIGHT_BAR = new RGB(0x35, 0x74, 0xF0);
+    private static final RGB LIGHT_BAR = new RGB(0x2D, 0x6A, 0xE6);
     private static final RGB EXCEL_GREEN = new RGB(0x10, 0x7C, 0x41);
 
     private static Display display;

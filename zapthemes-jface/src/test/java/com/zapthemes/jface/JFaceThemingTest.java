@@ -124,17 +124,20 @@ class JFaceThemingTest {
     @Test
     void jfaceRegistriesFollowTheThemeAndAreRestored() {
         var colors = JFaceResources.getColorRegistry();
-        manager.setTheme(Theme.EMPTY);
-        RGB original = colors.getRGB(JFacePreferences.HYPERLINK_COLOR);
-
         manager.setTheme(dark);
-        assertThat(colors.getRGB(JFacePreferences.HYPERLINK_COLOR)).isEqualTo(new RGB(0x35, 0x74, 0xF0));
+        assertThat(colors.getRGB(JFacePreferences.HYPERLINK_COLOR)).isEqualTo(new RGB(0x59, 0x92, 0xFE));
         assertThat(colors.getRGB(JFacePreferences.ERROR_COLOR)).isEqualTo(new RGB(0xF0, 0x71, 0x78));
         assertThat(JFaceResources.getDialogFont().getFontData()[0].getHeight()).isEqualTo(9);
         assertThat(JFaceResources.getBannerFont().getFontData()[0].getStyle() & SWT.BOLD).isNotZero();
 
+        // A key JFace had a value for gets it back once no theme sets it.
+        String key = "com.zapthemes.test.restored";
+        colors.put(key, new RGB(0x44, 0x55, 0x66));
+        manager.setTheme(ThemeJson.read(new StringReader(
+                "{ \"id\": \"keyed\", \"registries\": { \"colors\": { \"" + key + "\": \"#112233\" } } }"), "keyed"));
+        assertThat(colors.getRGB(key)).isEqualTo(new RGB(0x11, 0x22, 0x33));
         manager.setTheme(ThemeJson.read(new StringReader("{ \"id\": \"bare\" }"), "bare"));
-        assertThat(colors.getRGB(JFacePreferences.HYPERLINK_COLOR)).isEqualTo(original);
+        assertThat(colors.getRGB(key)).isEqualTo(new RGB(0x44, 0x55, 0x66));
     }
 
     /** Every control's background is the one its theme rule asks for. */

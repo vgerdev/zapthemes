@@ -110,20 +110,9 @@ class NameFillTest {
         }
     }
 
-    /**
-     * The bundled themes against the pairs their base names declare. High contrast passes all of
-     * them. zap-dark and zap-light, older than the checks, fall short on the pairs listed here
-     * (most by a little: the accent and links are about 4:1); fixing them changes how they look,
-     * so it is left for a decision, and this pins the list so that a change either way is seen.
-     */
+    /** Every bundled theme passes every pair its base names declare. */
     @Test
-    void theBundledThemesContrastShortfallsAreKnown() {
-        Map<String, List<String>> known = Map.of(
-                "zap-high-contrast", List.of(),
-                "zap-dark", List.of("muted/surface", "disabled/surface", "onAccent/accent", "link/background", "link/surface",
-                        "comment/surface"),
-                "zap-light", List.of("onAccent/accent", "link/background", "link/surface", "warning/background",
-                        "titleBarForeground/titleBar", "titleBarInactiveForeground/titleBarInactive", "comment/surface"));
+    void theBundledThemesPassEveryContrastCheck() {
         for (Theme theme : bundled) {
             ThemeNames names = ThemeNames.of(theme);
             Map<String, RGB> colors = new java.util.LinkedHashMap<>();
@@ -131,7 +120,7 @@ class NameFillTest {
                     .forEach(spec -> names.color(spec.name()).ifPresent(c -> colors.put(spec.name(), c.rgb)));
             assertThat(ContrastCheck.check(colors)).as(theme.id()).hasSizeGreaterThan(20);
             assertThat(ContrastCheck.failures(colors)).as(theme.id()).extracting(p -> p.name() + "/" + p.against())
-                    .containsExactlyElementsOf(known.get(theme.id()));
+                    .isEmpty();
         }
     }
 

@@ -33,7 +33,7 @@ class FlatWidgetsTest {
 
     private static final RGB DARK_MUTED = new RGB(0x39, 0x3B, 0x40);
     private static final RGB LIGHT_MUTED = new RGB(0xEB, 0xEC, 0xF0);
-    private static final RGB ACCENT = new RGB(0x35, 0x74, 0xF0);
+    private static final RGB ACCENT = new RGB(0x31, 0x6F, 0xEB);
 
     private static Display display;
     private static Theme light;
