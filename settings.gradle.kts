@@ -32,6 +32,7 @@ include(
     "zapthemes-nebula-incubation-fork",
     "zapthemes-nebula-incubation",
     "zapthemes-themes",
+    "zapthemes-editor",
     "zapthemes-tools",
     "zapthemes-demo",
     "zapthemes-samples",
