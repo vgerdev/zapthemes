@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StackLayout;
 import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.dnd.DragSource;
 import org.eclipse.swt.dnd.DragSourceEvent;
@@ -15,6 +16,7 @@ import org.eclipse.swt.dnd.DropTargetAdapter;
 import org.eclipse.swt.dnd.DropTargetEvent;
 import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.dnd.Transfer;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
@@ -38,20 +40,25 @@ import com.zapthemes.widgets.ribbon.RibbonCustomization.TabNode;
 
 /**
  * Office's <em>Customize the Ribbon</em> dialog: choose commands on the left (all, those not in
- * the ribbon, or a category, with a filter) and add them to groups of the tree on the right;
- * remove, reorder, rename and hide (uncheck) tabs and groups; rename commands in a group; add
- * tabs and groups of your own;
- * reset. OK applies and saves. The tree's actions are also in its context menu, and tabs, groups
- * and commands move by drag and drop as in Office: tabs among tabs, groups within or between tabs,
- * commands within their group or into a custom group.
+ * the ribbon, or a category, with a filter) and add them to custom groups of the tree on the
+ * right; remove, reorder, rename and hide (uncheck) tabs and groups; add tabs and groups of your
+ * own; reset. OK applies and saves. The tree's actions are also in its context menu, and tabs,
+ * groups and commands move by drag and drop.
  *
- * <p>Users add commands only to their own groups and to app groups; combos and galleries keep
- * their places and come back through Reset.
+ * <p>The rules are Office's. Built-in groups are locked: their commands show greyed, and can't
+ * be added to, removed, reordered or renamed; only custom groups take commands. Built-in groups
+ * themselves can be renamed, reordered, removed and moved to other tabs; <em>Main Tabs</em> on
+ * the left lists the app's tabs and groups, so a removed group can be added back, or a group put
+ * on another tab. A built-in group is in the ribbon once at most. Built-in tabs can be hidden
+ * but not deleted. Combos and galleries stay in their groups.
  */
 public final class CustomizeRibbonDialog {
 
     private static final String ALL = "All Commands";
     private static final String NOT_IN_RIBBON = "Commands Not in the Ribbon";
+    private static final String MAIN_TABS = "Main Tabs";
+    static final String CUSTOM_GROUPS_ONLY = "Commands can be added only to custom groups. To create a custom group, "
+            + "pick a tab, and then click New Group.";
 
     private final Ribbon ribbon;
     private final RibbonCustomization customization;
@@ -60,7 +67,12 @@ public final class CustomizeRibbonDialog {
     private Combo source;
     private Text filter;
     private com.zapthemes.swt.widgets.List commandList;
+    /** The app's tabs, groups and commands, shown in place of the list when Main Tabs is chosen. */
+    private Tree mainTabs;
+    private StackLayout sourceStack;
     private Tree tree;
+    private Color lockedForeground;
+    private java.util.function.Consumer<String> messages = this::showMessage;
     private final java.util.List<Command> listed = new ArrayList<>();
     private boolean applied;
     private Button addButton;
@@ -111,6 +123,7 @@ public final class CustomizeRibbonDialog {
         source = new Combo(left, SWT.READ_ONLY);
         source.add(ALL);
         source.add(NOT_IN_RIBBON);
+        source.add(MAIN_TABS);
         ribbon.commands().categories().forEach(source::add);
         source.select(0);
         source.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
@@ -119,13 +132,20 @@ public final class CustomizeRibbonDialog {
         filter.setMessage("Filter");
         filter.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
         filter.addListener(SWT.Modify, e -> fillCommands());
-        commandList = new com.zapthemes.swt.widgets.List(left, SWT.SINGLE | SWT.V_SCROLL | SWT.BORDER);
+        Composite sources = new Composite(left, SWT.NONE);
+        sourceStack = new StackLayout();
+        sources.setLayout(sourceStack);
         GridData listData = new GridData(SWT.FILL, SWT.FILL, true, true);
         listData.widthHint = 240;
         listData.heightHint = 360;
-        commandList.setLayoutData(listData);
+        sources.setLayoutData(listData);
+        commandList = new com.zapthemes.swt.widgets.List(sources, SWT.SINGLE | SWT.V_SCROLL | SWT.BORDER);
         commandList.addListener(SWT.DefaultSelection, e -> add());
         commandList.addListener(SWT.Selection, e -> updateActions());
+        mainTabs = new Tree(sources, SWT.SINGLE | SWT.BORDER | SWT.V_SCROLL);
+        mainTabs.addListener(SWT.DefaultSelection, e -> add());
+        mainTabs.addListener(SWT.Selection, e -> updateActions());
+        sourceStack.topControl = commandList;
 
         Composite middle = new Composite(shell, SWT.NONE);
         middle.setLayout(new GridLayout(1, false));
@@ -139,6 +159,7 @@ public final class CustomizeRibbonDialog {
         treeData.heightHint = 360;
         tree.setLayoutData(treeData);
         tree.addListener(SWT.Selection, this::treeSelected);
+        lockedForeground = RibbonColors.mix(tree.getBackground(), tree.getForeground(), 0.5);
 
         treeActions.add(new Action("&Up", () -> move(-1), () -> canMove(-1)));
         treeActions.add(new Action("&Down", () -> move(1), () -> canMove(1)));
@@ -196,6 +217,16 @@ public final class CustomizeRibbonDialog {
         commandList.removeAll();
         String choice = source.getText();
         String text = filter.getText().trim().toLowerCase(Locale.ROOT);
+        Object top = MAIN_TABS.equals(choice) ? mainTabs : commandList;
+        if (sourceStack.topControl != top) {
+            sourceStack.topControl = (org.eclipse.swt.widgets.Control) top;
+            mainTabs.getParent().layout();
+        }
+        if (MAIN_TABS.equals(choice)) {
+            fillMainTabs(text);
+            updateActions();
+            return;
+        }
         java.util.Set<String> inRibbon = new java.util.HashSet<>();
         for (TabNode tab : state) {
             for (GroupNode group : tab.groups) {
@@ -215,6 +246,75 @@ public final class CustomizeRibbonDialog {
         listed.sort((a, b) -> a.plainLabel().compareToIgnoreCase(b.plainLabel()));
         listed.forEach(c -> commandList.add(c.plainLabel()));
         updateActions();
+    }
+
+    /**
+     * Fills the Main Tabs source with the app's own tabs, groups and items, as the app defined
+     * them, so built-in groups can be added back or put on other tabs. With a filter, it keeps the
+     * groups whose name or items match.
+     */
+    private void fillMainTabs(String text) {
+        Object chosen = chosen();
+        mainTabs.removeAll();
+        for (TabNode tab : customization.defaults()) {
+            TreeItem tabItem = null;
+            for (GroupNode group : tab.groups) {
+                java.util.List<String> ids = customization.defaultItemIds(group.id);
+                String groupLabel = label(group);
+                boolean groupMatches = text.isEmpty() || groupLabel.toLowerCase(Locale.ROOT).contains(text)
+                        || ids.stream().anyMatch(id -> customization.itemLabel(id).toLowerCase(Locale.ROOT).contains(text));
+                if (!groupMatches) {
+                    continue;
+                }
+                if (tabItem == null) {
+                    tabItem = new TreeItem(mainTabs, SWT.NONE);
+                    tabItem.setText(label(tab));
+                    tabItem.setData(tab);
+                }
+                TreeItem groupItem = new TreeItem(tabItem, SWT.NONE);
+                groupItem.setText(groupLabel);
+                groupItem.setData(group);
+                for (String id : ids) {
+                    TreeItem item = new TreeItem(groupItem, SWT.NONE);
+                    item.setText(customization.itemLabel(id));
+                    item.setData(id);
+                    if (!customization.isRenamable(id)) {
+                        // Combos and galleries stay in their group: they can't be added on their own.
+                        item.setForeground(lockedForeground);
+                    }
+                }
+                groupItem.setExpanded(!text.isEmpty());
+                if (sameSource(chosen, group)) {
+                    mainTabs.setSelection(groupItem);
+                }
+            }
+            if (tabItem != null) {
+                tabItem.setExpanded(!text.isEmpty());
+            }
+        }
+    }
+
+    private static boolean sameSource(Object a, Object b) {
+        return a instanceof GroupNode x && b instanceof GroupNode y && x.id.equals(y.id);
+    }
+
+    /**
+     * What the left side has selected: a {@link Command} from the list; from Main Tabs, an app
+     * {@link TabNode} or {@link GroupNode} (as the app defined it) or an item id.
+     */
+    private Object chosen() {
+        if (sourceStack.topControl == mainTabs) {
+            org.eclipse.swt.widgets.TreeItem[] selection = mainTabs.getSelection();
+            return selection.length == 0 ? null : selection[0].getData();
+        }
+        int index = commandList.getSelectionIndex();
+        return index < 0 ? null : listed.get(index);
+    }
+
+    /** The command id the left side's selection adds, or {@code null} when it is not a command. */
+    private String chosenCommand(Object chosen) {
+        return chosen instanceof Command command ? command.id()
+                : chosen instanceof String id && customization.isRenamable(id) ? id : null;
     }
 
     // ------------------------------------------------------------------ the tree
@@ -261,6 +361,9 @@ public final class CustomizeRibbonDialog {
                     ItemRef ref = new ItemRef(group, i);
                     commandItem.setData(ref);
                     commandItem.setChecked(true);
+                    if (locked(ref)) {
+                        commandItem.setForeground(lockedForeground);
+                    }
                     if (select instanceof ItemRef r && r.group == group && r.index == i) {
                         selected = commandItem;
                     }
@@ -279,16 +382,38 @@ public final class CustomizeRibbonDialog {
 
     /** Enables the buttons that act on the tree's selection (the context menu does this when it shows). */
     private void updateActions() {
-        Object node = selection();
-        addButton.setEnabled(commandList.getSelectionIndex() >= 0 && (node instanceof GroupNode || node instanceof ItemRef));
+        addButton.setEnabled(canAdd());
         removeButton.setEnabled(canRemove());
         for (int i = 0; i < treeActions.size(); i++) {
             treeButtons.get(i).setEnabled(treeActions.get(i).enabled().getAsBoolean());
         }
     }
 
+    /**
+     * Whether a command is inside a built-in group. As in Office, those can't be added to,
+     * removed, reordered or renamed; the tree shows them greyed. (Saved customizations that
+     * changed one still load, and Reset puts it back.)
+     */
+    private static boolean locked(Object node) {
+        return node instanceof ItemRef ref && !ref.group.custom;
+    }
+
+    /**
+     * Add is on when the left side has a command or a group selected and the tree has a place
+     * selected, except inside a built-in group. On a tab or a built-in group, adding a command
+     * explains that commands go into custom groups.
+     */
+    private boolean canAdd() {
+        Object chosen = chosen();
+        Object node = selection();
+        return node != null && !locked(node) && (chosen instanceof GroupNode || chosenCommand(chosen) != null);
+    }
+
     private boolean canMove(int delta) {
         Object node = selection();
+        if (locked(node)) {
+            return false;
+        }
         int index;
         int size;
         if (node instanceof TabNode tab) {
@@ -309,12 +434,12 @@ public final class CustomizeRibbonDialog {
 
     private boolean canRename() {
         Object node = selection();
-        return node instanceof TabNode || node instanceof GroupNode || (node instanceof ItemRef ref && renamable(ref));
+        return node instanceof TabNode || node instanceof GroupNode || (node instanceof ItemRef ref && !locked(ref) && renamable(ref));
     }
 
     private boolean canRemove() {
         Object node = selection();
-        return node instanceof ItemRef || node instanceof GroupNode || (node instanceof TabNode tab && tab.custom);
+        return (node instanceof ItemRef && !locked(node)) || node instanceof GroupNode || (node instanceof TabNode tab && tab.custom);
     }
 
     private boolean canResetTab() {
@@ -360,12 +485,20 @@ public final class CustomizeRibbonDialog {
     // ------------------------------------------------------------------ operations
 
     void add() {
-        int index = commandList.getSelectionIndex();
-        Object node = selection();
-        if (index < 0 || node == null || node instanceof TabNode) {
+        if (!canAdd()) {
             return;
         }
-        String id = listed.get(index).id();
+        Object chosen = chosen();
+        Object node = selection();
+        if (chosen instanceof GroupNode group) {
+            addGroup(group, node);
+            return;
+        }
+        String id = chosenCommand(chosen);
+        if (node instanceof TabNode || (node instanceof GroupNode group && !group.custom)) {
+            messages.accept(CUSTOM_GROUPS_ONLY);
+            return;
+        }
         if (node instanceof GroupNode group) {
             materialize(group, items(group)).add(id);
             fillTree(new ItemRef(group, group.items.size() - 1));
@@ -376,8 +509,40 @@ public final class CustomizeRibbonDialog {
         fillCommands();
     }
 
+    /**
+     * Puts the app group {@code defaults} (from Main Tabs) at the end of the selected tab, or after
+     * the selected group. A group is in the ribbon once at most: if it already is, it moves here,
+     * with its changes; if it was removed, it comes back as the app defined it.
+     */
+    private void addGroup(GroupNode defaults, Object node) {
+        GroupNode after = node instanceof ItemRef ref ? ref.group : node instanceof GroupNode g ? g : null;
+        TabNode to = tabOf(node);
+        GroupNode group = null;
+        for (TabNode tab : state) {
+            for (GroupNode g : tab.groups) {
+                if (g.id.equals(defaults.id)) {
+                    group = g;
+                }
+            }
+        }
+        if (group == null) {
+            group = defaults.copy();
+        } else if (group == after) {
+            fillTree(group);
+            return;
+        } else {
+            tabOf(group).groups.remove(group);
+        }
+        to.groups.add(after == null ? to.groups.size() : to.groups.indexOf(after) + 1, group);
+        fillTree(group);
+        fillCommands();
+    }
+
     void remove() {
         Object node = selection();
+        if (locked(node)) {
+            return;
+        }
         if (node instanceof ItemRef ref) {
             java.util.List<String> items = materialize(ref.group, items(ref.group));
             items.remove(ref.index);
@@ -445,7 +610,7 @@ public final class CustomizeRibbonDialog {
             @Override
             public void dragStart(DragSourceEvent event) {
                 dragged = selection();
-                event.doit = dragged != null;
+                event.doit = dragged != null && !locked(dragged);
             }
 
             @Override
@@ -517,6 +682,9 @@ public final class CustomizeRibbonDialog {
      * galleries) keep to their group.
      */
     private Drop plan(Object source, Object target, boolean before) {
+        if (locked(source)) {
+            return null;
+        }
         int feedback = before ? DND.FEEDBACK_INSERT_BEFORE : DND.FEEDBACK_INSERT_AFTER;
         int after = before ? 0 : 1;
         if (source instanceof TabNode tab && target instanceof TabNode to && to != tab) {
@@ -577,7 +745,7 @@ public final class CustomizeRibbonDialog {
         String current = switch (node) {
             case TabNode tab -> tab.label != null ? tab.label : customization.defaultLabel(tab.id);
             case GroupNode group -> group.label != null ? group.label : customization.defaultLabel(group.id);
-            case ItemRef ref when renamable(ref) -> ref.group.labels.getOrDefault(itemId(ref), customization.itemLabel(itemId(ref)));
+            case ItemRef ref when !locked(ref) && renamable(ref) -> ref.group.labels.getOrDefault(itemId(ref), customization.itemLabel(itemId(ref)));
             case null, default -> null;
         };
         if (current == null) {
@@ -598,7 +766,7 @@ public final class CustomizeRibbonDialog {
         } else if (node instanceof GroupNode group) {
             group.label = name;
             fillTree(group);
-        } else if (node instanceof ItemRef ref && renamable(ref)) {
+        } else if (node instanceof ItemRef ref && !locked(ref) && renamable(ref)) {
             String id = itemId(ref);
             if (name == null || name.isBlank() || name.equals(customization.itemLabel(id))) {
                 ref.group.labels.remove(id);
@@ -679,6 +847,31 @@ public final class CustomizeRibbonDialog {
             }
         }
         return result[0];
+    }
+
+    private void showMessage(String message) {
+        Shell dialog = new Shell(shell, SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL);
+        dialog.setText(shell.getText());
+        dialog.setLayout(new GridLayout(1, false));
+        Label label = new Label(dialog, SWT.WRAP);
+        label.setText(message);
+        GridData data = new GridData(SWT.FILL, SWT.CENTER, true, false);
+        data.widthHint = 320;
+        label.setLayoutData(data);
+        Button ok = new Button(dialog, SWT.PUSH);
+        ok.setText("OK");
+        GridData okData = new GridData(SWT.END, SWT.CENTER, false, false);
+        okData.widthHint = 80;
+        ok.setLayoutData(okData);
+        ok.addListener(SWT.Selection, e -> dialog.close());
+        dialog.setDefaultButton(ok);
+        dialog.pack();
+        dialog.open();
+        while (!dialog.isDisposed()) {
+            if (!dialog.getDisplay().readAndDispatch()) {
+                dialog.getDisplay().sleep();
+            }
+        }
     }
 
     // ------------------------------------------------------------------ for tests
@@ -775,5 +968,59 @@ public final class CustomizeRibbonDialog {
                 commandList.select(i);
             }
         }
+        updateActions();
+    }
+
+    /**
+     * Shows Main Tabs on the left and selects the app's tab or group {@code id}, or its item
+     * {@code itemId} when that is not null (tests).
+     */
+    void selectMainTabs(String id, String itemId) {
+        source.select(source.indexOf(MAIN_TABS));
+        filter.setText("");
+        fillCommands();
+        for (org.eclipse.swt.widgets.TreeItem tab : mainTabs.getItems()) {
+            if (((TabNode) tab.getData()).id.equals(id) && itemId == null) {
+                mainTabs.setSelection(tab);
+            }
+            for (org.eclipse.swt.widgets.TreeItem group : tab.getItems()) {
+                if (((GroupNode) group.getData()).id.equals(id)) {
+                    if (itemId == null) {
+                        mainTabs.setSelection(group);
+                    }
+                    for (org.eclipse.swt.widgets.TreeItem item : group.getItems()) {
+                        if (item.getData().equals(itemId)) {
+                            mainTabs.setSelection(item);
+                        }
+                    }
+                }
+            }
+        }
+        updateActions();
+    }
+
+    /** Types {@code text} into the filter (tests). */
+    void filter(String text) {
+        filter.setText(text);
+    }
+
+    /** The Main Tabs source (tests). */
+    Tree mainTabs() {
+        return mainTabs;
+    }
+
+    /** Sends the dialog's messages to {@code sink} instead of showing them (tests). */
+    void onMessage(java.util.function.Consumer<String> sink) {
+        messages = sink;
+    }
+
+    Button addButton() {
+        return addButton;
+    }
+
+    /** Whether the tree shows the selected node greyed, as a locked command (tests). */
+    boolean selectionGreyed() {
+        org.eclipse.swt.widgets.TreeItem[] selection = tree.getSelection();
+        return selection.length == 1 && lockedForeground.equals(selection[0].getForeground());
     }
 }
