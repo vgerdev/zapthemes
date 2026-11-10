@@ -90,7 +90,7 @@ class NebulaIncubationProxyContractTest {
 
             var buttons = new com.zapthemes.nebula.collapsiblebuttons.CollapsibleButtons(shell, SWT.NONE);
             assertThat(buttons.getColorManager()).isInstanceOf(ThemedCollapsibleButtonsColors.class);
-            assertThat(buttons.getColorManager().getSelectedButtonBackgroundColorTop().getRGB()).isEqualTo(new RGB(0x35, 0x74, 0xF0));
+            assertThat(buttons.getColorManager().getSelectedButtonBackgroundColorTop().getRGB()).isEqualTo(new RGB(0x31, 0x6F, 0xEB));
             manager.setTheme(light);
             assertThat(timeline.getRootFigure().getStyleProvider().getBackgroundColor().getRGB()).isEqualTo(new RGB(0xFF, 0xFF, 0xFF));
         } finally {

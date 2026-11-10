@@ -418,12 +418,12 @@ Tests (37):
 
 A rendered sheet of filled palettes, every rule in light and dark, looked like plausible UI themes.
 
-**Found:** the bundled zap-dark and zap-light, which are older than the declared pairs, fall short on
-some of them. High contrast passes them all. The test pins the list:
-- **zap-dark:** muted and disabled on surface, onAccent on accent, link on background and surface,
-  comment on surface;
-- **zap-light:** onAccent on accent, link on background and surface, warning on background, the
-  title bar's foregrounds, comment on surface.
-
-Most are close (accent and links at about 4:1); comments are about 3.4:1 and light's inactive title
-bar 2.3:1. Fixing them changes how the themes look, so it waits for a decision.
+**Found, then fixed:** the bundled zap-dark and zap-light, older than the declared pairs, fell short
+on some of them; high contrast passed them all. Each failing color moved the least it could (OKLCH
+lightness, hue kept) to pass, and the test now requires every bundled theme to pass every pair:
+- **both:** the accent is a little darker, so white text on it passes (dark `#316FEB`, light
+  `#2D6AE6`), and comments are lighter on dark and darker on light;
+- **zap-dark:** links have their own lighter blue (`#5992FE`), and muted and disabled are a step
+  lighter;
+- **zap-light:** warning is a shade darker, the title bar takes the accent, and the inactive title
+  bar is a muted slate blue (`#586E97`) instead of a pale blue that its text could not be read on.

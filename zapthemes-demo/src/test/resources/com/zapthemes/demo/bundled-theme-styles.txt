@@ -6,7 +6,7 @@ defaults
   foreground = #1F2328FF
 AbstractLinearMarkedFigure
   fillBackgroundColor = #EBECF0FF
-  fillColor = #3574F0FF
+  fillColor = #2D6AE6FF
 AbstractScaledWidgetFigure
   foreground = #1F2328FF
 Annotation
@@ -18,31 +18,31 @@ Axis
   minorGridColor = #EBECF0FF
 BadgedLabel
   backgroundColor = #EBECF0FF
-  badgeBackground = #3574F0FF
+  badgeBackground = #2D6AE6FF
   badgeForeground = #FFFFFFFF
   borderColor = #C9CCD1FF
   textColor = #1F2328FF
 BreadcrumbItem
   textColor = #1F2328FF
-  textColorSelected = #3574F0FF
+  textColorSelected = #2D6AE6FF
 CCombo
   background = #FFFFFFFF
 CDateTime
   background = #FFFFFFFF
   buttonHoverBackgroundColor = #DFE1E5FF
   buttonHoverBorderColor = #C9CCD1FF
-  buttonSelectedBackgroundColor = #3574F0FF
-  buttonSelectedBorderColor = #3574F0FF
+  buttonSelectedBackgroundColor = #2D6AE6FF
+  buttonSelectedBorderColor = #2D6AE6FF
   pickerActiveDayColor = #1F2328FF
   pickerBackgroundColor = #FFFFFFFF
   pickerForegroundColor = #1F2328FF
   pickerInactiveDayColor = #8C8F94FF
-  pickerTodayColor = #3574F0FF
+  pickerTodayColor = #2D6AE6FF
 CTabFolder
   highlight = true
   selectionBackground = #FFFFFFFF
   selectionBarThickness = 2
-  selectionForeground = #3574F0FF
+  selectionForeground = #2D6AE6FF
 CTreeCombo
   background = #FFFFFFFF
 CTreeComboItem
@@ -50,20 +50,20 @@ CTreeComboItem
 Carousel
   arrowColor = #1F2328FF
   circleBackground = #EBECF0FF
-  circleForeground = #3574F0FF
+  circleForeground = #2D6AE6FF
   circleHoverColor = #DFE1E5FF
 Chips
   borderColor = #C9CCD1FF
   chipsBackground = #EBECF0FF
   closeButtonBackground = #EBECF0FF
   closeButtonForeground = #1F2328FF
-  closeButtonHoverBackground = #3574F0FF
+  closeButtonHoverBackground = #2D6AE6FF
   closeButtonHoverForeground = #FFFFFFFF
   hoverBackground = #DFE1E5FF
   hoverBorderColor = #C9CCD1FF
   hoverForeground = #1F2328FF
-  pushedStateBackground = #3574F0FF
-  pushedStateBorderColor = #3574F0FF
+  pushedStateBackground = #2D6AE6FF
+  pushedStateBorderColor = #2D6AE6FF
   pushedStateForeground = #FFFFFFFF
 CollapsibleButtons
   borderColor = #C9CCD1FF
@@ -78,13 +78,13 @@ CollapsibleButtons
   hoverButtonBackgroundColorBottom = #DFE1E5FF
   hoverButtonBackgroundColorMiddle = #DFE1E5FF
   hoverButtonBackgroundColorTop = #DFE1E5FF
-  hoverSelectedButtonBackgroundColorBottom = #3574F0FF
-  hoverSelectedButtonBackgroundColorMiddle = #3574F0FF
-  hoverSelectedButtonBackgroundColorTop = #3574F0FF
+  hoverSelectedButtonBackgroundColorBottom = #2D6AE6FF
+  hoverSelectedButtonBackgroundColorMiddle = #2D6AE6FF
+  hoverSelectedButtonBackgroundColorTop = #2D6AE6FF
   lightResizeColor = #EBECF0FF
-  selectedButtonBackgroundColorBottom = #3574F0FF
-  selectedButtonBackgroundColorMiddle = #3574F0FF
-  selectedButtonBackgroundColorTop = #3574F0FF
+  selectedButtonBackgroundColorBottom = #2D6AE6FF
+  selectedButtonBackgroundColorMiddle = #2D6AE6FF
+  selectedButtonBackgroundColorTop = #2D6AE6FF
 Combo
   background = #FFFFFFFF
 DateChooser
@@ -92,15 +92,15 @@ DateChooser
 DateTime
   background = #FFFFFFFF
 FlatButton
-  accentColor = #3574F0FF
+  accentColor = #2D6AE6FF
   arc = 6
   background = #EBECF0FF
   borderColor = #8C8F94FF
   disabled:borderColor = #EBECF0FF
   disabled:foreground = #8C8F94FF
-  focused:borderColor = #3574F0FF
+  focused:borderColor = #2D6AE6FF
   hover:background = #DFE1E5FF
-  pressed:background = #3574F0FF
+  pressed:background = #2D6AE6FF
   pressed:foreground = #FFFFFFFF
 FlatGroup
   borderColor = #EBECF0FF
@@ -108,7 +108,7 @@ FlatGroup
   titleForeground = #1F2328FF
 FlatProgressBar
   background = #EBECF0FF
-  barColor = #3574F0FF
+  barColor = #2D6AE6FF
   errorColor = #C62828FF
 Gallery
   background = #FFFFFFFF
@@ -116,7 +116,7 @@ Gallery
   groupRenderer.titleForeground = #1F2328FF
   itemRenderer.backgroundColor = #FFFFFFFF
   itemRenderer.foregroundColor = #1F2328FF
-  itemRenderer.selectionBackgroundColor = #3574F0FF
+  itemRenderer.selectionBackgroundColor = #2D6AE6FF
   itemRenderer.selectionForegroundColor = #FFFFFFFF
 GalleryItem
   background = #FFFFFFFF
@@ -136,15 +136,15 @@ KnobFigure
 Legend
   foreground = #1F2328FF
 Link
-  linkForeground = #3574F0FF
+  linkForeground = #2D6AE6FF
 List
   background = #FFFFFFFF
 NatTable
-  accentColor = #3574F0FF
+  accentColor = #2D6AE6FF
   alternateRowBackground = #F3F4F6FF
   background = #FFFFFFFF
   errorForeground = #C62828FF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #2D6AE6FF
   focusCellForeground = #FFFFFFFF
   freezeSeparatorColor = #C9CCD1FF
   gridLineColor = #EBECF0FF
@@ -165,47 +165,47 @@ PlotArea
   background = #FFFFFFFF
 ProgressBar
   background = #EBECF0FF
-  foreground = #3574F0FF
+  foreground = #2D6AE6FF
 ProgressCircle
   foreground = #EBECF0FF
-  highlightColor = #3574F0FF
+  highlightColor = #2D6AE6FF
 RangeSlider
   foreground = #C9CCD1FF
 Ribbon
   arc = 4
   background = #FFFFFFFF
   borderColor = #C9CCD1FF
-  contextualAccent1 = #3574F0FF
+  contextualAccent1 = #2D6AE6FF
   contextualAccent2 = #7A3EB1FF
   contextualAccent3 = #1E7B4BFF
-  contextualAccent4 = #B35C00FF
+  contextualAccent4 = #B05B02FF
   disabledForeground = #8C8F94FF
-  emphasisBackground = #3574F0FF
+  emphasisBackground = #2D6AE6FF
   emphasisForeground = #FFFFFFFF
   fieldBackground = #FFFFFFFF
-  fileTabBackground = #3574F0FF
+  fileTabBackground = #2D6AE6FF
   fileTabForeground = #FFFFFFFF
-  focusColor = #3574F0FF
+  focusColor = #2D6AE6FF
   galleryBackground = #FFFFFFFF
   galleryBorderColor = #C9CCD1FF
-  gallerySelectionColor = #3574F0FF
+  gallerySelectionColor = #2D6AE6FF
   groupLabelForeground = #6A737DFF
   itemCheckedBackground = #CFDEFCFF
-  itemCheckedBorderColor = #3574F0FF
+  itemCheckedBorderColor = #2D6AE6FF
   itemHoverBackground = #DFE1E5FF
   itemPressedBackground = #CFDEFCFF
   keyTipBackground = #3B3F45FF
   keyTipBorderColor = #C9CCD1FF
   keyTipForeground = #FFFFFFFF
   selectedTabBackground = #E9EBEFFF
-  selectedTabForeground = #3574F0FF
+  selectedTabForeground = #2D6AE6FF
   separatorColor = #C9CCD1FF
   tabForeground = #1F2328FF
   tabHoverBackground = #DFE1E5FF
-  tabIndicatorColor = #3574F0FF
+  tabIndicatorColor = #2D6AE6FF
   tabStripBackground = #E9EBEFFF
 RibbonBackstage
-  navBackground = #3574F0FF
+  navBackground = #2D6AE6FF
   navForeground = #FFFFFFFF
   navSelectedForeground = #FFFFFFFF
   titleFont = font [] 12 1
@@ -245,15 +245,15 @@ SwitchButton
   buttonBackgroundColor1 = #FFFFFFFF
   buttonBackgroundColor2 = #FFFFFFFF
   buttonBorderColor = #C9CCD1FF
-  focusColor = #3574F0FF
-  selectedBackgroundColor = #3574F0FF
+  focusColor = #2D6AE6FF
+  selectedBackgroundColor = #2D6AE6FF
   selectedForegroundColor = #FFFFFFFF
   unselectedBackgroundColor = #EBECF0FF
   unselectedForegroundColor = #1F2328FF
 Table
   alternateRowBackground = #F3F4F6FF
   background = #FFFFFFFF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #2D6AE6FF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #EBECF0FF
   headerBackground = #EBECF0FF
@@ -271,7 +271,7 @@ TableCombo
 TableItem
   alternateRowBackground = #F3F4F6FF
   background = #FFFFFFFF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #2D6AE6FF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #EBECF0FF
   headerBackground = #EBECF0FF
@@ -287,24 +287,24 @@ Tiles
   background = #FFFFFFFF
 TimelineComposite
   background = #FFFFFFFF
-  cursorColor = #3574F0FF
+  cursorColor = #2D6AE6FF
   gridColor = #C9CCD1FF
-  overviewSelectionBackgroundColor = #3574F0FF
+  overviewSelectionBackgroundColor = #2D6AE6FF
   selectedCursorColor = #C62828FF
 TitleBar
   avatarBackground = #CA5010FF
   avatarForeground = #FFFFFFFF
-  background = #3574F0FF
+  background = #2D6AE6FF
   foreground = #FFFFFFFF
-  inactiveBackground = #6F9AF3FF
-  inactiveForeground = #E3EBFCFF
+  inactiveBackground = #586E97FF
+  inactiveForeground = #EBF2FFFF
   useAccent = true
 ToolbarArmedXYGraph
   background = #F7F8FAFF
 Tree
   alternateRowBackground = #F3F4F6FF
   background = #FFFFFFFF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #2D6AE6FF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #EBECF0FF
   headerBackground = #EBECF0FF
@@ -315,7 +315,7 @@ Tree
 TreeItem
   alternateRowBackground = #F3F4F6FF
   background = #FFFFFFFF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #2D6AE6FF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #EBECF0FF
   headerBackground = #EBECF0FF
@@ -362,11 +362,11 @@ classes.*.strong
 classes.*.title
   font = font [] 9 1
 classes.Button.primary
-  background = #3574F0FF
+  background = #2D6AE6FF
   foreground = #FFFFFFFF
 classes.FlatButton.primary
-  background = #3574F0FF
-  borderColor = #3574F0FF
+  background = #2D6AE6FF
+  borderColor = #2D6AE6FF
   foreground = #FFFFFFFF
 classes.Label.backstageTitle
   font = font [] 12 1
@@ -377,15 +377,15 @@ classes.Table.popup
 classes.Text.plain
   background = #F7F8FAFF
 registries.colors
-  ACTIVE_HYPERLINK_COLOR = #3574F0FF
+  ACTIVE_HYPERLINK_COLOR = #2D6AE6FF
   CONTENT_ASSIST_BACKGROUND_COLOR = #FFFFFFFF
   CONTENT_ASSIST_FOREGROUND_COLOR = #1F2328FF
-  COUNTER_COLOR = #3574F0FF
+  COUNTER_COLOR = #2D6AE6FF
   DECORATIONS_COLOR = #6A737DFF
   ERROR_COLOR = #C62828FF
-  HYPERLINK_COLOR = #3574F0FF
+  HYPERLINK_COLOR = #2D6AE6FF
   QUALIFIER_COLOR = #6A737DFF
-  com.zapthemes.text.comment = #8C8C8CFF
+  com.zapthemes.text.comment = #757575FF
   com.zapthemes.text.keyword = #0033B3FF
   com.zapthemes.text.number = #1750EBFF
   com.zapthemes.text.string = #067D17FF
@@ -401,10 +401,10 @@ registries.fonts
 registries.systemColors
   COLOR_INFO_BACKGROUND = #EBECF0FF
   COLOR_INFO_FOREGROUND = #1F2328FF
-  COLOR_LINK_FOREGROUND = #3574F0FF
+  COLOR_LINK_FOREGROUND = #2D6AE6FF
   COLOR_LIST_BACKGROUND = #FFFFFFFF
   COLOR_LIST_FOREGROUND = #1F2328FF
-  COLOR_LIST_SELECTION = #3574F0FF
+  COLOR_LIST_SELECTION = #2D6AE6FF
   COLOR_LIST_SELECTION_TEXT = #FFFFFFFF
   COLOR_TEXT_DISABLED_BACKGROUND = #EBECF0FF
   COLOR_TITLE_BACKGROUND = #FFFFFFFF
@@ -453,7 +453,7 @@ defaults
   foreground = #DFE1E5FF
 AbstractLinearMarkedFigure
   fillBackgroundColor = #393B40FF
-  fillColor = #3574F0FF
+  fillColor = #316FEBFF
 AbstractScaledWidgetFigure
   foreground = #DFE1E5FF
 Annotation
@@ -465,31 +465,31 @@ Axis
   minorGridColor = #393B40FF
 BadgedLabel
   backgroundColor = #393B40FF
-  badgeBackground = #3574F0FF
+  badgeBackground = #316FEBFF
   badgeForeground = #FFFFFFFF
   borderColor = #4A4D52FF
   textColor = #DFE1E5FF
 BreadcrumbItem
   textColor = #DFE1E5FF
-  textColorSelected = #3574F0FF
+  textColorSelected = #316FEBFF
 CCombo
   background = #2B2D30FF
 CDateTime
   background = #2B2D30FF
   buttonHoverBackgroundColor = #43454AFF
   buttonHoverBorderColor = #4A4D52FF
-  buttonSelectedBackgroundColor = #3574F0FF
-  buttonSelectedBorderColor = #3574F0FF
+  buttonSelectedBackgroundColor = #316FEBFF
+  buttonSelectedBorderColor = #316FEBFF
   pickerActiveDayColor = #DFE1E5FF
   pickerBackgroundColor = #2B2D30FF
   pickerForegroundColor = #DFE1E5FF
-  pickerInactiveDayColor = #6F737AFF
-  pickerTodayColor = #3574F0FF
+  pickerInactiveDayColor = #73777EFF
+  pickerTodayColor = #316FEBFF
 CTabFolder
   highlight = true
   selectionBackground = #2B2D30FF
   selectionBarThickness = 2
-  selectionForeground = #3574F0FF
+  selectionForeground = #316FEBFF
 CTreeCombo
   background = #2B2D30FF
 CTreeComboItem
@@ -497,20 +497,20 @@ CTreeComboItem
 Carousel
   arrowColor = #DFE1E5FF
   circleBackground = #393B40FF
-  circleForeground = #3574F0FF
+  circleForeground = #316FEBFF
   circleHoverColor = #43454AFF
 Chips
   borderColor = #4A4D52FF
   chipsBackground = #393B40FF
   closeButtonBackground = #393B40FF
   closeButtonForeground = #DFE1E5FF
-  closeButtonHoverBackground = #3574F0FF
+  closeButtonHoverBackground = #316FEBFF
   closeButtonHoverForeground = #FFFFFFFF
   hoverBackground = #43454AFF
   hoverBorderColor = #4A4D52FF
   hoverForeground = #DFE1E5FF
-  pushedStateBackground = #3574F0FF
-  pushedStateBorderColor = #3574F0FF
+  pushedStateBackground = #316FEBFF
+  pushedStateBorderColor = #316FEBFF
   pushedStateForeground = #FFFFFFFF
 CollapsibleButtons
   borderColor = #4A4D52FF
@@ -519,19 +519,19 @@ CollapsibleButtons
   buttonBackgroundColorTop = #393B40FF
   buttonTextColor = #DFE1E5FF
   darkResizeColor = #4A4D52FF
-  dotDarkColor = #6F737AFF
+  dotDarkColor = #73777EFF
   dotLightColor = #393B40FF
   dotMiddleColor = #4A4D52FF
   hoverButtonBackgroundColorBottom = #43454AFF
   hoverButtonBackgroundColorMiddle = #43454AFF
   hoverButtonBackgroundColorTop = #43454AFF
-  hoverSelectedButtonBackgroundColorBottom = #3574F0FF
-  hoverSelectedButtonBackgroundColorMiddle = #3574F0FF
-  hoverSelectedButtonBackgroundColorTop = #3574F0FF
+  hoverSelectedButtonBackgroundColorBottom = #316FEBFF
+  hoverSelectedButtonBackgroundColorMiddle = #316FEBFF
+  hoverSelectedButtonBackgroundColorTop = #316FEBFF
   lightResizeColor = #393B40FF
-  selectedButtonBackgroundColorBottom = #3574F0FF
-  selectedButtonBackgroundColorMiddle = #3574F0FF
-  selectedButtonBackgroundColorTop = #3574F0FF
+  selectedButtonBackgroundColorBottom = #316FEBFF
+  selectedButtonBackgroundColorMiddle = #316FEBFF
+  selectedButtonBackgroundColorTop = #316FEBFF
 Combo
   background = #2B2D30FF
 DateChooser
@@ -539,15 +539,15 @@ DateChooser
 DateTime
   background = #2B2D30FF
 FlatButton
-  accentColor = #3574F0FF
+  accentColor = #316FEBFF
   arc = 6
   background = #393B40FF
-  borderColor = #6F737AFF
+  borderColor = #73777EFF
   disabled:borderColor = #393B40FF
-  disabled:foreground = #6F737AFF
-  focused:borderColor = #3574F0FF
+  disabled:foreground = #73777EFF
+  focused:borderColor = #316FEBFF
   hover:background = #43454AFF
-  pressed:background = #3574F0FF
+  pressed:background = #316FEBFF
   pressed:foreground = #FFFFFFFF
 FlatGroup
   borderColor = #393B40FF
@@ -555,7 +555,7 @@ FlatGroup
   titleForeground = #DFE1E5FF
 FlatProgressBar
   background = #393B40FF
-  barColor = #3574F0FF
+  barColor = #316FEBFF
   errorColor = #F07178FF
 Gallery
   background = #2B2D30FF
@@ -563,7 +563,7 @@ Gallery
   groupRenderer.titleForeground = #DFE1E5FF
   itemRenderer.backgroundColor = #2B2D30FF
   itemRenderer.foregroundColor = #DFE1E5FF
-  itemRenderer.selectionBackgroundColor = #3574F0FF
+  itemRenderer.selectionBackgroundColor = #316FEBFF
   itemRenderer.selectionForegroundColor = #FFFFFFFF
 GalleryItem
   background = #2B2D30FF
@@ -583,15 +583,15 @@ KnobFigure
 Legend
   foreground = #DFE1E5FF
 Link
-  linkForeground = #3574F0FF
+  linkForeground = #5992FEFF
 List
   background = #2B2D30FF
 NatTable
-  accentColor = #3574F0FF
+  accentColor = #316FEBFF
   alternateRowBackground = #303236FF
   background = #2B2D30FF
   errorForeground = #F07178FF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #316FEBFF
   focusCellForeground = #FFFFFFFF
   freezeSeparatorColor = #4A4D52FF
   gridLineColor = #393B40FF
@@ -612,47 +612,47 @@ PlotArea
   background = #2B2D30FF
 ProgressBar
   background = #393B40FF
-  foreground = #3574F0FF
+  foreground = #316FEBFF
 ProgressCircle
   foreground = #393B40FF
-  highlightColor = #3574F0FF
+  highlightColor = #316FEBFF
 RangeSlider
   foreground = #4A4D52FF
 Ribbon
   arc = 4
   background = #2B2D30FF
   borderColor = #4A4D52FF
-  contextualAccent1 = #3574F0FF
+  contextualAccent1 = #316FEBFF
   contextualAccent2 = #B98BE8FF
   contextualAccent3 = #5FC48AFF
   contextualAccent4 = #E5A050FF
-  disabledForeground = #6F737AFF
-  emphasisBackground = #3574F0FF
+  disabledForeground = #73777EFF
+  emphasisBackground = #316FEBFF
   emphasisForeground = #FFFFFFFF
   fieldBackground = #2B2D30FF
-  fileTabBackground = #3574F0FF
+  fileTabBackground = #316FEBFF
   fileTabForeground = #FFFFFFFF
-  focusColor = #3574F0FF
+  focusColor = #316FEBFF
   galleryBackground = #2B2D30FF
   galleryBorderColor = #4A4D52FF
-  gallerySelectionColor = #3574F0FF
-  groupLabelForeground = #8C8F94FF
+  gallerySelectionColor = #316FEBFF
+  groupLabelForeground = #92959AFF
   itemCheckedBackground = #2E436EFF
-  itemCheckedBorderColor = #3574F0FF
+  itemCheckedBorderColor = #316FEBFF
   itemHoverBackground = #43454AFF
   itemPressedBackground = #2E436EFF
   keyTipBackground = #DFE1E5FF
   keyTipBorderColor = #4A4D52FF
   keyTipForeground = #1E1F22FF
   selectedTabBackground = #18191BFF
-  selectedTabForeground = #3574F0FF
+  selectedTabForeground = #316FEBFF
   separatorColor = #4A4D52FF
   tabForeground = #DFE1E5FF
   tabHoverBackground = #43454AFF
-  tabIndicatorColor = #3574F0FF
+  tabIndicatorColor = #316FEBFF
   tabStripBackground = #18191BFF
 RibbonBackstage
-  navBackground = #3574F0FF
+  navBackground = #316FEBFF
   navForeground = #FFFFFFFF
   navSelectedForeground = #FFFFFFFF
   titleFont = font [] 12 1
@@ -692,15 +692,15 @@ SwitchButton
   buttonBackgroundColor1 = #2B2D30FF
   buttonBackgroundColor2 = #2B2D30FF
   buttonBorderColor = #4A4D52FF
-  focusColor = #3574F0FF
-  selectedBackgroundColor = #3574F0FF
+  focusColor = #316FEBFF
+  selectedBackgroundColor = #316FEBFF
   selectedForegroundColor = #FFFFFFFF
   unselectedBackgroundColor = #393B40FF
   unselectedForegroundColor = #DFE1E5FF
 Table
   alternateRowBackground = #303236FF
   background = #2B2D30FF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #316FEBFF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #393B40FF
   headerBackground = #393B40FF
@@ -718,7 +718,7 @@ TableCombo
 TableItem
   alternateRowBackground = #303236FF
   background = #2B2D30FF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #316FEBFF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #393B40FF
   headerBackground = #393B40FF
@@ -734,18 +734,18 @@ Tiles
   background = #2B2D30FF
 TimelineComposite
   background = #2B2D30FF
-  cursorColor = #3574F0FF
+  cursorColor = #316FEBFF
   gridColor = #4A4D52FF
-  overviewSelectionBackgroundColor = #3574F0FF
+  overviewSelectionBackgroundColor = #316FEBFF
   selectedCursorColor = #F07178FF
 TitleBar
   avatarBackground = #CA5010FF
   avatarForeground = #FFFFFFFF
   background = #2B2D30FF
-  focusColor = #3574F0FF
+  focusColor = #316FEBFF
   hoverBackground = #43454AFF
   inactiveBackground = #25262AFF
-  inactiveForeground = #8C8F94FF
+  inactiveForeground = #92959AFF
   pressedBackground = #393B40FF
   searchBackground = #1E1F22FF
   searchBorderColor = #4A4D52FF
@@ -755,7 +755,7 @@ ToolbarArmedXYGraph
 Tree
   alternateRowBackground = #303236FF
   background = #2B2D30FF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #316FEBFF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #393B40FF
   headerBackground = #393B40FF
@@ -766,7 +766,7 @@ Tree
 TreeItem
   alternateRowBackground = #303236FF
   background = #2B2D30FF
-  focusCellBackground = #3574F0FF
+  focusCellBackground = #316FEBFF
   focusCellForeground = #FFFFFFFF
   gridLineColor = #393B40FF
   headerBackground = #393B40FF
@@ -782,11 +782,11 @@ Button[PUSH]
   background = #393B40FF
 FlatButton[CHECK]
   background = #1E1F22FF
-  borderColor = #6F737AFF
+  borderColor = #73777EFF
   boxBackground = #2B2D30FF
 FlatButton[RADIO]
   background = #1E1F22FF
-  borderColor = #6F737AFF
+  borderColor = #73777EFF
   boxBackground = #2B2D30FF
 classes.*.banner
   background = #2B2D30FF
@@ -807,36 +807,36 @@ classes.*.popup
   foreground = #DFE1E5FF
 classes.*.ruler
   background = #2B2D30FF
-  foreground = #8C8F94FF
+  foreground = #92959AFF
 classes.*.strong
   font = font [] 9 1
 classes.*.title
   font = font [] 9 1
 classes.Button.primary
-  background = #3574F0FF
+  background = #316FEBFF
   foreground = #FFFFFFFF
 classes.FlatButton.primary
-  background = #3574F0FF
-  borderColor = #3574F0FF
+  background = #316FEBFF
+  borderColor = #316FEBFF
   foreground = #FFFFFFFF
 classes.Label.backstageTitle
   font = font [] 12 1
 classes.Label.muted
-  foreground = #6F737AFF
+  foreground = #73777EFF
 classes.Table.popup
   alternateRowBackground = #2B2D30FF
 classes.Text.plain
   background = #1E1F22FF
 registries.colors
-  ACTIVE_HYPERLINK_COLOR = #3574F0FF
+  ACTIVE_HYPERLINK_COLOR = #316FEBFF
   CONTENT_ASSIST_BACKGROUND_COLOR = #2B2D30FF
   CONTENT_ASSIST_FOREGROUND_COLOR = #DFE1E5FF
-  COUNTER_COLOR = #3574F0FF
-  DECORATIONS_COLOR = #8C8F94FF
+  COUNTER_COLOR = #316FEBFF
+  DECORATIONS_COLOR = #92959AFF
   ERROR_COLOR = #F07178FF
-  HYPERLINK_COLOR = #3574F0FF
-  QUALIFIER_COLOR = #8C8F94FF
-  com.zapthemes.text.comment = #7A7E85FF
+  HYPERLINK_COLOR = #5992FEFF
+  QUALIFIER_COLOR = #92959AFF
+  com.zapthemes.text.comment = #91959CFF
   com.zapthemes.text.keyword = #CF8E6DFF
   com.zapthemes.text.number = #2AACB8FF
   com.zapthemes.text.string = #6AAB73FF
@@ -852,10 +852,10 @@ registries.fonts
 registries.systemColors
   COLOR_INFO_BACKGROUND = #393B40FF
   COLOR_INFO_FOREGROUND = #DFE1E5FF
-  COLOR_LINK_FOREGROUND = #3574F0FF
+  COLOR_LINK_FOREGROUND = #5992FEFF
   COLOR_LIST_BACKGROUND = #2B2D30FF
   COLOR_LIST_FOREGROUND = #DFE1E5FF
-  COLOR_LIST_SELECTION = #3574F0FF
+  COLOR_LIST_SELECTION = #316FEBFF
   COLOR_LIST_SELECTION_TEXT = #FFFFFFFF
   COLOR_TEXT_DISABLED_BACKGROUND = #393B40FF
   COLOR_TITLE_BACKGROUND = #2B2D30FF
@@ -863,11 +863,11 @@ registries.systemColors
   COLOR_TITLE_FOREGROUND = #DFE1E5FF
   COLOR_TITLE_INACTIVE_BACKGROUND = #393B40FF
   COLOR_TITLE_INACTIVE_BACKGROUND_GRADIENT = #393B40FF
-  COLOR_TITLE_INACTIVE_FOREGROUND = #6F737AFF
+  COLOR_TITLE_INACTIVE_FOREGROUND = #73777EFF
   COLOR_WIDGET_BACKGROUND = #1E1F22FF
   COLOR_WIDGET_BORDER = #4A4D52FF
-  COLOR_WIDGET_DARK_SHADOW = #6F737AFF
-  COLOR_WIDGET_DISABLED_FOREGROUND = #6F737AFF
+  COLOR_WIDGET_DARK_SHADOW = #73777EFF
+  COLOR_WIDGET_DISABLED_FOREGROUND = #73777EFF
   COLOR_WIDGET_FOREGROUND = #DFE1E5FF
   COLOR_WIDGET_HIGHLIGHT_SHADOW = #2B2D30FF
   COLOR_WIDGET_LIGHT_SHADOW = #393B40FF
@@ -889,7 +889,7 @@ platform.win32
   darkScrollbars = true
   darkTextIcons = true
   darkThemePreferred = true
-  disabledLabelForeground = "#6F737A"
+  disabledLabelForeground = "#73777E"
   menuBarBackground = "#1E1F22"
   menuBarBorderColor = "#393B40"
   menuBarForeground = "#DFE1E5"
