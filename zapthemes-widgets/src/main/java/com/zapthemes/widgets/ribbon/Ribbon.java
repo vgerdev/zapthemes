@@ -60,6 +60,9 @@ import com.zapthemes.widgets.command.CustomizationStore;
  */
 public class Ribbon extends RibbonSurface {
 
+    /** Runs instead of the built-in customize dialog when set: see {@code setCustomizeHandler}. */
+    private Runnable customizeHandler;
+
     public static final String THEME_TYPE = "Ribbon";
 
     private final CommandRegistry commands;
@@ -514,9 +517,26 @@ public class Ribbon extends RibbonSurface {
         return customization;
     }
 
-    /** Opens the Customize Ribbon dialog. */
+    /**
+     * Opens the Customize Ribbon dialog, or runs the handler set with
+     * {@link #setCustomizeHandler}. The ribbon's context menu (Customize the Ribbon...) comes here.
+     */
     public void openCustomizeDialog() {
-        new CustomizeRibbonDialog(this).open();
+        if (customizeHandler != null) {
+            customizeHandler.run();
+        } else {
+            new CustomizeRibbonDialog(this).open();
+        }
+    }
+
+    /**
+     * Has Customize the Ribbon... run {@code handler} instead of opening its own dialog: an app
+     * with an Options window opens it at its Customize Ribbon page (a
+     * {@link CustomizeRibbonDialog}, which is an {@link com.zapthemes.widgets.options.OptionsPage}),
+     * as Office does. {@code null} goes back to the dialog.
+     */
+    public void setCustomizeHandler(Runnable handler) {
+        this.customizeHandler = handler;
     }
 
     // ------------------------------------------------------------------ model changes

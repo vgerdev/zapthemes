@@ -1097,6 +1097,52 @@ class RibbonTest {
         return null;
     }
 
+    private static List<String> labels(org.eclipse.swt.widgets.Composite parent) {
+        List<String> texts = new ArrayList<>();
+        for (org.eclipse.swt.widgets.Control child : parent.getChildren()) {
+            if (child instanceof org.eclipse.swt.widgets.Label label) {
+                texts.add(label.getText());
+            } else if (child instanceof org.eclipse.swt.widgets.Composite composite) {
+                texts.addAll(labels(composite));
+            }
+        }
+        return texts;
+    }
+
+    @Test
+    void customizeDialogIsAnOptionsPage(@TempDir Path dir) {
+        Path file = dir.resolve("prefs.json");
+        ribbon.setCustomizationStore(CustomizationStore.open(file));
+        Shell window = new Shell(shell, SWT.DIALOG_TRIM);
+        Composite page = new Composite(window, SWT.NONE);
+        CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);
+        dialog.create(page);
+        assertThat(dialog.shell()).isSameAs(window);
+        assertThat(labels(page)).contains("Ri&bbon:");
+        assertThat(dialogButton(page, "D&elete")).isNotNull();
+        assertThat(dialogButton(page, "OK")).as("the Options window has the OK").isNull();
+        assertThat(dialogButton(page, "Cancel")).isNull();
+
+        dialog.selectNode("home");
+        dialog.newTab();
+        assertThat(ribbon.tab("custom.tab.1")).as("nothing changes before apply").isNull();
+        dialog.apply();
+        assertThat(ribbon.tab("custom.tab.1")).isNotNull();
+        assertThat(window.isDisposed()).as("apply leaves closing to the window").isFalse();
+        assertThat(CustomizationStore.open(file).section(RibbonCustomization.SECTION).toString()).contains("custom.tab.1");
+        window.dispose();
+    }
+
+    @Test
+    void customizeHandlerReplacesTheDialog() {
+        List<String> opened = new ArrayList<>();
+        ribbon.setCustomizeHandler(() -> opened.add("options"));
+        ribbon.openCustomizeDialog();
+        assertThat(opened).containsExactly("options");
+        assertThat(display.getShells()).hasSize(1);
+        ribbon.setCustomizeHandler(null);
+    }
+
     private static org.eclipse.swt.widgets.MenuItem shownMenuItem(CustomizeRibbonDialog dialog, String text) {
         dialog.treeMenu().notifyListeners(SWT.Show, new Event());
         for (org.eclipse.swt.widgets.MenuItem item : dialog.treeMenu().getItems()) {
@@ -1115,8 +1161,7 @@ class RibbonTest {
     void customizeDialogDeletesFromTheButtonAndTheMenu() {
         CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);
         dialog.create();
-        assertThat(java.util.Arrays.stream(dialog.shell().getChildren()).filter(c -> c instanceof org.eclipse.swt.widgets.Label)
-                .map(c -> ((org.eclipse.swt.widgets.Label) c).getText())).contains("Ri&bbon:").doesNotContain("Customize the Ri&bbon:");
+        assertThat(labels(dialog.shell())).contains("Ri&bbon:").doesNotContain("Customize the Ri&bbon:");
         for (String text : TREE_ACTIONS) {
             assertThat(dialogButton(dialog.shell(), text)).as(text).isNotNull();
         }

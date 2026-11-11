@@ -36,6 +36,7 @@ import com.zapthemes.swt.widgets.Text;
 import com.zapthemes.swt.widgets.Tree;
 import com.zapthemes.swt.widgets.TreeItem;
 import com.zapthemes.widgets.command.Command;
+import com.zapthemes.widgets.options.OptionsPage;
 import com.zapthemes.widgets.ribbon.RibbonCustomization.GroupNode;
 import com.zapthemes.widgets.ribbon.RibbonCustomization.TabNode;
 
@@ -53,7 +54,7 @@ import com.zapthemes.widgets.ribbon.RibbonCustomization.TabNode;
  * on another tab. A built-in group is in the ribbon once at most. Built-in tabs can be hidden
  * but not deleted. Combos and galleries stay in their groups.
  */
-public final class CustomizeRibbonDialog {
+public final class CustomizeRibbonDialog implements OptionsPage {
 
     private static final String ALL = "All Commands";
     private static final String NOT_IN_RIBBON = "Commands Not in the Ribbon";
@@ -64,7 +65,7 @@ public final class CustomizeRibbonDialog {
     private final Ribbon ribbon;
     private final RibbonCustomization customization;
     private java.util.List<TabNode> state;
-    private Shell shell;
+    private org.eclipse.swt.widgets.Shell shell;
     private Combo source;
     private Text filter;
     private com.zapthemes.swt.widgets.List commandList;
@@ -112,18 +113,44 @@ public final class CustomizeRibbonDialog {
 
     /** Creates the dialog's shell without opening it (tests drive it, then call {@link #ok()}). */
     Shell create() {
-        shell = new Shell(ribbon.getShell(), SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL | SWT.RESIZE);
-        shell.setText("Customize the Ribbon");
-        shell.setLayout(new GridLayout(4, false));
+        Shell dialog = new Shell(ribbon.getShell(), SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL | SWT.RESIZE);
+        dialog.setText("Customize the Ribbon");
+        dialog.setLayout(new GridLayout(1, false));
+        Composite body = new Composite(dialog, SWT.NONE);
+        body.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        create(body);
 
-        Label chooseLabel = new Label(shell, SWT.NONE);
+        Composite buttons = new Composite(dialog, SWT.NONE);
+        buttons.setLayout(new GridLayout(2, true));
+        buttons.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
+        Button ok = button(buttons, "OK", this::ok);
+        button(buttons, "Cancel", dialog::close);
+        dialog.setDefaultButton(ok);
+        dialog.pack();
+        return dialog;
+    }
+
+    /**
+     * Builds the dialog's contents into {@code parent}: the commands, the tree and their buttons,
+     * without OK and Cancel. This is the Customize the Ribbon page of an
+     * {@link com.zapthemes.widgets.options.OptionsDialog}; its OK calls {@link #apply()}.
+     */
+    @Override
+    public void create(org.eclipse.swt.widgets.Composite parent) {
+        shell = parent.getShell();
+        GridLayout layout = new GridLayout(4, false);
+        layout.marginWidth = 0;
+        layout.marginHeight = 0;
+        parent.setLayout(layout);
+
+        Label chooseLabel = new Label(parent, SWT.NONE);
         chooseLabel.setText("&Choose commands from:");
-        new Label(shell, SWT.NONE);
-        Label treeLabel = new Label(shell, SWT.NONE);
+        new Label(parent, SWT.NONE);
+        Label treeLabel = new Label(parent, SWT.NONE);
         treeLabel.setText("Ri&bbon:");
-        new Label(shell, SWT.NONE);
+        new Label(parent, SWT.NONE);
 
-        Composite left = new Composite(shell, SWT.NONE);
+        Composite left = new Composite(parent, SWT.NONE);
         left.setLayout(new GridLayout(1, false));
         left.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         source = new Combo(left, SWT.READ_ONLY);
@@ -153,13 +180,13 @@ public final class CustomizeRibbonDialog {
         mainTabs.addListener(SWT.Selection, e -> updateActions());
         sourceStack.topControl = commandList;
 
-        Composite middle = new Composite(shell, SWT.NONE);
+        Composite middle = new Composite(parent, SWT.NONE);
         middle.setLayout(new GridLayout(1, false));
         middle.setLayoutData(new GridData(SWT.CENTER, SWT.CENTER, false, true));
         addButton = button(middle, "&Add >>", this::add);
         removeButton = button(middle, "<< &Remove", this::remove);
 
-        tree = new Tree(shell, SWT.SINGLE | SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
+        tree = new Tree(parent, SWT.SINGLE | SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
         GridData treeData = new GridData(SWT.FILL, SWT.FILL, true, true);
         treeData.widthHint = 260;
         treeData.heightHint = 360;
@@ -185,7 +212,7 @@ public final class CustomizeRibbonDialog {
         treeActions.add(new Action("Re&set Tab", this::resetTab, this::canResetTab));
         treeActions.add(new Action("Reset &All", this::resetAll, () -> true));
 
-        Composite side = new Composite(shell, SWT.NONE);
+        Composite side = new Composite(parent, SWT.NONE);
         side.setLayout(new GridLayout(1, false));
         side.setLayoutData(new GridData(SWT.FILL, SWT.FILL, false, true));
         Menu menu = new Menu(tree);
@@ -204,17 +231,8 @@ public final class CustomizeRibbonDialog {
         tree.setMenu(menu);
         dragAndDrop();
 
-        Composite buttons = new Composite(shell, SWT.NONE);
-        buttons.setLayout(new GridLayout(2, true));
-        buttons.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false, 4, 1));
-        Button ok = button(buttons, "OK", this::ok);
-        button(buttons, "Cancel", shell::close);
-        shell.setDefaultButton(ok);
-
         fillCommands();
         fillTree(null);
-        shell.pack();
-        return shell;
     }
 
     private Button button(Composite parent, String text, Runnable action) {
@@ -932,9 +950,15 @@ public final class CustomizeRibbonDialog {
     }
 
     void ok() {
+        apply();
+        shell.close();
+    }
+
+    /** Applies the edits to the ribbon, and saves them when it has a store. */
+    @Override
+    public void apply() {
         customization.apply(state);
         applied = true;
-        shell.close();
     }
 
     private void showMessage(String message) {
@@ -964,7 +988,7 @@ public final class CustomizeRibbonDialog {
 
     // ------------------------------------------------------------------ for tests
 
-    Shell shell() {
+    org.eclipse.swt.widgets.Shell shell() {
         return shell;
     }
 

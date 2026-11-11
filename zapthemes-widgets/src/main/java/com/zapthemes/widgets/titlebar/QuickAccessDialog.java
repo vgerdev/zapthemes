@@ -16,13 +16,14 @@ import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Composite;
 import com.zapthemes.swt.widgets.Label;
 import com.zapthemes.swt.widgets.Shell;
+import com.zapthemes.widgets.options.OptionsPage;
 
 /**
  * "More Commands...": the commands the app offers on the left, the quick access toolbar on the
  * right, with Add, Remove, Move Up, Move Down and Reset, and a choice to show the toolbar below the
  * bar. OK applies it to the bar (which saves its preferences file).
  */
-final class QuickAccessDialog {
+final class QuickAccessDialog implements OptionsPage {
 
     /** The dialog's state, apart from its widgets. */
     static final class Model {
@@ -82,6 +83,7 @@ final class QuickAccessDialog {
     com.zapthemes.swt.widgets.List shownList;
     Button belowCheck;
     Button ok;
+    private Runnable enable;
 
     QuickAccessDialog(TitleBar bar) {
         this.bar = bar;
@@ -92,21 +94,50 @@ final class QuickAccessDialog {
     Shell create() {
         shell = new Shell(bar.getShell(), SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL | SWT.RESIZE);
         shell.setText("Customize Quick Access Toolbar");
-        shell.setLayout(new GridLayout(3, false));
+        shell.setLayout(new GridLayout(1, false));
+        Composite body = new Composite(shell, SWT.NONE);
+        body.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        create(body);
 
-        Label left = new Label(shell, SWT.NONE);
+        Composite actions = new Composite(shell, SWT.NONE);
+        actions.setLayout(new GridLayout(2, true));
+        actions.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
+        ok = button(actions, "OK", () -> {
+            apply();
+            shell.close();
+        });
+        button(actions, "Cancel", shell::close);
+        shell.setDefaultButton(ok);
+        shell.pack();
+        Rectangle parent = bar.getShell().getBounds();
+        Point size = shell.getSize();
+        shell.setLocation(parent.x + (parent.width - size.x) / 2, parent.y + Math.max(0, (parent.height - size.y) / 3));
+        return shell;
+    }
+
+    /**
+     * Builds the dialog's contents into {@code parent}, without OK and Cancel: the Quick Access
+     * Toolbar page of an {@link com.zapthemes.widgets.options.OptionsDialog}.
+     */
+    @Override
+    public void create(org.eclipse.swt.widgets.Composite parent) {
+        GridLayout layout = new GridLayout(3, false);
+        layout.marginWidth = 0;
+        layout.marginHeight = 0;
+        parent.setLayout(layout);
+        Label left = new Label(parent, SWT.NONE);
         left.setText("&Commands:");
-        new Label(shell, SWT.NONE);
-        Label right = new Label(shell, SWT.NONE);
+        new Label(parent, SWT.NONE);
+        Label right = new Label(parent, SWT.NONE);
         right.setText("&Quick Access Toolbar:");
 
-        availableList = new com.zapthemes.swt.widgets.List(shell, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
+        availableList = new com.zapthemes.swt.widgets.List(parent, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
         GridData listData = new GridData(SWT.FILL, SWT.FILL, true, true);
         listData.widthHint = 200;
         listData.heightHint = 220;
         availableList.setLayoutData(listData);
 
-        Composite buttons = new Composite(shell, SWT.NONE);
+        Composite buttons = new Composite(parent, SWT.NONE);
         buttons.setLayout(new GridLayout(1, true));
         buttons.setLayoutData(new GridData(SWT.CENTER, SWT.CENTER, false, false));
         Button add = button(buttons, "&Add >>", this::add);
@@ -119,31 +150,21 @@ final class QuickAccessDialog {
             refresh(null);
         });
 
-        shownList = new com.zapthemes.swt.widgets.List(shell, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
+        shownList = new com.zapthemes.swt.widgets.List(parent, SWT.BORDER | SWT.SINGLE | SWT.V_SCROLL);
         GridData shownData = new GridData(SWT.FILL, SWT.FILL, true, true);
         shownData.widthHint = 200;
         shownData.heightHint = 220;
         shownList.setLayoutData(shownData);
 
-        belowCheck = new Button(shell, SWT.CHECK);
+        belowCheck = new Button(parent, SWT.CHECK);
         belowCheck.setText("Show the Quick Access Toolbar &below the title bar");
         belowCheck.setSelection(model.below);
         belowCheck.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 3, 1));
         belowCheck.addListener(SWT.Selection, e -> model.below = belowCheck.getSelection());
 
-        Composite actions = new Composite(shell, SWT.NONE);
-        actions.setLayout(new GridLayout(2, true));
-        actions.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false, 3, 1));
-        ok = button(actions, "OK", () -> {
-            bar.setCustomization(model.result());
-            shell.close();
-        });
-        button(actions, "Cancel", shell::close);
-        shell.setDefaultButton(ok);
-
         availableList.addListener(SWT.DefaultSelection, e -> add());
         shownList.addListener(SWT.DefaultSelection, e -> remove());
-        Runnable enable = () -> {
+        enable = () -> {
             add.setEnabled(availableList.getSelectionIndex() >= 0);
             boolean selected = shownList.getSelectionIndex() >= 0;
             remove.setEnabled(selected);
@@ -152,13 +173,13 @@ final class QuickAccessDialog {
         };
         availableList.addListener(SWT.Selection, e -> enable.run());
         shownList.addListener(SWT.Selection, e -> enable.run());
-        shell.setData("zapthemes.titleBar.enable", enable);
         refresh(null);
-        shell.pack();
-        Rectangle parent = bar.getShell().getBounds();
-        Point size = shell.getSize();
-        shell.setLocation(parent.x + (parent.width - size.x) / 2, parent.y + Math.max(0, (parent.height - size.y) / 3));
-        return shell;
+    }
+
+    /** Applies the toolbar to the bar, which saves its preferences file. */
+    @Override
+    public void apply() {
+        bar.setCustomization(model.result());
     }
 
     void open() {
@@ -209,7 +230,7 @@ final class QuickAccessDialog {
         if (select != null && model.shown.contains(select)) {
             shownList.setSelection(model.shown.indexOf(select));
         }
-        if (shell.getData("zapthemes.titleBar.enable") instanceof Runnable enable) {
+        if (enable != null) {
             enable.run();
         }
     }
