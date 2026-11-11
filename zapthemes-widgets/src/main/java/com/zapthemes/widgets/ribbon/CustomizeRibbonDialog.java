@@ -602,6 +602,12 @@ public final class CustomizeRibbonDialog {
 
     // ------------------------------------------------------------------ drag and drop
 
+    /*
+     * On Windows the drag listeners run inside the native drag loop (OLE's DoDragDrop). Two rules
+     * keep that loop safe: the tree is not rebuilt while it runs (the drop's move waits until the
+     * loop has returned), and no exception escapes a listener (one crossing the native frames ends
+     * the process); an exception is thrown again from the event loop instead, where it is reported.
+     */
     private void dragAndDrop() {
         Transfer[] transfers = { TextTransfer.getInstance() };
         DragSource source = new DragSource(tree, DND.DROP_MOVE);
@@ -609,19 +615,24 @@ public final class CustomizeRibbonDialog {
         source.addDragListener(new DragSourceListener() {
             @Override
             public void dragStart(DragSourceEvent event) {
-                dragged = selection();
-                event.doit = dragged != null && !locked(dragged);
+                event.doit = false;
+                guarded(() -> {
+                    dragged = selection();
+                    event.doit = dragged != null && !locked(dragged);
+                });
             }
 
             @Override
             public void dragSetData(DragSourceEvent event) {
                 // The dragged node stays in the dialog; the id is only what other apps would get.
-                event.data = switch (dragged) {
+                // TextTransfer refuses empty text, so there is always some.
+                event.data = "zapthemes.ribbon";
+                guarded(() -> event.data = switch (dragged) {
                     case TabNode tab -> tab.id;
                     case GroupNode group -> group.id;
                     case ItemRef ref -> itemId(ref);
-                    case null, default -> "";
-                };
+                    case null, default -> "zapthemes.ribbon";
+                });
             }
 
             @Override
@@ -644,21 +655,44 @@ public final class CustomizeRibbonDialog {
 
             @Override
             public void dragOver(DropTargetEvent event) {
-                Drop drop = plan(event);
-                event.feedback = DND.FEEDBACK_SCROLL | DND.FEEDBACK_EXPAND | (drop == null ? DND.FEEDBACK_NONE : drop.feedback());
-                event.detail = drop == null ? DND.DROP_NONE : DND.DROP_MOVE;
+                event.feedback = DND.FEEDBACK_SCROLL | DND.FEEDBACK_EXPAND;
+                event.detail = DND.DROP_NONE;
+                guarded(() -> {
+                    Drop drop = plan(event);
+                    if (drop != null) {
+                        event.feedback |= drop.feedback();
+                        event.detail = DND.DROP_MOVE;
+                    }
+                });
             }
 
             @Override
             public void drop(DropTargetEvent event) {
-                Drop drop = plan(event);
-                if (drop == null) {
+                Drop[] drop = { null };
+                guarded(() -> drop[0] = plan(event));
+                if (drop[0] == null) {
                     event.detail = DND.DROP_NONE;
-                } else {
-                    drop.move().run();
+                    return;
                 }
+                Runnable move = drop[0].move();
+                tree.getDisplay().asyncExec(() -> {
+                    if (!tree.isDisposed()) {
+                        move.run();
+                    }
+                });
             }
         });
+    }
+
+    /** Runs a drag listener's work; an exception is thrown again later, outside the native drag loop. */
+    private void guarded(Runnable work) {
+        try {
+            work.run();
+        } catch (RuntimeException | org.eclipse.swt.SWTError e) {
+            tree.getDisplay().asyncExec(() -> {
+                throw e;
+            });
+        }
     }
 
     private Drop plan(DropTargetEvent event) {
