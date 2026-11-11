@@ -913,6 +913,74 @@ class RibbonTest {
         assertThat(ribbon.tab("custom.tab.1")).isNull();
     }
 
+    private static void traverse(org.eclipse.swt.widgets.Text text, int detail) {
+        Event event = new Event();
+        event.detail = detail;
+        event.doit = true;
+        text.notifyListeners(SWT.Traverse, event);
+        assertThat(event.doit).as("the key stays with the field, not the dialog").isFalse();
+    }
+
+    @Test
+    void customizeDialogRenamesInPlace() {
+        CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);
+        dialog.create();
+        dialog.shell().open();
+
+        // Rename... opens a field over the item, holding its name; Enter renames.
+        dialog.selectNode("insert");
+        dialogButton(dialog.shell(), "Rena&me...").notifyListeners(SWT.Selection, new Event());
+        org.eclipse.swt.widgets.Text field = dialog.renameField();
+        assertThat(field).isNotNull();
+        assertThat(field.getParent()).as("in the tree, not a pop-up").isSameAs(dialog.tree());
+        assertThat(field.getText()).isEqualTo("Insert");
+        assertThat(dialog.shell().getDisplay().getShells()).as("no pop-up").hasSize(2);
+        field.setText("Add");
+        traverse(field, SWT.TRAVERSE_RETURN);
+        assertThat(dialog.renameField()).isNull();
+        assertThat(field.isDisposed()).isTrue();
+        assertThat(((RibbonCustomization.TabNode) dialog.node("insert", null)).label).isEqualTo("Add");
+
+        // Escape leaves the name as it was.
+        dialog.selectNode("home.font");
+        dialog.rename();
+        dialog.renameField().setText("Letters");
+        traverse(dialog.renameField(), SWT.TRAVERSE_ESCAPE);
+        assertThat(dialog.renameField()).isNull();
+        assertThat(((RibbonCustomization.GroupNode) dialog.node("home.font", null)).label).isNull();
+
+        // F2 starts it too, and leaving the field renames; a blank name doesn't.
+        Event f2 = new Event();
+        f2.keyCode = SWT.F2;
+        dialog.tree().notifyListeners(SWT.KeyDown, f2);
+        assertThat(dialog.renameField().getText()).isEqualTo("Font");
+        dialog.renameField().setText("Letters");
+        dialog.renameField().notifyListeners(SWT.FocusOut, new Event());
+        assertThat(((RibbonCustomization.GroupNode) dialog.node("home.font", null)).label).isEqualTo("Letters");
+        dialog.tree().notifyListeners(SWT.KeyDown, f2);
+        dialog.renameField().setText("  ");
+        traverse(dialog.renameField(), SWT.TRAVERSE_RETURN);
+        assertThat(((RibbonCustomization.GroupNode) dialog.node("home.font", null)).label).isEqualTo("Letters");
+
+        // F2 does nothing where Rename is off: a command in a built-in group.
+        dialog.selectItem("home.font", "home.bold");
+        dialog.tree().notifyListeners(SWT.KeyDown, f2);
+        assertThat(dialog.renameField()).isNull();
+
+        // A command in a custom group keeps its new name in that group.
+        dialog.newTab();
+        dialog.selectCommand("home.bold");
+        dialog.add();
+        dialog.rename();
+        assertThat(dialog.renameField().getText()).isEqualTo("Bold");
+        dialog.renameField().setText("Strong");
+        traverse(dialog.renameField(), SWT.TRAVERSE_RETURN);
+        dialog.ok();
+        assertThat(ribbon.tab("insert").label()).isEqualTo("Add");
+        assertThat(ribbon.tab("home").group("home.font").label()).isEqualTo("Letters");
+        assertThat(ribbon.tab("custom.tab.1").groups().getFirst().items().getFirst().label()).isEqualTo("Strong");
+    }
+
     @Test
     void customizeDialogLocksBuiltInGroups() {
         CustomizeRibbonDialog dialog = new CustomizeRibbonDialog(ribbon);

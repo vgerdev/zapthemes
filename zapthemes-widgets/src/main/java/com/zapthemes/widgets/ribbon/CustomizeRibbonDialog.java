@@ -7,6 +7,7 @@ import java.util.function.BooleanSupplier;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StackLayout;
+import org.eclipse.swt.custom.TreeEditor;
 import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.dnd.DragSource;
 import org.eclipse.swt.dnd.DragSourceEvent;
@@ -72,6 +73,11 @@ public final class CustomizeRibbonDialog {
     private StackLayout sourceStack;
     private Tree tree;
     private Color lockedForeground;
+    private TreeEditor editor;
+    /** The in-place rename field, while one is open. */
+    private Text editText;
+    /** Counts clicks in the tree, so a pending second-click rename knows when another click came. */
+    private int clicks;
     private java.util.function.Consumer<String> messages = this::showMessage;
     private final java.util.List<Command> listed = new ArrayList<>();
     private boolean applied;
@@ -159,6 +165,15 @@ public final class CustomizeRibbonDialog {
         treeData.heightHint = 360;
         tree.setLayoutData(treeData);
         tree.addListener(SWT.Selection, this::treeSelected);
+        editor = new TreeEditor(tree);
+        tree.addListener(SWT.MouseDown, this::secondClick);
+        tree.addListener(SWT.DefaultSelection, e -> clicks++);
+        tree.addListener(SWT.DragDetect, e -> clicks++);
+        tree.addListener(SWT.KeyDown, e -> {
+            if (e.keyCode == SWT.F2 && canRename()) {
+                rename();
+            }
+        });
         lockedForeground = RibbonColors.mix(tree.getBackground(), tree.getForeground(), 0.5);
 
         treeActions.add(new Action("&Up", () -> move(-1), () -> canMove(-1)));
@@ -335,6 +350,7 @@ public final class CustomizeRibbonDialog {
 
     /** Rebuilds the tree and selects the node whose data is {@code select}. */
     private void fillTree(Object select) {
+        cancelEdit();
         tree.removeAll();
         TreeItem selected = null;
         for (TabNode tab : state) {
@@ -782,18 +798,89 @@ public final class CustomizeRibbonDialog {
             case ItemRef ref when !locked(ref) && renamable(ref) -> ref.group.labels.getOrDefault(itemId(ref), customization.itemLabel(itemId(ref)));
             case null, default -> null;
         };
-        if (current == null) {
+        org.eclipse.swt.widgets.TreeItem[] items = tree.getSelection();
+        if (current == null || items.length != 1) {
             return;
         }
-        String name = prompt("Rename", Command.stripMnemonic(current));
-        if (name != null && !name.isBlank()) {
-            rename(name);
+        editInPlace(items[0], node, Command.stripMnemonic(current));
+    }
+
+    // ------------------------------------------------------------------ renaming in place
+
+    /**
+     * Renames in the tree itself: a text field over the item, started by Rename..., F2 or a
+     * second click on the selected item's name. Enter or leaving the field renames; Escape
+     * doesn't.
+     */
+    private void editInPlace(org.eclipse.swt.widgets.TreeItem item, Object node, String initial) {
+        cancelEdit();
+        Text text = new Text(tree, SWT.SINGLE | SWT.BORDER);
+        text.setText(initial);
+        text.selectAll();
+        editor.horizontalAlignment = SWT.LEFT;
+        editor.grabHorizontal = true;
+        editor.minimumWidth = 140;
+        editor.setEditor(text, item);
+        editText = text;
+        text.addListener(SWT.Traverse, e -> {
+            if (e.detail == SWT.TRAVERSE_RETURN || e.detail == SWT.TRAVERSE_ESCAPE) {
+                // Neither closes the dialog (OK is the default button; Escape would cancel it).
+                boolean cancel = e.detail == SWT.TRAVERSE_ESCAPE;
+                e.doit = false;
+                e.detail = SWT.TRAVERSE_NONE;
+                endEdit(cancel ? null : node, initial);
+            }
+        });
+        text.addListener(SWT.FocusOut, e -> endEdit(node, initial));
+        text.setFocus();
+    }
+
+    /** Ends the edit; renames {@code node} to the field's text unless it is null, blank or unchanged. */
+    private void endEdit(Object node, String initial) {
+        Text text = editText;
+        if (text == null) {
+            return;
         }
+        editText = null;
+        String name = text.getText().trim();
+        editor.setEditor(null);
+        text.dispose();
+        if (node != null && !name.isEmpty() && !name.equals(initial)) {
+            rename(node, name);
+        } else {
+            tree.setFocus();
+        }
+    }
+
+    private void cancelEdit() {
+        endEdit(null, null);
+    }
+
+    /** Starts renaming on a second click on the selected item's name, unless it turns into a double-click or a drag. */
+    private void secondClick(Event event) {
+        org.eclipse.swt.widgets.TreeItem[] selection = tree.getSelection();
+        Point point = new Point(event.x, event.y);
+        if (event.button != 1 || selection.length != 1 || tree.getItem(point) != selection[0]
+                || !selection[0].getBounds().contains(point) || !canRename()) {
+            clicks++;
+            return;
+        }
+        int click = ++clicks;
+        org.eclipse.swt.widgets.TreeItem item = selection[0];
+        tree.getDisplay().timerExec(tree.getDisplay().getDoubleClickTime(), () -> {
+            if (click == clicks && !tree.isDisposed() && !item.isDisposed() && tree.getSelectionCount() == 1
+                    && tree.getSelection()[0] == item) {
+                rename();
+            }
+        });
     }
 
     /** Renames the selected tab, group or command without prompting (tests). */
     void rename(String name) {
-        Object node = selection();
+        rename(selection(), name);
+    }
+
+    private void rename(Object node, String name) {
         if (node instanceof TabNode tab) {
             tab.label = name;
             fillTree(tab);
@@ -848,39 +935,6 @@ public final class CustomizeRibbonDialog {
         customization.apply(state);
         applied = true;
         shell.close();
-    }
-
-    private String prompt(String title, String initial) {
-        Shell dialog = new Shell(shell, SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL);
-        dialog.setText(title);
-        dialog.setLayout(new GridLayout(2, true));
-        Text text = new Text(dialog, SWT.BORDER | SWT.SINGLE);
-        text.setText(initial == null ? "" : initial);
-        GridData data = new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1);
-        data.widthHint = 260;
-        text.setLayoutData(data);
-        text.selectAll();
-        String[] result = { null };
-        Button ok = new Button(dialog, SWT.PUSH);
-        ok.setText("OK");
-        ok.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        ok.addListener(SWT.Selection, e -> {
-            result[0] = text.getText();
-            dialog.close();
-        });
-        Button cancel = new Button(dialog, SWT.PUSH);
-        cancel.setText("Cancel");
-        cancel.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        cancel.addListener(SWT.Selection, e -> dialog.close());
-        dialog.setDefaultButton(ok);
-        dialog.pack();
-        dialog.open();
-        while (!dialog.isDisposed()) {
-            if (!dialog.getDisplay().readAndDispatch()) {
-                dialog.getDisplay().sleep();
-            }
-        }
-        return result[0];
     }
 
     private void showMessage(String message) {
@@ -985,6 +1039,11 @@ public final class CustomizeRibbonDialog {
             drop.move().run();
         }
         return drop != null;
+    }
+
+    /** The in-place rename field, or {@code null} when none is open (tests). */
+    Text renameField() {
+        return editText;
     }
 
     /** The tree's context menu (tests). */
