@@ -135,6 +135,12 @@ public class TitleBar extends Canvas {
     private boolean quickAccessBelow;
     private java.nio.file.Path preferences;
     private com.zapthemes.widgets.command.CustomizationStore store;
+    /**
+     * A loaded customization showing commands the shell's registry didn't have yet: applied again
+     * as they're registered, until users change the toolbar.
+     */
+    private TitleBarCustomization pending;
+    private java.util.function.BiConsumer<com.zapthemes.widgets.command.Command, Boolean> registryListener;
     private boolean loadingPreferences;
     private TitleBarCustomization defaults;
     private int focusKey = SWT.F6;
@@ -497,6 +503,8 @@ public class TitleBar extends Canvas {
         if (isDisposed() || loadingPreferences) {
             return;
         }
+        // Users' own change: it's what is kept now, so a command that never got registered is gone.
+        pending = null;
         if (store != null) {
             try {
                 store.put(TitleBarCustomization.SECTION, getCustomization().toJson());
@@ -551,6 +559,7 @@ public class TitleBar extends Canvas {
         } finally {
             loadingPreferences = was;
         }
+        pending = null;
         notifyCustomized();
     }
 
@@ -573,7 +582,7 @@ public class TitleBar extends Canvas {
         }
         loadingPreferences = true;
         try {
-            TitleBarCustomization.load(file).applyTo(this);
+            applyLoaded(TitleBarCustomization.load(file));
         } catch (java.io.IOException | RuntimeException e) {
             System.getLogger(TitleBar.class.getName()).log(System.Logger.Level.WARNING,
                     "Could not read the title bar preferences from " + file, e);
@@ -590,7 +599,7 @@ public class TitleBar extends Canvas {
     /**
      * Keeps users' customizations in {@code store}'s {@code "quickAccessToolbar"} section, the file
      * the ribbon keeps its own in: applied now if the section exists (shown commands the bar has no
-     * item for come from the shell's {@code CommandRegistry}; unknown ids are ignored), and saved
+     * item for come from the shell's {@code CommandRegistry}, now or when it gets them), and saved
      * on every change. Call it after creating the items. {@code null} stops saving.
      */
     public void setCustomizationStore(com.zapthemes.widgets.command.CustomizationStore newStore) {
@@ -603,12 +612,36 @@ public class TitleBar extends Canvas {
         }
         loadingPreferences = true;
         try {
-            TitleBarCustomization.fromJson(section).applyTo(this);
+            applyLoaded(TitleBarCustomization.fromJson(section));
         } catch (RuntimeException e) {
             System.getLogger(TitleBar.class.getName()).log(System.Logger.Level.WARNING,
                     "Could not read the quick access toolbar from " + newStore.file(), e);
         } finally {
             loadingPreferences = false;
+        }
+    }
+
+    /**
+     * Applies a customization read from the preferences, while {@code loadingPreferences}. Shown
+     * commands the registry doesn't have yet (an app may register them after setting the store,
+     * as with a ribbon's) are added when it gets them, in their saved places.
+     */
+    private void applyLoaded(TitleBarCustomization customization) {
+        customization.applyTo(this);
+        pending = customization.shown().stream().anyMatch(id -> getItem(id) == null) ? customization : null;
+        if (pending != null && registryListener == null) {
+            registryListener = (command, added) -> {
+                if (added && pending != null && pending.shown().contains(command.id()) && !isDisposed()) {
+                    boolean was = loadingPreferences;
+                    loadingPreferences = true;
+                    try {
+                        applyLoaded(pending);
+                    } finally {
+                        loadingPreferences = was;
+                    }
+                }
+            };
+            com.zapthemes.widgets.command.CommandRegistry.of(shell).addListener(registryListener);
         }
     }
 
@@ -1244,6 +1277,9 @@ public class TitleBar extends Canvas {
 
     private void disposed() {
         frame.dispose();
+        if (registryListener != null && !shell.isDisposed()) {
+            com.zapthemes.widgets.command.CommandRegistry.of(shell).removeListener(registryListener);
+        }
         getDisplay().removeFilter(SWT.KeyDown, altSpace);
         getDisplay().removeFilter(SWT.KeyDown, focusKeyFilter);
         if (!shell.isDisposed()) {

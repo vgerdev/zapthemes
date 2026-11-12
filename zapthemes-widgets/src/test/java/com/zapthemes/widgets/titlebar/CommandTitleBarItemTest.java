@@ -196,6 +196,41 @@ class CommandTitleBarItemTest {
     }
 
     @Test
+    void storedCommandsRegisteredLaterComeBackInTheirPlace() throws Exception {
+        // As in the title bar demo: the bar reads the store before the ribbon registers File > Options.
+        Path file = dir.resolve("customizations.json");
+        TitleBar bar = bar();
+        bar.setCustomizationStore(CustomizationStore.open(file));
+        Command options = new Command("file.options", "Options");
+        CommandRegistry.of(shell).add(options);
+        bar.addToQuickAccess(options);
+        bar.setQuickAccessOrder(List.of("autosave", "save", "file.options", "undo"));
+        assertThat(shown(bar)).containsExactly("autosave", "save", "file.options", "undo");
+
+        // A new window: the store is read first, then the command is registered.
+        shell.dispose();
+        TitleBar again = bar();
+        again.setCustomizationStore(CustomizationStore.open(file));
+        assertThat(again.getItem("file.options")).isNull();
+        CommandRegistry.of(shell).add(new Command("file.options", "Options"));
+        assertThat(shown(again)).containsExactly("autosave", "save", "file.options", "undo");
+        assertThat(JsonParser.parseString(Files.readString(file)).getAsJsonObject()
+                .getAsJsonObject(TitleBarCustomization.SECTION).get("commands").toString())
+                .as("nothing was saved without it").contains("file.options");
+
+        // Once users change the toolbar first, a command still missing is no longer waited for.
+        TitleBar third = bar();
+        third.setCustomizationStore(CustomizationStore.inMemory());
+        third.setCustomization(new TitleBarCustomization(List.of("file.options", "save"), java.util.Set.of(), false));
+        CustomizationStore store = CustomizationStore.inMemory();
+        store.put(TitleBarCustomization.SECTION, JsonParser.parseString("{\"commands\": [\"file.options\", \"save\"]}"));
+        third.setCustomizationStore(store);
+        third.getItem("undo").setShown(false);
+        CommandRegistry.of(shell).add(new Command("file.options", "Options"));
+        assertThat(third.getItem("file.options")).isNull();
+    }
+
+    @Test
     void moreCommandsOffersTheShellsOtherCommands() {
         TitleBar bar = bar();
         QuickAccessDialog.Model model = new QuickAccessDialog.Model(bar, bar.getCustomization());
