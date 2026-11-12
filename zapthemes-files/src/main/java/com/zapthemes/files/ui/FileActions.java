@@ -59,6 +59,8 @@ final class FileActions {
     static final String PREVIEW_PANE = "files.previewPane";
     static final String OPEN = "files.open";
     static final String COPY_PATH = "files.copyPath";
+    static final String COPY_NAME = "files.copyName";
+    static final String COPY_FOLDER_PATH = "files.copyFolderPath";
     static final String SELECT_ALL = "files.selectAll";
     static final String SELECT_NONE = "files.selectNone";
     static final String INVERT_SELECTION = "files.invertSelection";
@@ -84,6 +86,11 @@ final class FileActions {
     private Consumer<List<FileEntry>> shareHandler;
     private Consumer<List<FileEntry>> propertiesHandler;
     private boolean pasteAvailable;
+
+    /** Whether Paste has something to paste (tests). */
+    boolean pasteAvailable() {
+        return pasteAvailable;
+    }
     private int renames;
 
     FileActions(FileBrowser browser) {
@@ -105,6 +112,13 @@ final class FileActions {
         add(PREVIEW_PANE, "Preview pane", null, 0, null).style(Command.Style.TOGGLE);
         add(OPEN, "&Open", null, SWT.CR, e -> browser.openSelected());
         add(COPY_PATH, "Copy as p&ath", null, SWT.MOD1 | SWT.SHIFT | 'C', e -> copyPath());
+        add(COPY_NAME, "Copy &name", null, 0, e -> copyText(browser.targets().stream().map(FileEntry::name).toList()));
+        add(COPY_FOLDER_PATH, "Copy folder p&ath", null, 0, e -> {
+            FileSystem fs = browser.getFileSystem();
+            if (fs != null && browser.getCurrentPath() != null) {
+                copyText(List.of(fs.format(browser.getCurrentPath())));
+            }
+        });
         add(SELECT_ALL, "Select &all", null, SWT.MOD1 | 'A', e -> {
             browser.fileTable().table.selectAll();
             browser.selectionChangedByCommand();
@@ -213,6 +227,8 @@ final class FileActions {
         commands.get(COPY).setEnabled(any && !drives);
         commands.get(CUT).setEnabled(any && !drives && (fs.has(Capability.MOVE) || fs.has(Capability.DELETE)));
         commands.get(COPY_PATH).setEnabled(any);
+        commands.get(COPY_NAME).setEnabled(any);
+        commands.get(COPY_FOLDER_PATH).setEnabled(fs != null && browser.getCurrentPath() != null);
         commands.get(PASTE).setEnabled(create && pasteAvailable && (fs.has(Capability.WRITE) || fs.has(Capability.CREATE_DIRECTORY)));
         commands.get(RENAME).setEnabled(selection.size() == 1 && !drives && fs.has(Capability.RENAME));
         commands.get(DELETE).setEnabled(any && !drives && fs.has(Capability.DELETE));
@@ -229,12 +245,13 @@ final class FileActions {
         Clipboard clipboard = new Clipboard(browser.getDisplay());
         try {
             boolean files = false;
-            boolean text = false;
             for (TransferData type : clipboard.getAvailableTypes()) {
                 files |= FileTransfer.getInstance().isSupportedType(type);
-                text |= TextTransfer.getInstance().isSupportedType(type);
             }
-            pasteAvailable = files || held != null && text;
+            // What this process copied counts even when the clipboard can't be read for a moment
+            // (on Windows other readers, such as the clipboard history, hold it right after a copy).
+            // If another application has copied since, a paste finds neither and does nothing.
+            pasteAvailable = files || held != null;
         } finally {
             clipboard.dispose();
         }
@@ -407,14 +424,19 @@ final class FileActions {
     /** Copies the selected items' paths as text, one per line. */
     void copyPath() {
         FileSystem fs = browser.getFileSystem();
-        List<FileEntry> entries = browser.targets();
-        if (fs == null || entries.isEmpty()) {
+        if (fs != null) {
+            copyText(browser.targets().stream().map(e -> fs.format(e.path())).toList());
+        }
+    }
+
+    /** Puts {@code lines} on the clipboard as text, one per line. */
+    private void copyText(List<String> lines) {
+        if (lines.isEmpty()) {
             return;
         }
-        String text = String.join(System.lineSeparator(), entries.stream().map(e -> fs.format(e.path())).toList());
         Clipboard clipboard = new Clipboard(browser.getDisplay());
         try {
-            clipboard.setContents(new Object[] { text }, new Transfer[] { TextTransfer.getInstance() });
+            clipboard.setContents(new Object[] { String.join(System.lineSeparator(), lines) }, new Transfer[] { TextTransfer.getInstance() });
         } finally {
             clipboard.dispose();
         }
@@ -633,8 +655,12 @@ final class FileActions {
         item(menu, PROPERTIES, SWT.PUSH);
     }
 
-    /** The context menu: of the selected items, or of the folder shown ({@code onItems} false). */
-    void fillContextMenu(Menu menu, boolean onItems) {
+    /**
+     * The context menu, condensed as in Windows 11: of the selected items, or of the folder shown
+     * ({@code onItems} false). It ends in "Show more options", which runs {@code showMore} (the
+     * browser opens the classic menu with it).
+     */
+    void fillContextMenu(Menu menu, boolean onItems, Runnable showMore) {
         checkClipboard();
         List<FileEntry> selection = browser.targets();
         if (onItems && !selection.isEmpty()) {
@@ -643,16 +669,57 @@ final class FileActions {
             separator(menu);
             item(menu, CUT, SWT.PUSH);
             item(menu, COPY, SWT.PUSH);
-            if (selection.size() == 1 && selection.getFirst().isContainer() && pasteAvailable) {
-                FilePath into = selection.getFirst().path();
-                plain(menu, SWT.PUSH, "&Paste into folder", commands.get(PASTE).isEnabled() || creatableFolder() != null,
-                        false, () -> paste(into));
-            }
+            pasteInto(menu, selection);
             item(menu, RENAME, SWT.PUSH);
             item(menu, DELETE, SWT.PUSH);
             separator(menu);
             item(menu, COPY_PATH, SWT.PUSH);
             item(menu, SHARE, SWT.PUSH);
+            separator(menu);
+            item(menu, PROPERTIES, SWT.PUSH);
+            contribute(menu, FileBrowser.MenuKind.ITEMS, selection);
+        } else {
+            fillViewMenu(cascade(menu, "&View", true));
+            fillSortMenu(cascade(menu, "&Sort by", true));
+            fillGroupBy(cascade(menu, "&Group by", true));
+            item(menu, REFRESH, SWT.PUSH);
+            separator(menu);
+            item(menu, PASTE, SWT.PUSH);
+            separator(menu);
+            fillNewMenu(cascade(menu, "Ne&w", commands.get(NEW).isEnabled()));
+            separator(menu);
+            item(menu, PROPERTIES, SWT.PUSH);
+            contribute(menu, FileBrowser.MenuKind.BACKGROUND, List.of());
+        }
+        separator(menu);
+        plain(menu, SWT.PUSH, "Show more &options\tShift+F10", showMore != null, false, showMore);
+    }
+
+    /**
+     * The classic, longer context menu ("Show more options", or a right click with Shift): every
+     * command that applies, in Windows 10's order.
+     */
+    void fillClassicMenu(Menu menu, boolean onItems) {
+        checkClipboard();
+        List<FileEntry> selection = browser.targets();
+        if (onItems && !selection.isEmpty()) {
+            MenuItem open = item(menu, OPEN, SWT.PUSH);
+            menu.setDefaultItem(open);
+            separator(menu);
+            item(menu, SHARE, SWT.PUSH);
+            separator(menu);
+            item(menu, CUT, SWT.PUSH);
+            item(menu, COPY, SWT.PUSH);
+            pasteInto(menu, selection);
+            separator(menu);
+            item(menu, DELETE, SWT.PUSH);
+            item(menu, RENAME, SWT.PUSH);
+            separator(menu);
+            item(menu, COPY_PATH, SWT.PUSH);
+            item(menu, COPY_NAME, SWT.PUSH);
+            separator(menu);
+            item(menu, SELECT_ALL, SWT.PUSH);
+            item(menu, INVERT_SELECTION, SWT.PUSH);
             separator(menu);
             item(menu, PROPERTIES, SWT.PUSH);
             contribute(menu, FileBrowser.MenuKind.ITEMS, selection);
@@ -667,8 +734,22 @@ final class FileActions {
         separator(menu);
         fillNewMenu(cascade(menu, "Ne&w", commands.get(NEW).isEnabled()));
         separator(menu);
+        item(menu, SELECT_ALL, SWT.PUSH);
+        item(menu, SHOW_HIDDEN, SWT.CHECK);
+        item(menu, SHOW_EXTENSIONS, SWT.CHECK);
+        separator(menu);
+        item(menu, COPY_FOLDER_PATH, SWT.PUSH);
+        separator(menu);
         item(menu, PROPERTIES, SWT.PUSH);
         contribute(menu, FileBrowser.MenuKind.BACKGROUND, List.of());
+    }
+
+    private void pasteInto(Menu menu, List<FileEntry> selection) {
+        if (selection.size() == 1 && selection.getFirst().isContainer() && pasteAvailable) {
+            FilePath into = selection.getFirst().path();
+            plain(menu, SWT.PUSH, "&Paste into folder", commands.get(PASTE).isEnabled() || creatableFolder() != null, false,
+                    () -> paste(into));
+        }
     }
 
     private void contribute(Menu menu, FileBrowser.MenuKind kind, List<FileEntry> selection) {

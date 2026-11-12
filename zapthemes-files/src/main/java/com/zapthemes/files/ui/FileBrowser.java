@@ -113,6 +113,8 @@ public class FileBrowser extends Composite {
     private boolean treeFocused;
     private Runnable afterLoad;
     private String activity;
+    private boolean shiftRightClick;
+    private boolean shiftKeyDown;
 
     /** A browser with nothing to show yet; give it a filesystem with {@link #setFileSystem}. */
     @SuppressWarnings("this-escape")
@@ -148,6 +150,11 @@ public class FileBrowser extends Composite {
         navigationTree.tree.addListener(SWT.FocusIn, e -> focused(true));
         navigationTree.tree.addListener(SWT.Selection, e -> actions.update());
         fileTable.table.addListener(SWT.MenuDetect, this::tableMenu);
+        for (Control control : new Control[] { fileTable.table, navigationTree.tree }) {
+            control.addListener(SWT.MouseDown, e -> shiftRightClick = e.button == 3 && (e.stateMask & SWT.SHIFT) != 0);
+            control.addListener(SWT.KeyDown, e -> shiftKeyDown = (e.stateMask & SWT.SHIFT) != 0 || e.keyCode == SWT.SHIFT);
+            control.addListener(SWT.KeyUp, e -> shiftKeyDown = false);
+        }
         navigationTree.tree.addListener(SWT.MenuDetect, this::treeMenu);
         ThemeManager.get(getDisplay()).addZoomListener(zoomListener);
         ThemeManager.get(getDisplay()).addThemeChangeListener(this, (previous, next) -> fileTable.restripe());
@@ -414,6 +421,7 @@ public class FileBrowser extends Composite {
     public static final String COMMAND_SHARE = FileActions.SHARE;
     public static final String COMMAND_DELETE = FileActions.DELETE;
     public static final String COMMAND_COPY_PATH = FileActions.COPY_PATH;
+    public static final String COMMAND_COPY_NAME = FileActions.COPY_NAME;
     public static final String COMMAND_SELECT_ALL = FileActions.SELECT_ALL;
     public static final String COMMAND_PROPERTIES = FileActions.PROPERTIES;
     public static final String COMMAND_REFRESH = FileActions.REFRESH;
@@ -914,21 +922,43 @@ public class FileBrowser extends Composite {
     }
 
     private void showMenu(Control control, Event event, boolean onItems) {
-        org.eclipse.swt.widgets.Menu menu = createContextMenu(control, onItems);
-        menu.setLocation(event.x, event.y);
+        // Shift with a right click (or Shift+F10) opens the classic menu at once, as in Explorer.
+        boolean classic = event.detail == SWT.MENU_MOUSE ? shiftRightClick : shiftKeyDown;
+        showMenu(control, event.x, event.y, onItems, classic);
+        event.doit = false;
+    }
+
+    private void showMenu(Control control, int x, int y, boolean onItems, boolean classic) {
+        org.eclipse.swt.widgets.Menu menu = classic ? createClassicMenu(control, onItems)
+                : createContextMenu(control, onItems, () -> getDisplay().asyncExec(() -> {
+                    if (!control.isDisposed()) {
+                        showMenu(control, x, y, onItems, true);
+                    }
+                }));
+        menu.setLocation(x, y);
         menu.addListener(SWT.Hide, e -> getDisplay().asyncExec(() -> {
             if (!menu.isDisposed()) {
                 menu.dispose();
             }
         }));
         menu.setVisible(true);
-        event.doit = false;
     }
 
-    /** A filled context menu for {@code control}, not shown (tests show nothing). */
+    /** A filled condensed context menu for {@code control}, not shown (tests show nothing). */
     org.eclipse.swt.widgets.Menu createContextMenu(Control control, boolean onItems) {
+        return createContextMenu(control, onItems, null);
+    }
+
+    private org.eclipse.swt.widgets.Menu createContextMenu(Control control, boolean onItems, Runnable showMore) {
         org.eclipse.swt.widgets.Menu menu = new com.zapthemes.swt.widgets.Menu(control);
-        actions.fillContextMenu(menu, onItems);
+        actions.fillContextMenu(menu, onItems, showMore);
+        return menu;
+    }
+
+    /** A filled classic context menu for {@code control}, not shown. */
+    org.eclipse.swt.widgets.Menu createClassicMenu(Control control, boolean onItems) {
+        org.eclipse.swt.widgets.Menu menu = new com.zapthemes.swt.widgets.Menu(control);
+        actions.fillClassicMenu(menu, onItems);
         return menu;
     }
 

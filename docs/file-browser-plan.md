@@ -17,6 +17,7 @@ CI).
 | Module | A new `zapthemes-files`: `com.zapthemes.files` (the filesystem abstraction, no SWT) and `com.zapthemes.files.ui` (the widgets). It depends on `zapthemes-swt` and `zapthemes-widgets`, not on JFace. |
 | First version's views and panes | Details view, navigation tree, breadcrumb, status bar (step 1); command bar and menus (step 2); the icon views, List, Tiles and Content, details pane and preview pane later. |
 | Icons and type names | Icons of our own (drawn at any zoom, themed) plus a table of common type names, with an optional platform icon provider (`Program.findProgram(ext).getImageData()`) for local files. |
+| Context menus | Both, as in Windows 11: the condensed menu, ending in "Show more options" (Shift+F10), which opens the classic, longer one; Shift with a right click opens the classic one at once. No "App extensions" or "Customize menu": they serve shell extensions, which a cross-platform control doesn't have; the application's items go in both menus |
 | File operations | The control does navigation, selection, sorting, rename in place, new folder and delete through the `FileSystem`; copy, move, transfers and conflicts are the application's (a `FileTransferHandler`), since zapscp already has a queue for them. |
 
 ## What zapscp needs
@@ -161,11 +162,6 @@ the zoom without resizing windows.
 - **Delete** is permanent, after a confirmation the application can replace
   (`setDeleteConfirmation`). Moving local files to the platform trash needs native calls on
   Windows (no Java API without AWT); it is a step 7 item.
-- **Context menus:** Windows 11 has a condensed menu (View ▸, Sort by ▸, Group by ▸, Refresh,
-  New ▸, Properties, App extensions ▸, Customize menu, Show more options) and a longer classic one
-  behind "Show more options". The proposal is one menu, the condensed items plus what the
-  application adds, without "Show more options" and "App extensions" (they exist for shell
-  extensions, which a cross-platform control doesn't have); to be confirmed before step 2.
 - **Group by** (by type, date, size; collapsible group headers) comes with the owner-drawn views in
   step 5, since a native `Table` has no groups.
 
@@ -239,7 +235,12 @@ Known limits, for later steps:
   Text document), "…" (Select all, Select none, Invert selection, Copy as path, Refresh,
   Properties). The context menu of empty space is the condensed one (View, Sort by, Group by,
   Refresh, Paste, New, Properties), and of items: Open, Cut, Copy, Paste into folder, Rename,
-  Delete, Copy as path, Share, Properties. `addMenuContributor` adds the application's items.
+  Delete, Copy as path, Share, Properties. Both end in "Show more options" (Shift+F10), which
+  opens the classic menu: for items Open, Share, Cut, Copy, Paste into folder, Delete, Rename,
+  Copy as path, Copy name, Select all, Invert selection, Properties; for empty space View, Sort
+  by, Group by, Refresh, Paste, New, Select all, Hidden items, File name extensions, Copy folder
+  path, Properties. Shift with a right click opens it at once. `addMenuContributor` adds the
+  application's items to both.
   The navigation pane has the item menu too, for its folders, without opening them.
 - **Rename in place** (`InlineEditor`): F2, Rename, or a slow second click on the name opens a
   field over it, with the name selected without its extension; Enter or a click elsewhere commits,

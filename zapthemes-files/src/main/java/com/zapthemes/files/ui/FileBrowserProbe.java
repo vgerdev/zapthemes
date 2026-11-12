@@ -102,7 +102,13 @@ public final class FileBrowserProbe {
 
     /** The labels of the context menu ({@code "-"} for separators), of the selection or of the folder shown. */
     public static List<String> contextMenu(FileBrowser browser, boolean onItems) {
-        org.eclipse.swt.widgets.Menu menu = browser.createContextMenu(browser.fileTable().table, onItems);
+        return contextMenu(browser, onItems, false);
+    }
+
+    /** The labels of the condensed or the classic ("Show more options") context menu. */
+    public static List<String> contextMenu(FileBrowser browser, boolean onItems, boolean classic) {
+        org.eclipse.swt.widgets.Menu menu = classic ? browser.createClassicMenu(browser.fileTable().table, onItems)
+                : browser.createContextMenu(browser.fileTable().table, onItems);
         try {
             return java.util.Arrays.stream(menu.getItems())
                     .map(i -> (i.getStyle() & org.eclipse.swt.SWT.SEPARATOR) != 0 ? "-" : i.getText().split("\t")[0].replace("&", "")).toList();

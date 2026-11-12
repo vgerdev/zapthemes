@@ -276,7 +276,7 @@ class FileOperationsTest {
         Menu menu = browser.createContextMenu(browser.fileTable().table, false);
 
         assertThat(labels(menu)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Properties", "-",
-                "Open terminal here");
+                "Open terminal here", "-", "Show more options");
         Menu view = itemNamed(menu, "View").getMenu();
         assertThat(labels(view)).containsExactly("Extra large icons", "Large icons", "Medium icons", "Small icons", "List", "Details", "Tiles",
                 "Content", "-", "Details pane", "Preview pane", "-", "Show");
@@ -294,13 +294,43 @@ class FileOperationsTest {
         select("notes.txt");
         Menu menu = browser.createContextMenu(browser.fileTable().table, true);
 
-        assertThat(labels(menu)).containsExactly("Open", "-", "Cut", "Copy", "Rename", "Delete", "-", "Copy as path", "Share", "-", "Properties");
+        assertThat(labels(menu)).containsExactly("Open", "-", "Cut", "Copy", "Rename", "Delete", "-", "Copy as path", "Share", "-", "Properties",
+                "-", "Show more options");
         if (!"gtk".equals(SWT.getPlatform())) {
             // GTK menus have no default (bold) item.
             assertThat(menu.getDefaultItem().getText()).startsWith("&Open");
         }
         assertThat(itemNamed(menu, "Share").getEnabled()).isFalse();
         menu.dispose();
+    }
+
+    @Test
+    void showMoreOptionsOpensTheClassicMenus() {
+        List<String> contributed = new ArrayList<>();
+        browser.addMenuContributor((menu, kind, selection) -> contributed.add(kind.name()));
+        select("projects");
+        browser.copy();
+        Menu items = browser.createClassicMenu(browser.fileTable().table, true);
+
+        assertThat(labels(items)).containsExactly("Open", "-", "Share", "-", "Cut", "Copy", "Paste into folder", "-", "Delete", "Rename", "-",
+                "Copy as path", "Copy name", "-", "Select all", "Invert selection", "-", "Properties");
+        itemNamed(items, "Copy name").notifyListeners(SWT.Selection, new Event());
+        org.eclipse.swt.dnd.Clipboard clipboard = new org.eclipse.swt.dnd.Clipboard(display);
+        assertThat(clipboard.getContents(org.eclipse.swt.dnd.TextTransfer.getInstance())).isEqualTo("projects");
+        clipboard.dispose();
+        items.dispose();
+
+        Menu background = browser.createClassicMenu(browser.fileTable().table, false);
+        assertThat(labels(background)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Select all",
+                "Hidden items", "File name extensions", "-", "Copy folder path", "-", "Properties");
+        assertThat(itemNamed(background, "File name extensions").getSelection()).isTrue();
+        background.dispose();
+        assertThat(contributed).containsExactly("ITEMS", "NEW", "BACKGROUND");
+
+        // In the condensed menu, the last item opens the classic one; disabled without a way to show it.
+        Menu condensed = browser.createContextMenu(browser.fileTable().table, false);
+        assertThat(itemNamed(condensed, "Show more options").getText()).endsWith("\tShift+F10");
+        condensed.dispose();
     }
 
     @Test

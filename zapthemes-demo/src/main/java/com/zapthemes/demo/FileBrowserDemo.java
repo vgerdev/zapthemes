@@ -368,8 +368,10 @@ public final class FileBrowserDemo {
         rooted.navigate(FilePath.TOP);
         idle(rooted);
         List<String> background = FileBrowserProbe.contextMenu(rooted, false);
-        expect(problems, background.equals(List.of("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Properties")),
-                "rooted: background menu " + background);
+        expect(problems, background.equals(List.of("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Properties", "-",
+                "Show more options")), "rooted: background menu " + background);
+        List<String> classic = FileBrowserProbe.contextMenu(rooted, false, true);
+        expect(problems, classic.contains("Copy folder path") && classic.contains("Hidden items"), "rooted: classic menu " + classic);
         int renames = FileBrowserProbe.renamesStarted(rooted);
         rooted.newFolder();
         waitFor(() -> FileBrowserProbe.renamesStarted(rooted) > renames);
