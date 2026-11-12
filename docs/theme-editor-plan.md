@@ -188,7 +188,7 @@ haven't set yourself.
 | 3 ✅ | **Bundled themes on common names** | Rewrite the four bundled themes as v2 with the base names, turning literals into names where one fits. **Equivalence test:** every catalog type, variant, class and state resolves to the same colors and fonts before and after, and screenshot diffs show no change. | Shows that the format and names are enough for real themes before any UI exists. |
 | 4 ✅ | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
 | 5 ✅ | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
-| 6 | **Wizard: palette, names, colors and fonts** | `zapthemes-editor` with `ThemeWizard`, pages 1–3, the preview pane, and the editing model (an undo stack per page; "set by user" vs auto-filled). | |
+| 6 ✅ | **Wizard: palette, names, colors and fonts** | `zapthemes-editor` with `ThemeWizard`, pages 1–3, the preview pane, and the editing model (an undo stack per page; "set by user" vs auto-filled). | |
 | 7 | **Wizard: controls, finish, round-trip** | Page 4 (tree, property table, overrides, adding variants, classes and states), the finish page, saving, reopening; a round-trip test (open, then save, gives the same file) on every bundled theme. | |
 | 8 | **App, docs, CI** | The standalone app (`run`, `--smoke`, screenshots of each page in each theme); opening the wizard from the JFace demo and ZapNotes preferences; the theme authoring guide's "Theme editor" section and the v2 format; the README run list; CI smoke tests and screenshots on all platforms. | |
 
@@ -379,8 +379,9 @@ Step 6 adds the wizard to the same module.
 - **`PaletteGenerator(seed)`:** 5 to 8 swatches.
   - Three neutrals tinted with the base hue: `ground`, `panel` and `ink`, at the dark or light end
     as asked.
-  - Accents on the rule's hues: `accent`, `accent2`, ... Lightness and chroma stay in ranges that
-    suit interfaces.
+  - Accents on the rule's hues: `accent1`, `accent2`, ... (no swatch is named like a base name,
+    since a swatch shadows a name of the same name). Lightness and chroma stay in ranges that suit
+    interfaces.
   - `regenerate` re-rolls every unlocked swatch. Every swatch draws the same random values whether
     or not it is locked, so locking one leaves the others as they would be.
   - The same seed and the same calls give the same palettes.
@@ -427,3 +428,74 @@ lightness, hue kept) to pass, and the test now requires every bundled theme to p
   lighter;
 - **zap-light:** warning is a shade darker, the title bar takes the accent, and the inactive title
   bar is a muted slate blue (`#586E97`) instead of a pale blue that its text could not be read on.
+
+## Step 6 in detail
+
+`com.zapthemes.editor` holds the wizard, on an editing model with no UI.
+
+**`EditorModel`** is what the pages edit:
+- **The palette** (page 1), and the **base** the edited theme is layered on (`Theme.over`): the
+  duplicated theme, or else `zap-dark` or `zap-light` by the palette's light/dark setting. Every
+  rule of the base stays, so the preview and the result theme every control.
+- **Names you added**, each holding a color, a font or both (page 2). A name must start with a
+  letter, and may not be a base name, another added name or a swatch.
+- **The colors and fonts you set** (page 3). A color is a literal (`ColorChoice.Literal`) or a
+  reference to a swatch (`ColorChoice.Ref`, written `"$swatch"`, so it follows the palette). A font
+  (`FontChoice`) is a family list, a size, a style, and optionally a name it inherits from.
+- **Everything else is derived.** Colors you have not set are filled from the palette (`NameFill`)
+  on every change; fonts you have not set are the base theme's. An added name starts with the
+  accent's color and the foreground's font. A reference to a swatch the palette no longer has
+  counts as unset.
+- **`theme()`** is the theme all this gives: `swatches`, `names` (colors that equal a swatch are
+  written as references), `dark`, and `editor.generator` (rule, base, locked swatches).
+- **Duplicating a theme** takes its palette (`Palette.fromTheme`, with swatches renamed apart
+  from the names, e.g. `backgroundSwatch`), its added names, and every name's color, marked as the
+  theme's (`Source.THEME`) until you change it. *Fill from palette* (page 2) forgets them.
+- **Undo, per page.** Each edit records how to undo and redo itself on its page's `UndoStack`, so
+  undoing on one page leaves the others' edits alone. A run of edits to one swatch, color or font
+  (a slider drag) undoes as one. Duplicating undoes as a whole.
+- Renaming an added name renames whatever refers to it. Removing one, or dropping a part it holds,
+  is refused while something refers to it. Font inheritance cycles and color reference cycles are
+  refused.
+
+**`ThemeWizard`** is a JFace `Wizard`; `ThemeWizard.dialog(shell, wizard)` opens it at a size
+that fits the pages and the preview side by side, and `result()` is the theme Finish gave (null
+after Cancel). Each page is a `WizardPage` with its controls on the left, a **`PreviewPane`** on
+the right (`ThemeManager.preview`, so the wizard keeps the application's theme), and Undo and Redo
+buttons that name the edit (also Ctrl+Z, and Ctrl+Y or Ctrl+Shift+Z, outside text fields). Each
+page has its own preview pane, so the wizard works in any `WizardDialog`. The pane has a styled
+document showing the headings, body, link, muted, strong, status and code names in their colors and
+fonts, buttons (primary, disabled), check and radio buttons, a text field and a combo, a table and a
+tree, a Nebula Grid and an XYGraph in tabs, and a progress bar.
+
+1. **Palette:** duplicate a bundled theme or a theme file; use a saved palette or a bundled
+   theme's colors; or generate (rule, base color, 5 to 8 swatches, dark or light, Regenerate,
+   colors from an image, Save palette). A swatch strip with Lock; the selected swatch has hue,
+   saturation and lightness sliders and a row of tints and shades.
+2. **Common names:** a tree of the names by group, with what each holds, its color, its font and
+   where its color comes from (palette, theme, you). *Add name* adds a color name and starts
+   renaming it in place; added names are renamed in place (F2, Rename, or a second, slow click),
+   and what they hold is chosen in place too. *Remove* and *Fill from palette*.
+3. **Colors and fonts:** the names with their colors and worst contrast. For the selected name: the
+   swatches, the tints and shades of one, a custom color, or *Fill from palette*; the font's
+   families (the first one installed wins), size, bold and italic, the name it starts from, a font
+   dialog, or the base theme's; and every contrast pair it is part of, with ratio and level.
+
+Finish, for now, gives the theme; the finish page and saving come in step 7.
+
+Tests:
+- `EditorModelTest` (14, headless): new palettes give readable, valid themes on the right base;
+  user-set colors survive regenerate; swatch references follow; per-page undo, and drags undoing as
+  one; adding, renaming (references follow) and removing names; fonts and inheritance; duplicating
+  every bundled theme keeps every base name's color and font and the rules of sample types; Fill
+  from palette; swatch names apart from names; dangling swatch references.
+- `ThemeWizardTest` (8): the wizard driven through its controls: preview and window themes apart;
+  Lock, Regenerate, the hue slider (a drag undoes as one) and tints; duplicating, and colors from an
+  image; saved palettes used and deleted; adding a name and renaming it in place, with refused
+  names shown as the page's error; a swatch, a tint and a font for a name, with its contrast pairs;
+  Finish and Cancel; Ctrl+Z and Ctrl+Y undoing only the page showing.
+- `ThemeWizardDemo` (`./gradlew :zapthemes-demo:runThemeWizard`). Its smoke test
+  (`smokeTestThemeWizard`, part of `smokeTest`) checks, for each bundled theme as the window's
+  theme and on every page, that each control has the window's theme and each control of the
+  preview the edited theme, and that edits on each page reach the preview and undo takes them back.
+  `screenshotsThemeWizard` saves each page in each window theme.

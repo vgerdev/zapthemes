@@ -20,11 +20,14 @@ import org.eclipse.swt.graphics.RGB;
  */
 public final class PaletteGenerator {
 
-    /** Swatch names, in order. */
+    /**
+     * Swatch names, in order: three neutrals, then {@code accent1}, {@code accent2}, ... None is a
+     * base common name, since in a theme a swatch shadows a name of the same name.
+     */
     public static final String GROUND = "ground";
     public static final String PANEL = "panel";
     public static final String INK = "ink";
-    public static final String ACCENT = "accent";
+    public static final String ACCENT = "accent1";
 
     private static final int NEUTRALS = 3;
 
@@ -71,8 +74,7 @@ public final class PaletteGenerator {
             case 0 -> GROUND;
             case 1 -> PANEL;
             case 2 -> INK;
-            case 3 -> ACCENT;
-            default -> ACCENT + (index - NEUTRALS + 1);
+            default -> "accent" + (index - NEUTRALS + 1);
         };
     }
 

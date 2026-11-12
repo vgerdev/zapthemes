@@ -22,7 +22,7 @@ class PaletteStoreTest {
     void aSavedPaletteLoadsBackTheSame() {
         PaletteStore store = new PaletteStore(dir.resolve("palettes"));
         Palette palette = new PaletteGenerator(1).generate(Harmony.TRIADIC, new RGB(0x2A, 0xAC, 0xB8), 6, true)
-                .withLocked("accent", true);
+                .withLocked("accent1", true);
 
         assertThat(store.list()).as("no directory yet").isEmpty();
         store.save("Ocean", palette);
