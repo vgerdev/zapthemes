@@ -246,6 +246,40 @@ class Win32FrameTest {
     }
 
     @Test
+    void closingTheWindowWhileAButtonShowsItsTooltipDoesNotCrash() {
+        // The pointer on close: the bar sets its tooltip, and comctl32 subclasses the bar's window
+        // over Win32Frame's procedure. Freeing that procedure's callback while the subclass still
+        // called it ended the process with 0xC000041D during DestroyWindow (this test's JVM too).
+        Point close = center(bar.getPartBounds(Part.CLOSE));
+        org.eclipse.swt.widgets.Event move = new org.eclipse.swt.widgets.Event();
+        move.x = close.x;
+        move.y = close.y;
+        bar.notifyListeners(SWT.MouseMove, move);
+        assertThat(bar.getToolTipText()).isNotNull();
+        Win32Frame frame = (Win32Frame) bar.frame();
+
+        shell.dispose();
+        settle();
+        assertThat(shell.isDisposed()).isTrue();
+        // Freed once the bar's window got its last message.
+        assertThat(frame.holdsCallbacks()).isFalse();
+    }
+
+    @Test
+    void disposingTheBarWithItsTooltipSetBringsTheCaptionBack() {
+        Point close = center(bar.getPartBounds(Part.CLOSE));
+        org.eclipse.swt.widgets.Event move = new org.eclipse.swt.widgets.Event();
+        move.x = close.x;
+        move.y = close.y;
+        bar.notifyListeners(SWT.MouseMove, move);
+        Win32Frame frame = (Win32Frame) bar.frame();
+        bar.dispose();
+        settle();
+        assertThat(shell.toDisplay(0, 0).y - shell.getBounds().y).isGreaterThan(10);
+        assertThat(frame.holdsCallbacks()).isFalse();
+    }
+
+    @Test
     void disposingTheBarBringsTheCaptionBack() {
         bar.dispose();
         settle();
