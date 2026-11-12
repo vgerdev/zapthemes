@@ -199,4 +199,30 @@ class TitleBarCustomizationTest {
         assertThat(shown(bar)).containsExactly("autosave", "save", "undo", "redo");
         assertThat(bar.isQuickAccessBelow()).isFalse();
     }
+
+    @Test
+    void theDialogMovesAndAddsByDragAndDrop() {
+        TitleBar bar = bar(IDS);
+        QuickAccessDialog dialog = new QuickAccessDialog(bar);
+        dialog.create();
+        QuickAccessDialog.Model model = dialog.model;
+        // Gaps: 0 before autosave ... 4 after redo. Down the list, the command's own place counts.
+        assertThat(model.insert("autosave", 3)).isEqualTo(2);
+        assertThat(model.shown).containsExactly("save", "undo", "autosave", "redo");
+        assertThat(model.insert("redo", 0)).isZero();
+        assertThat(model.shown).containsExactly("redo", "save", "undo", "autosave");
+        assertThat(model.insert("print", 2)).isEqualTo(2);
+        assertThat(model.shown).containsExactly("redo", "save", "print", "undo", "autosave");
+        assertThat(model.insert("save", 99)).isEqualTo(4);
+        assertThat(model.insert("gone", 0)).isEqualTo(-1);
+
+        // The gap under the pointer: rows split at their middles.
+        dialog.shell.setVisible(true);
+        int row = dialog.shownList.getItemHeight();
+        int top = dialog.shownList.toDisplay(0, 0).y;
+        assertThat(dialog.gapAt(top + row / 4)).isZero();
+        assertThat(dialog.gapAt(top + row + row * 3 / 4)).isEqualTo(2);
+        assertThat(dialog.gapAt(top + 1000)).isEqualTo(model.shown.size());
+        dialog.shell.dispose();
+    }
 }

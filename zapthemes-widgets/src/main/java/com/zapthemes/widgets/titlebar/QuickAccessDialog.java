@@ -7,6 +7,15 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.DND;
+import org.eclipse.swt.dnd.DragSource;
+import org.eclipse.swt.dnd.DragSourceAdapter;
+import org.eclipse.swt.dnd.DragSourceEvent;
+import org.eclipse.swt.dnd.DropTarget;
+import org.eclipse.swt.dnd.DropTargetAdapter;
+import org.eclipse.swt.dnd.DropTargetEvent;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
@@ -21,7 +30,9 @@ import com.zapthemes.widgets.options.OptionsPage;
 /**
  * "More Commands...": the commands the app offers on the left, the quick access toolbar on the
  * right, with Add, Remove, Move Up, Move Down and Reset, and a choice to show the toolbar below the
- * bar. OK applies it to the bar (which saves its preferences file).
+ * bar. Commands can also be dragged: within the toolbar list to reorder them, from the commands
+ * list into it to add one at that place, and back out to remove one. OK applies it to the bar
+ * (which saves its preferences file).
  */
 final class QuickAccessDialog implements OptionsPage {
 
@@ -71,6 +82,27 @@ final class QuickAccessDialog implements OptionsPage {
             return target;
         }
 
+        /**
+         * Puts {@code id} at gap {@code gap} of the toolbar list (0 before the first command,
+         * {@code shown.size()} after the last): moves a shown command, adds another one. Returns
+         * its new index, or -1 for an id the dialog doesn't offer.
+         */
+        int insert(String id, int gap) {
+            if (!names.containsKey(id)) {
+                return -1;
+            }
+            int target = Math.max(0, Math.min(shown.size(), gap));
+            int index = shown.indexOf(id);
+            if (index >= 0) {
+                shown.remove(index);
+                if (index < target) {
+                    target--;
+                }
+            }
+            shown.add(target, id);
+            return target;
+        }
+
         TitleBarCustomization result() {
             return new TitleBarCustomization(shown, new LinkedHashSet<>(names.keySet()), below);
         }
@@ -84,6 +116,11 @@ final class QuickAccessDialog implements OptionsPage {
     Button belowCheck;
     Button ok;
     private Runnable enable;
+    /** The command being dragged, and whether it comes from the toolbar list. */
+    private String dragged;
+    private boolean draggedShown;
+    /** Where a drop in the toolbar list would land: a line between its rows. */
+    private Composite marker;
 
     QuickAccessDialog(TitleBar bar) {
         this.bar = bar;
@@ -173,7 +210,180 @@ final class QuickAccessDialog implements OptionsPage {
         };
         availableList.addListener(SWT.Selection, e -> enable.run());
         shownList.addListener(SWT.Selection, e -> enable.run());
+        dragAndDrop(parent);
         refresh(null);
+    }
+
+    // ------------------------------------------------------------------ drag and drop
+
+    /*
+     * As in the ribbon's dialog: on Windows the listeners run inside the native drag loop, so the
+     * lists are not refilled while it runs (the drop's change waits until the loop has returned),
+     * and no exception escapes a listener (one is thrown again from the event loop instead).
+     */
+    private void dragAndDrop(org.eclipse.swt.widgets.Composite parent) {
+        marker = new Composite(parent, SWT.NONE);
+        GridData markerData = new GridData();
+        markerData.exclude = true;
+        marker.setLayoutData(markerData);
+        marker.setVisible(false);
+        // Disabled, the line is not a window the drag can be over: it stays on the list's.
+        marker.setEnabled(false);
+        Transfer[] transfers = { TextTransfer.getInstance() };
+        dragSource(availableList, false, transfers);
+        dragSource(shownList, true, transfers);
+
+        DropTarget intoToolbar = new DropTarget(shownList, DND.DROP_MOVE | DND.DROP_COPY);
+        intoToolbar.setTransfer(transfers);
+        intoToolbar.addDropListener(new DropTargetAdapter() {
+            @Override
+            public void dragEnter(DropTargetEvent event) {
+                dragOver(event);
+            }
+
+            @Override
+            public void dragOperationChanged(DropTargetEvent event) {
+                dragOver(event);
+            }
+
+            @Override
+            public void dragOver(DropTargetEvent event) {
+                event.feedback = DND.FEEDBACK_SCROLL;
+                event.detail = DND.DROP_NONE;
+                guarded(() -> {
+                    if (dragged != null) {
+                        event.detail = draggedShown ? DND.DROP_MOVE : DND.DROP_COPY;
+                        showMarker(gapAt(event.y));
+                    }
+                });
+            }
+
+            @Override
+            public void dragLeave(DropTargetEvent event) {
+                guarded(() -> marker.setVisible(false));
+            }
+
+            @Override
+            public void drop(DropTargetEvent event) {
+                guarded(() -> marker.setVisible(false));
+                String id = dragged;
+                int[] gap = { -1 };
+                guarded(() -> gap[0] = gapAt(event.y));
+                if (id == null || gap[0] < 0) {
+                    event.detail = DND.DROP_NONE;
+                    return;
+                }
+                later(() -> {
+                    model.insert(id, gap[0]);
+                    refresh(id);
+                });
+            }
+        });
+
+        DropTarget outOfToolbar = new DropTarget(availableList, DND.DROP_MOVE);
+        outOfToolbar.setTransfer(transfers);
+        outOfToolbar.addDropListener(new DropTargetAdapter() {
+            @Override
+            public void dragEnter(DropTargetEvent event) {
+                dragOver(event);
+            }
+
+            @Override
+            public void dragOperationChanged(DropTargetEvent event) {
+                dragOver(event);
+            }
+
+            @Override
+            public void dragOver(DropTargetEvent event) {
+                event.feedback = DND.FEEDBACK_NONE;
+                event.detail = dragged != null && draggedShown ? DND.DROP_MOVE : DND.DROP_NONE;
+            }
+
+            @Override
+            public void drop(DropTargetEvent event) {
+                String id = dragged;
+                if (id == null || !draggedShown) {
+                    event.detail = DND.DROP_NONE;
+                    return;
+                }
+                later(() -> {
+                    model.remove(id);
+                    refresh(null);
+                });
+            }
+        });
+    }
+
+    private void dragSource(com.zapthemes.swt.widgets.List list, boolean fromToolbar, Transfer[] transfers) {
+        DragSource source = new DragSource(list, DND.DROP_MOVE | DND.DROP_COPY);
+        source.setTransfer(transfers);
+        source.addDragListener(new DragSourceAdapter() {
+            @Override
+            public void dragStart(DragSourceEvent event) {
+                event.doit = false;
+                guarded(() -> {
+                    int index = list.getSelectionIndex();
+                    List<String> ids = fromToolbar ? model.shown : model.available();
+                    dragged = index >= 0 && index < ids.size() ? ids.get(index) : null;
+                    draggedShown = fromToolbar;
+                    event.doit = dragged != null;
+                });
+            }
+
+            @Override
+            public void dragSetData(DragSourceEvent event) {
+                // The command stays in the dialog; the id is only what other apps would get.
+                // TextTransfer refuses empty text, so there is always some.
+                event.data = dragged != null ? dragged : "zapthemes.quickAccess";
+            }
+
+            @Override
+            public void dragFinished(DragSourceEvent event) {
+                dragged = null;
+                guarded(() -> marker.setVisible(false));
+            }
+        });
+    }
+
+    /** The gap of the toolbar list nearest display y {@code y}: 0 above the first row, the row count below the last. */
+    int gapAt(int y) {
+        int itemHeight = Math.max(1, shownList.getItemHeight());
+        int local = shownList.toControl(0, y).y;
+        int gap = shownList.getTopIndex() + Math.round((float) local / itemHeight);
+        return Math.max(0, Math.min(model.shown.size(), gap));
+    }
+
+    private void showMarker(int gap) {
+        Rectangle area = shownList.getClientArea();
+        int itemHeight = shownList.getItemHeight();
+        Rectangle list = shownList.getBounds();
+        int border = shownList.getBorderWidth();
+        int y = list.y + border + (gap - shownList.getTopIndex()) * itemHeight;
+        y = Math.max(list.y + border, Math.min(list.y + border + area.height - 2, y - 1));
+        marker.setBackground(shownList.getForeground());
+        marker.setBounds(list.x + border + 1, y, Math.max(0, area.width - 2), 2);
+        marker.moveAbove(shownList);
+        marker.setVisible(true);
+    }
+
+    /** Runs a drop's change once the native drag loop has returned. */
+    private void later(Runnable change) {
+        shownList.getDisplay().asyncExec(() -> {
+            if (!shownList.isDisposed()) {
+                change.run();
+            }
+        });
+    }
+
+    /** Runs a drag listener's work; an exception is thrown again later, outside the native drag loop. */
+    private void guarded(Runnable work) {
+        try {
+            work.run();
+        } catch (RuntimeException | org.eclipse.swt.SWTError e) {
+            shownList.getDisplay().asyncExec(() -> {
+                throw e;
+            });
+        }
     }
 
     /** Applies the toolbar to the bar, which saves its preferences file. */
