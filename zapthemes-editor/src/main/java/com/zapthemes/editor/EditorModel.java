@@ -1,5 +1,13 @@
 package com.zapthemes.editor;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringWriter;
+import java.io.UncheckedIOException;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -44,7 +52,7 @@ import com.zapthemes.editor.palette.Swatch;
 public final class EditorModel {
 
     /** The pages that edit the model, each with its own undo history. */
-    public enum Page { PALETTE, NAMES, VALUES }
+    public enum Page { PALETTE, NAMES, VALUES, CONTROLS }
 
     /** Where a name's color or font comes from. */
     public enum Source {
@@ -76,6 +84,8 @@ public final class EditorModel {
     private static final Pattern NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]*");
     private static final RGB DEFAULT_BASE = new RGB(0x2A, 0xAC, 0xB8);
     private static final int DEFAULT_SIZE = 6;
+    /** The library version a theme is written with ({@code editor.libraryVersion}). */
+    public static final String LIBRARY_VERSION = libraryVersion();
 
     private final List<Theme> themes;
     private final PaletteGenerator generator;
@@ -89,6 +99,11 @@ public final class EditorModel {
     private final Map<String, ColorChoice> userColors = new LinkedHashMap<>();
     private final Map<String, FontChoice> userFonts = new LinkedHashMap<>();
     private final Set<String> fromTheme = new LinkedHashSet<>();
+    private final Map<RuleKey, Map<String, JsonElement>> ruleEdits = new LinkedHashMap<>();
+    private String id = "untitled";
+    private String title = "Untitled";
+    private Boolean darkFlag;
+    private Path file;
     private String lastKey;
 
     private Map<String, RGB> colors = Map.of();
@@ -310,12 +325,27 @@ public final class EditorModel {
 
     /**
      * Starts from {@code source}: its palette, its names and their colors, its added names, and
-     * the theme itself as the base, so every rule it has stays. Undo goes back to before it.
+     * the theme itself as the base, so every rule it has stays. The copy's id is
+     * {@code <id>-copy}. Undo goes back to before it.
      */
     public void duplicate(Theme source) {
+        start(source, true, null, "Duplicate " + source.name());
+    }
+
+    /**
+     * Opens {@code source}, saved in {@code path} (or null), to edit it: as {@link #duplicate}, but
+     * keeping its id, name and file, and its generator settings. Each name keeps its color as the
+     * theme writes it, a reference ({@code "$accent"}) or a color, so saving it again writes the
+     * same theme.
+     */
+    public void open(Theme source, Path path) {
+        start(source, false, path, "Open " + source.name());
+    }
+
+    private void start(Theme source, boolean copy, Path path, String label) {
         Objects.requireNonNull(source, "source");
         State before = state();
-        Palette from = safe(Palette.fromTheme(source));
+        Palette from = withGenerator(safe(Palette.fromTheme(source)), source);
         ThemeNames names = ThemeNames.of(source);
         Map<String, Set<String>> addedNames = new LinkedHashMap<>();
         Map<String, ColorChoice> setColors = new LinkedHashMap<>();
@@ -337,14 +367,316 @@ public final class EditorModel {
                 return;
             }
             try {
-                names.color(name).ifPresent(c -> setColors.put(name, swatchOf(from, c.rgb)
-                        .<ColorChoice>map(ColorChoice.Ref::new).orElse(new ColorChoice.Literal(c.rgb))));
+                names.color(name).ifPresent(c -> setColors.put(name, written(entry, from, source).orElseGet(() -> swatchOf(from, c.rgb)
+                        .<ColorChoice>map(ColorChoice.Ref::new).orElse(new ColorChoice.Literal(c.rgb)))));
             } catch (RuntimeException e) {
                 // A name the theme itself cannot resolve keeps the palette's fill.
             }
         });
-        State after = new State(from, source, source, addedNames, setColors, setFonts, setColors.keySet());
-        record(Page.PALETTE, "Duplicate " + source.name(), null, () -> restore(before), () -> restore(after));
+        State after = new State(from, source, source, addedNames, setColors, setFonts, setColors.keySet(),
+                copy ? source.id() + "-copy" : source.id(), copy ? source.name() + " copy" : source.name(), copy ? null : path,
+                Map.of());
+        record(Page.PALETTE, label, null, () -> restore(before), () -> restore(after));
+    }
+
+    /** A name's color as {@code source} writes it: a reference to a swatch or another name, or a color. */
+    private static Optional<ColorChoice> written(JsonElement entry, Palette palette, Theme source) {
+        if (!entry.isJsonObject() || !(entry.getAsJsonObject().get("color") instanceof JsonPrimitive value) || !value.isString()) {
+            return Optional.empty();
+        }
+        String text = value.getAsString();
+        if (text.startsWith("$")) {
+            String ref = text.substring(1);
+            boolean known = palette.swatch(ref).isPresent() || source.names().containsKey(ref) && !source.swatches().containsKey(ref);
+            return known ? Optional.of(new ColorChoice.Ref(ref)) : Optional.empty();
+        }
+        if (text.matches("#[0-9A-Fa-f]{6}")) {
+            return Optional.of(new ColorChoice.Literal(parseHex(text)));
+        }
+        return Optional.empty();
+    }
+
+    /** {@code palette} with the rule, base and locks {@code source}'s {@code editor.generator} records. */
+    private static Palette withGenerator(Palette palette, Theme source) {
+        if (!(source.editor().get("generator") instanceof JsonObject settings)) {
+            return palette;
+        }
+        Palette result = palette;
+        try {
+            if (settings.has("rule")) {
+                result = result.withRule(Harmony.byId(settings.get("rule").getAsString()));
+            }
+            if (settings.has("base")) {
+                result = result.withBase(parseHex(settings.get("base").getAsString()));
+            }
+            if (settings.get("locked") instanceof JsonArray locked) {
+                for (JsonElement name : locked) {
+                    if (result.swatch(name.getAsString()).isPresent()) {
+                        result = result.withLocked(name.getAsString(), true);
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            // Settings the editor cannot read are left out; the swatches stay.
+        }
+        return result;
+    }
+
+    private static RGB parseHex(String hex) {
+        int value = Integer.parseInt(hex.substring(1, 7), 16);
+        return new RGB(value >> 16 & 0xFF, value >> 8 & 0xFF, value & 0xFF);
+    }
+
+    // ------------------------------------------------------------------ page 4: controls
+
+    /**
+     * A rule of {@code controls} or {@code classes}: a control type, optionally with style bits
+     * ({@code Button[CHECK]}) or a style class ({@code Button.primary}, {@code *.danger}), and
+     * optionally one owner-draw state of it ({@code hover}).
+     */
+    public record RuleKey(String type, String variant, String styleClass, String state) {
+        public RuleKey {
+            Objects.requireNonNull(type, "type");
+            if (variant != null && styleClass != null) {
+                throw new IllegalArgumentException("A rule is a variant or a class, not both");
+            }
+        }
+
+        public static RuleKey of(String type) {
+            return new RuleKey(type, null, null, null);
+        }
+
+        public RuleKey withState(String name) {
+            return new RuleKey(type, variant, styleClass, name);
+        }
+
+        /** The rule without its state. */
+        public RuleKey rule() {
+            return new RuleKey(type, variant, styleClass, null);
+        }
+
+        /** Its key in the theme: {@code Button}, {@code Button[CHECK]} or {@code Button.primary}. */
+        public String themeKey() {
+            return styleClass != null ? type + "." + styleClass : variant != null ? type + "[" + variant + "]" : type;
+        }
+
+        public boolean isClass() {
+            return styleClass != null;
+        }
+
+        @Override
+        public String toString() {
+            return themeKey() + (state != null ? ":" + state : "");
+        }
+    }
+
+    /** What rule {@code key} gives {@code property}: the edit, else the base theme's value. */
+    public Optional<JsonElement> ruleValue(RuleKey key, String property) {
+        Map<String, JsonElement> edits = ruleEdits.get(key);
+        if (edits != null && edits.containsKey(property)) {
+            return Optional.of(edits.get(property));
+        }
+        return Optional.ofNullable(baseRule(key)).map(rule -> rule.get(property));
+    }
+
+    /** Whether {@code property} of {@code key} was changed in the wizard. */
+    public boolean isEdited(RuleKey key, String property) {
+        Map<String, JsonElement> edits = ruleEdits.get(key);
+        return edits != null && edits.containsKey(property);
+    }
+
+    /** Whether the theme has rule {@code key}: the base has it, or it was added. */
+    public boolean hasRule(RuleKey key) {
+        return ruleEdits.containsKey(key) || baseRule(key) != null;
+    }
+
+    /** The rules of the base theme and the ones added, in theme order. */
+    public List<RuleKey> rules() {
+        Set<RuleKey> rules = new LinkedHashSet<>();
+        base.controls().forEach((key, props) -> addRules(rules, key, props, false));
+        base.classes().forEach((key, props) -> addRules(rules, key, props, true));
+        rules.addAll(ruleEdits.keySet());
+        return List.copyOf(rules);
+    }
+
+    /**
+     * Sets {@code property} of rule {@code key} to {@code value}: {@code "$name"} for a common name,
+     * or a literal (an override). Null takes the edit back, so the base theme's value applies again.
+     * Changes to one property in a row undo as one.
+     */
+    public void setRuleValue(RuleKey key, String property, JsonElement value) {
+        if (value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isString() && value.getAsString().startsWith("$")) {
+            String ref = value.getAsString().substring(1);
+            boolean font = com.zapthemes.core.catalog.PropertyKind.ofKey(property) == com.zapthemes.core.catalog.PropertyKind.FONT;
+            boolean known = font ? name(ref).filter(NameInfo::hasFont).isPresent()
+                    : name(ref).filter(NameInfo::hasColor).isPresent() || palette.swatch(ref).isPresent();
+            if (!known) {
+                throw new IllegalArgumentException("\"$" + ref + "\" is not a " + (font ? "name with a font" : "swatch or a name with a color"));
+            }
+        }
+        Map<String, JsonElement> old = ruleEdits.containsKey(key) ? new LinkedHashMap<>(ruleEdits.get(key)) : null;
+        Map<String, JsonElement> next = old == null ? new LinkedHashMap<>() : new LinkedHashMap<>(old);
+        if (value == null) {
+            next.remove(property);
+        } else {
+            next.put(property, value.deepCopy());
+        }
+        if (Objects.equals(old, next) || old == null && next.isEmpty()) {
+            return;
+        }
+        // An edit map that empties goes away, unless it is what makes an added rule exist.
+        boolean drop = next.isEmpty() && baseRule(key) != null;
+        record(Page.CONTROLS, (value == null ? "Reset " : "Set ") + key + " " + property, "rule:" + key + ":" + property,
+                () -> putOrRemove(ruleEdits, key, old), () -> putOrRemove(ruleEdits, key, drop ? null : next));
+    }
+
+    /** Adds an empty rule: a variant, class or state the base theme has no rule for. */
+    public void addRule(RuleKey key) {
+        if (hasRule(key)) {
+            return;
+        }
+        if (key.variant() != null && !key.variant().matches("[A-Z][A-Z_]*(\\|[A-Z][A-Z_]*)*")) {
+            throw new IllegalArgumentException("Style bits are SWT constants such as CHECK or MULTI|WRAP.");
+        }
+        if (key.styleClass() != null && !NAME.matcher(key.styleClass()).matches()) {
+            throw new IllegalArgumentException("A class starts with a letter and has only letters, digits and underscores.");
+        }
+        record(Page.CONTROLS, "Add " + key, null, () -> ruleEdits.remove(key), () -> ruleEdits.put(key, new LinkedHashMap<>()));
+    }
+
+    private static void addRules(Set<RuleKey> rules, String key, Map<String, JsonElement> props, boolean isClass) {
+        RuleKey rule = parseRule(key, isClass);
+        if (rule == null) {
+            return;
+        }
+        rules.add(rule);
+        if (props.get("states") instanceof JsonObject states) {
+            states.keySet().forEach(state -> rules.add(rule.withState(state)));
+        }
+    }
+
+    /** The rule of a theme key: {@code Button}, {@code Button[CHECK]}, or a class's {@code Button.primary}. */
+    static RuleKey parseRule(String key, boolean isClass) {
+        if (isClass) {
+            int dot = key.indexOf('.');
+            return dot <= 0 ? null : new RuleKey(key.substring(0, dot), null, key.substring(dot + 1), null);
+        }
+        int bracket = key.indexOf('[');
+        if (bracket > 0 && key.endsWith("]")) {
+            return new RuleKey(key.substring(0, bracket), key.substring(bracket + 1, key.length() - 1), null, null);
+        }
+        return RuleKey.of(key);
+    }
+
+    /** The base theme's properties for {@code key} (a state's, for a state), or null. */
+    private Map<String, JsonElement> baseRule(RuleKey key) {
+        Map<String, Map<String, JsonElement>> section = key.isClass() ? base.classes() : base.controls();
+        Map<String, JsonElement> rule = section.get(key.themeKey());
+        if (rule == null || key.state() == null) {
+            return rule;
+        }
+        if (rule.get("states") instanceof JsonObject states && states.get(key.state()) instanceof JsonObject state) {
+            Map<String, JsonElement> props = new LinkedHashMap<>();
+            state.entrySet().forEach(e -> props.put(e.getKey(), e.getValue()));
+            return props;
+        }
+        return null;
+    }
+
+    private JsonObject baseStates(RuleKey key) {
+        Map<String, Map<String, JsonElement>> section = key.isClass() ? base.classes() : base.controls();
+        Map<String, JsonElement> rule = section.get(key.themeKey());
+        return rule != null && rule.get("states") instanceof JsonObject states ? states.deepCopy() : new JsonObject();
+    }
+
+    // ------------------------------------------------------------------ the finish page: identity, file, saving
+
+    public String id() {
+        return id;
+    }
+
+    public String title() {
+        return title;
+    }
+
+    /** Where Finish saves the theme, once chosen; set when a theme file is opened. */
+    public Optional<Path> file() {
+        return Optional.ofNullable(file);
+    }
+
+    /** Whether the theme is dark: as set on the finish page, else the palette's. */
+    public boolean dark() {
+        return darkFlag != null ? darkFlag : palette.dark();
+    }
+
+    /** Why {@code candidate} cannot be a theme's id, or null if it can. */
+    public static String idProblem(String candidate) {
+        if (candidate == null || candidate.isBlank()) {
+            return "The theme needs an id.";
+        }
+        return candidate.matches("[A-Za-z0-9][A-Za-z0-9._-]*") ? null
+                : "An id has only letters, digits, dots, dashes and underscores, and starts with a letter or a digit.";
+    }
+
+    /** The theme's id, name and dark flag. These are not undone with the pages' edits. */
+    public void setIdentity(String newId, String newTitle, boolean isDark) {
+        String problem = idProblem(newId);
+        if (problem != null) {
+            throw new IllegalArgumentException(problem);
+        }
+        String name = newTitle == null || newTitle.isBlank() ? newId : newTitle.strip();
+        Boolean flag = isDark == palette.dark() ? null : isDark;
+        if (newId.equals(id) && name.equals(title) && Objects.equals(flag, darkFlag)) {
+            return;
+        }
+        id = newId;
+        title = name;
+        darkFlag = flag;
+        lastKey = null;
+        changed();
+    }
+
+    public void setFile(Path path) {
+        file = path;
+    }
+
+    /**
+     * What is wrong with the theme: errors, which keep it from loading (unknown names, cycles, bad
+     * values), then warnings (contrast pairs below their minimum). Errors start with "Error: ".
+     */
+    public List<String> problems() {
+        List<String> problems = new ArrayList<>();
+        for (String error : com.zapthemes.core.style.ThemeValidator.validate(theme)) {
+            problems.add("Error: " + error);
+        }
+        for (ContrastCheck.Pair pair : contrast()) {
+            if (!pair.ok()) {
+                problems.add(String.format(java.util.Locale.ROOT, "Warning: %s on %s is %.1f:1, below %.1f:1", pair.name(),
+                        pair.against(), pair.ratio(), pair.minimum()));
+            }
+        }
+        return problems;
+    }
+
+    /** Writes {@link #theme()} to {@code path}: a full theme that needs no other, with no {@code extends}. */
+    public void save(Path path) throws IOException {
+        Path parent = path.toAbsolutePath().getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.writeString(path, toJson(), StandardCharsets.UTF_8);
+        file = path;
+    }
+
+    /** The theme as {@link #save} writes it. */
+    public String toJson() {
+        StringWriter writer = new StringWriter();
+        try {
+            com.zapthemes.core.ThemeJson.write(theme, writer);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return writer.toString();
     }
 
     // ------------------------------------------------------------------ page 2: names
@@ -504,6 +836,15 @@ public final class EditorModel {
 
     // ------------------------------------------------------------------ undo
 
+    /** Forgets every page's undo history, as after opening the theme the wizard edits. */
+    public void clearHistory() {
+        for (Page page : Page.values()) {
+            history.put(page, new UndoStack());
+        }
+        lastKey = null;
+        changed();
+    }
+
     public boolean undo(Page page) {
         lastKey = null;
         boolean undone = history.get(page).undo();
@@ -526,17 +867,21 @@ public final class EditorModel {
 
     /** Everything an edit can change, for edits that change it all. */
     private record State(Palette palette, Theme base, Theme duplicated, Map<String, Set<String>> added,
-            Map<String, ColorChoice> userColors, Map<String, FontChoice> userFonts, Collection<String> fromTheme) {
+            Map<String, ColorChoice> userColors, Map<String, FontChoice> userFonts, Collection<String> fromTheme,
+            String id, String title, Path file, Map<RuleKey, Map<String, JsonElement>> ruleEdits) {
         State {
-            added = Map.copyOf(new LinkedHashMap<>(added));
+            added = new LinkedHashMap<>(added);
             userColors = new LinkedHashMap<>(userColors);
             userFonts = new LinkedHashMap<>(userFonts);
             fromTheme = List.copyOf(fromTheme);
+            Map<RuleKey, Map<String, JsonElement>> rules = new LinkedHashMap<>();
+            ruleEdits.forEach((key, props) -> rules.put(key, new LinkedHashMap<>(props)));
+            ruleEdits = rules;
         }
     }
 
     private State state() {
-        return new State(palette, base, duplicated, added, userColors, userFonts, fromTheme);
+        return new State(palette, base, duplicated, added, userColors, userFonts, fromTheme, id, title, file, ruleEdits);
     }
 
     private void restore(State state) {
@@ -551,6 +896,12 @@ public final class EditorModel {
         userFonts.putAll(state.userFonts());
         fromTheme.clear();
         fromTheme.addAll(state.fromTheme());
+        id = state.id();
+        title = state.title();
+        file = state.file();
+        darkFlag = null;
+        ruleEdits.clear();
+        state.ruleEdits().forEach((key, props) -> ruleEdits.put(key, new LinkedHashMap<>(props)));
     }
 
     private void editPalette(String label, String key, Palette next, Theme nextBase, Theme nextDuplicated) {
@@ -587,6 +938,12 @@ public final class EditorModel {
         Map<String, RGB> user = new LinkedHashMap<>();
         userColors.forEach((name, choice) -> direct(choice).ifPresent(rgb -> user.put(name, rgb)));
         Map<String, RGB> filled = new LinkedHashMap<>(NameFill.fill(palette, user));
+        // A name that refers to another name gets that name's color, not the fill's.
+        for (NameInfo info : names()) {
+            if (live(userColors.get(info.name())) instanceof ColorChoice.Ref ref && palette.swatch(ref.name()).isEmpty()) {
+                filled.remove(info.name());
+            }
+        }
         // References to other names, and added names' defaults, once the names they refer to have colors.
         for (int pass = 0; pass < 8; pass++) {
             boolean progress = false;
@@ -661,6 +1018,7 @@ public final class EditorModel {
         Map<String, JsonElement> swatches = new LinkedHashMap<>();
         palette.toSwatches().forEach((name, hex) -> swatches.put(name, new JsonPrimitive(hex)));
         Map<String, JsonElement> editor = new LinkedHashMap<>();
+        editor.put("libraryVersion", new JsonPrimitive(LIBRARY_VERSION));
         if (palette.rule() != null && palette.base() != null) {
             JsonObject generated = new JsonObject();
             generated.addProperty("rule", palette.rule().id());
@@ -670,10 +1028,28 @@ public final class EditorModel {
             generated.add("locked", locked);
             editor.put("generator", generated);
         }
-        String id = duplicated != null ? duplicated.id() + "-copy" : "untitled";
-        String title = duplicated != null ? duplicated.name() + " copy" : "Untitled";
-        return new Theme(Theme.FORMAT_VERSION, id, title, null, palette.dark(), swatches, names, null, null, null, null, null,
+        Map<String, Map<String, JsonElement>> controls = new LinkedHashMap<>();
+        Map<String, Map<String, JsonElement>> classes = new LinkedHashMap<>();
+        ruleEdits.forEach((key, props) -> {
+            Map<String, Map<String, JsonElement>> section = key.isClass() ? classes : controls;
+            Map<String, JsonElement> rule = section.computeIfAbsent(key.themeKey(), k -> new LinkedHashMap<>());
+            if (key.state() == null) {
+                rule.putAll(props);
+                return;
+            }
+            // A state's edit goes into the whole "states" object, since a rule's keys replace the base's.
+            JsonObject states = rule.get("states") instanceof JsonObject edited ? edited : baseStates(key);
+            JsonObject state = states.get(key.state()) instanceof JsonObject existing ? existing : new JsonObject();
+            props.forEach(state::add);
+            states.add(key.state(), state);
+            rule.put("states", states);
+        });
+        Theme layered = new Theme(Theme.FORMAT_VERSION, id, title, null, dark(), swatches, names, null, controls, classes, null, null,
                 editor).over(base);
+        // A full theme: what the base extended is in it already.
+        return new Theme(Theme.FORMAT_VERSION, layered.id(), layered.name(), null, layered.dark(), layered.swatches(),
+                layered.names(), layered.defaults(), layered.controls(), layered.classes(), layered.platform(),
+                layered.registries(), layered.editor());
     }
 
     private Theme baseFor(boolean dark) {
@@ -770,7 +1146,7 @@ public final class EditorModel {
         }
     }
 
-    private static <V> void putOrRemove(Map<String, V> map, String key, V value) {
+    private static <K, V> void putOrRemove(Map<K, V> map, K key, V value) {
         if (value == null) {
             map.remove(key);
         } else {
@@ -786,6 +1162,14 @@ public final class EditorModel {
 
     private static Optional<String> swatchOf(Palette palette, RGB rgb) {
         return palette.swatches().stream().filter(s -> s.color().equals(rgb)).map(Swatch::name).findFirst();
+    }
+
+    private static String libraryVersion() {
+        try (InputStream in = EditorModel.class.getResourceAsStream("version.txt")) {
+            return in == null ? "unknown" : new String(in.readAllBytes(), StandardCharsets.UTF_8).strip();
+        } catch (IOException e) {
+            return "unknown";
+        }
     }
 
     static String hex(RGB rgb) {

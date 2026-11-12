@@ -20,3 +20,17 @@ dependencies {
     testImplementation(libs.assertj.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+// editor.libraryVersion in the themes the wizard writes.
+val versionResource = tasks.register("versionResource") {
+    val out = layout.buildDirectory.dir("generated/version")
+    val libraryVersion = project.version.toString()
+    inputs.property("version", libraryVersion)
+    outputs.dir(out)
+    doLast {
+        val file = out.get().file("com/zapthemes/editor/version.txt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(libraryVersion)
+    }
+}
+sourceSets.main { resources.srcDir(versionResource) }

@@ -48,17 +48,19 @@ abstract class EditorPage extends WizardPage {
         content.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         createContent(content);
 
-        Composite bar = new Composite(left, SWT.NONE);
-        bar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        GridLayout barLayout = new GridLayout(3, false);
-        barLayout.marginWidth = 0;
-        barLayout.marginHeight = 0;
-        bar.setLayout(barLayout);
-        new Label(bar, SWT.NONE).setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        undo = new Button(bar, SWT.PUSH);
-        undo.addListener(SWT.Selection, e -> model.undo(page));
-        redo = new Button(bar, SWT.PUSH);
-        redo.addListener(SWT.Selection, e -> model.redo(page));
+        if (page != null) {
+            Composite bar = new Composite(left, SWT.NONE);
+            bar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+            GridLayout barLayout = new GridLayout(3, false);
+            barLayout.marginWidth = 0;
+            barLayout.marginHeight = 0;
+            bar.setLayout(barLayout);
+            new Label(bar, SWT.NONE).setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+            undo = new Button(bar, SWT.PUSH);
+            undo.addListener(SWT.Selection, e -> model.undo(page));
+            redo = new Button(bar, SWT.PUSH);
+            redo.addListener(SWT.Selection, e -> model.redo(page));
+        }
 
         Composite right = new Composite(sash, SWT.NONE);
         GridLayout rightLayout = new GridLayout(1, false);
@@ -122,18 +124,25 @@ abstract class EditorPage extends WizardPage {
     /** Refreshes now: the page, its undo buttons and the preview. */
     void refreshAll() {
         refresh();
-        UndoStack history = model.history(page);
-        undo.setText(history.undoLabel().map(l -> "Undo " + l).orElse("Undo"));
-        undo.setEnabled(history.canUndo());
-        redo.setText(history.redoLabel().map(l -> "Redo " + l).orElse("Redo"));
-        redo.setEnabled(history.canRedo());
-        undo.getParent().layout(true);
-        preview.show(model.theme());
+        if (page != null) {
+            UndoStack history = model.history(page);
+            undo.setText(history.undoLabel().map(l -> "Undo " + l).orElse("Undo"));
+            undo.setEnabled(history.canUndo());
+            redo.setText(history.redoLabel().map(l -> "Redo " + l).orElse("Redo"));
+            redo.setEnabled(history.canRedo());
+            undo.getParent().layout(true);
+        }
+        try {
+            preview.show(model.theme());
+        } catch (RuntimeException e) {
+            // A theme with errors (a broken file that was opened) cannot be shown; the pages still work.
+            setErrorMessage("The preview cannot show the theme: " + e.getMessage());
+        }
     }
 
     private void key(Event e) {
         Control control = getControl();
-        if (control == null || control.isDisposed() || !control.isVisible() || (e.stateMask & SWT.MOD1) == 0) {
+        if (page == null || control == null || control.isDisposed() || !control.isVisible() || (e.stateMask & SWT.MOD1) == 0) {
             return;
         }
         if (!(e.widget instanceof Control focus) || focus.getShell() != control.getShell() || takesText(focus)) {

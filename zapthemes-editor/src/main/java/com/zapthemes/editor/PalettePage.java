@@ -89,7 +89,8 @@ final class PalettePage extends EditorPage {
         duplicateFrom.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
         Button duplicate = button(start, "Duplicate", e -> tryEdit(() -> model.duplicate(model.themes().get(duplicateFrom.getSelectionIndex()))));
         duplicate.setToolTipText("Starts from the theme: its palette, its names and their colors, and every rule it has");
-        button(start, "Open theme file…", e -> openThemeFile());
+        button(start, "Open theme file…", e -> openThemeFile())
+                .setToolTipText("Opens a theme file to change it; Finish saves it back there unless you choose another file");
 
         new Label(start, SWT.NONE).setText("Use a palette:");
         paletteFrom = new Combo(start, SWT.READ_ONLY);
@@ -353,7 +354,7 @@ final class PalettePage extends EditorPage {
             ThemeRegistry registry = new ThemeRegistry();
             model.themes().forEach(registry::register);
             Theme loaded = registry.loadFile(Path.of(file));
-            model.duplicate(registry.resolve(loaded.id()));
+            model.open(registry.resolve(loaded.id()), Path.of(file));
         });
     }
 
