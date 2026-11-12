@@ -31,6 +31,8 @@ import com.zapthemes.files.FileEntry;
 import com.zapthemes.files.FileOrder;
 import com.zapthemes.files.FilePath;
 import com.zapthemes.files.LocalFileSystem;
+import com.zapthemes.files.Location;
+import com.zapthemes.files.LocationHistory;
 import com.zapthemes.files.MemoryFileSystem;
 import com.zapthemes.files.RootedFileSystem;
 import com.zapthemes.files.ui.FileBrowser;
@@ -211,6 +213,24 @@ public final class FileBrowserDemo {
         rooted.setFileSystem(new RootedFileSystem(disks, disks.fromPath(sample), "Projects"));
         remote = tab("Server (slow)");
         remote.setFileSystem(server);
+        // One list of recent locations for the three tabs, with two named ones; a location of
+        // another tab's filesystem opens in that tab.
+        LocationHistory recent = new LocationHistory();
+        recent.add(new Location(server, server.home(), "Server home", "home"));
+        recent.add(new Location(rooted.getFileSystem(), FilePath.TOP, "Projects", "documents"));
+        for (FileBrowser browser : List.of(local, rooted, remote)) {
+            browser.setLocationHistory(recent);
+            browser.setLocationHandler(location -> {
+                for (FileBrowser target : List.of(local, rooted, remote)) {
+                    if (target.getFileSystem() == location.fileSystem()) {
+                        select(target);
+                        target.navigate(location);
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
         local.addOpenListener(entry -> Program.launch(disks.format(entry.path())));
         rooted.addOpenListener(entry -> Program.launch(disks.format(((RootedFileSystem) rooted.getFileSystem()).toBase(entry.path()))));
         shell.setSize(1180, 760);
@@ -271,6 +291,7 @@ public final class FileBrowserDemo {
     private int smokeTest() {
         List<String> problems = new ArrayList<>();
         FileBrowserProbe.setPopupsCloseOnDeactivate(false);
+        FileBrowserProbe.setAddressStopsOnFocusOut(false);
         LocalFileSystem disks = LocalFileSystem.get();
         FilePath samplePath = disks.fromPath(sample);
         int checked = 0;
@@ -405,6 +426,31 @@ public final class FileBrowserDemo {
         expect(problems, names(remote).contains("install.sh"), "remote: pasted " + names(remote));
         select(local);
 
+        // Step 3: suggestions while typing, and the recent locations shared by the tabs.
+        select(local);
+        FileBrowserProbe.typeAddress(local, disks.format(samplePath) + disks.separator() + "re");
+        String reports = disks.format(samplePath.resolve("reports"));
+        waitFor(() -> FileBrowserProbe.suggestions(local).contains(reports));
+        // The recent location typed above (reports4) first, then the folder.
+        List<String> suggested = FileBrowserProbe.suggestions(local);
+        expect(problems, suggested.equals(List.of(reports + disks.separator() + "2024", reports)), "local: suggestions " + suggested);
+        FileBrowserProbe.pickSuggestion(local, suggested.indexOf(reports));
+        waitFor(() -> samplePath.resolve("reports").equals(local.getCurrentPath()));
+        idle(local);
+        local.showRecentLocations();
+        List<String> recent = FileBrowserProbe.suggestions(local);
+        expect(problems, recent.size() >= 3 && recent.getFirst().equals(disks.format(samplePath.resolve("reports")))
+                && recent.contains("Projects") && recent.contains("Server home"), "local: recent locations " + recent);
+        // "Server home" belongs to the server's tab: picking it there opens it there.
+        FileBrowserProbe.pickSuggestion(local, recent.indexOf("Server home"));
+        waitFor(() -> tabs.getSelectionIndex() == 2);
+        idle(remote);
+        expect(problems, server.home().equals(remote.getCurrentPath()), "remote: opened from the local tab's recent locations");
+        expect(problems, samplePath.resolve("reports").equals(local.getCurrentPath()), "local: stayed in its folder");
+        select(local);
+        local.navigate(samplePath);
+        idle(local);
+
         // Every theme: each part is themed; zoom grows the bars, not the window.
         for (Theme theme : available) {
             themes.setTheme(theme);
@@ -465,6 +511,20 @@ public final class FileBrowserDemo {
         DemoSupport.settle(display);
         DemoSupport.screenshot(shell, dir, "filebrowser-rename");
         FileBrowserProbe.finishRename(rooted, null);
+        DemoSupport.settle(display);
+
+        // The address field's suggestions.
+        select(local);
+        LocalFileSystem disks = LocalFileSystem.get();
+        FileBrowserProbe.typeAddress(local, disks.format(local.getCurrentPath()) + disks.separator());
+        waitFor(() -> FileBrowserProbe.suggestions(local).size() > 1);
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-address");
+        org.eclipse.swt.widgets.Shell suggestions = FileBrowserProbe.suggestionsShell(local);
+        if (suggestions != null) {
+            DemoSupport.screenshot((Control) suggestions, dir, "filebrowser-address-suggestions");
+        }
+        FileBrowserProbe.stopEditing(local);
         DemoSupport.settle(display);
 
         // A chevron's drop-down, with the window behind it.

@@ -137,7 +137,7 @@ the zoom without resizing windows.
 |---|---|---|
 | 1 ✅ | **Abstraction and first control** | `zapthemes-files`; `FilePath`, `FileEntry`, `FileSystem`, local, rooted and memory filesystems; `FileLoader`; `FileBrowser` with the navigation row and breadcrumb (chevron drop-downs), navigation tree, Details view, status bar; tests; `FileBrowserDemo` with `--smoke` and screenshots, local and rooted and a slow memory "remote" pane side by side. |
 | 2 ✅ | **Commands and operations** | Command bar, View/Sort menus, context menus; rename in place, new folder, delete (to trash where the platform has it); cut/copy/paste through the clipboard and a `FileTransferHandler`. |
-| 3 | **Address editing** | The editable path field, clear button, completion of folder names, and the drop-down of recent and typed locations. A history entry is a *location* (a filesystem, a path and a label), not a string, so it can name places of any filesystem: plain paths (`C:\opt`), named places ("OneDrive", "Recycle Bin" style entries an application adds), remote folders. |
+| 3 ✅ | **Address editing** | The editable path field, clear button, completion of folder names, and the drop-down of recent and typed locations. A history entry is a *location* (a filesystem, a path and a label), not a string, so it can name places of any filesystem: plain paths (`C:\opt`), named places ("OneDrive", "Recycle Bin" style entries an application adds), remote folders. |
 | 4 | **Drag and drop** | Drag out (`FileTransfer` for local files, an in-process `FileEntryTransfer` for virtual ones), drop in from the OS and between browsers, handed to the `FileTransferHandler`; drop highlighting on folders. |
 | 5 | **More views and panes** | Icon sizes, List, Tiles, Content; Group by; details pane; preview pane (images, text). |
 | 6 | **zapscp fit** | Permissions, Owner, Group columns; show hidden and mask filter; bookmarks into the tree; the adapter written and tested against zapscp's providers once it is merged. |
@@ -265,3 +265,42 @@ Known limits, for later steps:
   creates, renames, copies, pastes and deletes in the rooted folder, and uploads a file from it
   to the slow server.
 
+## Step 3 in detail
+
+- **Locations** (`Location`, in the core): a filesystem, a folder of it, an optional label and an
+  optional icon kind. Without a label it shows as its path, followed by its filesystem's name when
+  a browser of another filesystem lists it ("/etc on deploy@build-01"); with one, as the label
+  ("Projects", "Server home"), and typing the label goes there.
+- **`LocationHistory`**: the recent locations, most recent first, each folder once (adding it
+  again moves it up and keeps its label), at most 25 as in Explorer. Typed locations and those
+  picked from the drop-down go in; clicks, the breadcrumb and the tree don't, as in Explorer.
+  Applications add named places and remote folders. `FileBrowser.setLocationHistory` shares one
+  list between browsers (two panes, the tabs of a window). It isn't saved: an application keeps
+  `entries()` in its own terms and adds them back.
+- **Other filesystems:** `navigate(Location)` opens a location of any filesystem. For another one
+  the application's `setLocationHandler` decides first (the demo opens it in the tab of that
+  filesystem; zapscp will open a remote folder in the remote pane); otherwise the browser switches
+  to that filesystem. Back and Forward hold locations, so they cross filesystems too.
+  `setFileSystem` still clears them.
+- **The address field** (`AddressField`): the path, selected; the clear button; and the
+  drop-down button at the right end of the bar (in both modes), which opens the recent locations,
+  as F4 and Alt+Down do. While you type, a drop-down under the bar lists the recent locations that
+  start with the text, then the subfolders whose names complete its last part (listed in the
+  background, once per folder, hidden ones only when shown; a name alone completes in the current
+  folder). Down and Up move through it, putting each in the field, and Up past the first gives
+  back what was typed; Tab completes with the selected or first one; Enter goes to the selected
+  one, else to the text; Escape closes the drop-down, then stops editing. The drop-down never
+  takes the focus (`FolderPopup.suggest`, a `NO_FOCUS` shell), so typing goes on. A rooted
+  browser suggests nothing above its top, since its `parse` refuses it.
+- **Tests:** `LocationHistoryTest` (order, limit, labels kept, typing a label, matching, same
+  folder) and `AddressBarTest` (what goes into the history, the drop-down button and F4, typed
+  suggestions with Down, Up, Tab and Enter, the rooted top, a shared history across filesystems
+  with Back and Forward and the location handler, Escape). The demo shares one history between its
+  three tabs, with "Projects" and "Server home"; its smoke test types a path, picks a suggestion,
+  and opens the server's home from the local tab's drop-down, which lands in the server's tab.
+
+Known limits, for later steps:
+
+- `FileSystem.parse` runs on the UI thread for each suggestion; it should not block (a zapscp
+  adapter parses locally rather than asking the server).
+- Drives are not suggested from an empty name on Windows ("C" doesn't suggest "C:\").
