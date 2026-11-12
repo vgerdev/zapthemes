@@ -103,8 +103,8 @@ public final class MemoryFileSystem implements FileSystem {
 
     @Override
     public Set<Capability> capabilities() {
-        Set<Capability> set = EnumSet.of(Capability.CREATE_DIRECTORY, Capability.RENAME, Capability.DELETE, Capability.READ,
-                Capability.WRITE);
+        Set<Capability> set = EnumSet.of(Capability.CREATE_DIRECTORY, Capability.RENAME, Capability.MOVE, Capability.DELETE,
+                Capability.READ, Capability.WRITE);
         if (posix) {
             set.add(Capability.PERMISSIONS);
             set.add(Capability.OWNERS);
@@ -188,6 +188,31 @@ public final class MemoryFileSystem implements FileSystem {
             parent.children.put(newName, node);
         }
         return path.parent().resolve(newName);
+    }
+
+    @Override
+    public FilePath move(FilePath path, FilePath targetFolder) throws IOException {
+        if (path.isTop()) {
+            throw new IOException("The top can't be moved");
+        }
+        if (targetFolder.startsWith(path)) {
+            throw new IOException(format(path) + " can't be moved into itself");
+        }
+        enter(path);
+        synchronized (this) {
+            Node from = folder(path.parent());
+            Node node = from.children.get(path.name());
+            if (node == null) {
+                throw new NoSuchFileException(format(path));
+            }
+            Node to = folder(targetFolder);
+            if (to.children.containsKey(path.name())) {
+                throw new FileAlreadyExistsException(format(targetFolder.resolve(path.name())));
+            }
+            from.children.remove(path.name());
+            to.children.put(path.name(), node);
+        }
+        return targetFolder.resolve(path.name());
     }
 
     @Override

@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -281,5 +282,57 @@ class FileSystemsTest {
         List<FileEntry> sorted = new ArrayList<>(fs.list(FilePath.TOP));
         sorted.sort(Comparator.comparing(FileEntry::name));
         assertThat(sorted.getFirst().name()).isEqualTo(".profile");
+    }
+
+    // ------------------------------------------------------------------ transfers
+
+    @Test
+    void freeNamesFollowExplorer() {
+        java.util.Set<String> taken = new java.util.HashSet<>(List.of("a.txt", "a - copy.txt", "docs"));
+
+        assertThat(FileTransfers.freeName("b.txt", false, taken, true)).isEqualTo("b.txt");
+        assertThat(FileTransfers.freeName("a.txt", false, taken, true)).isEqualTo("a - Copy (2).txt");
+        assertThat(FileTransfers.freeName("A.TXT", false, taken, false)).isEqualTo("A (2).TXT");
+        assertThat(FileTransfers.freeName("docs", true, taken, true)).isEqualTo("docs - Copy");
+        assertThat(FileTransfers.freeName("v1.2", true, Set.of("v1.2"), false)).isEqualTo("v1.2 (2)");
+    }
+
+    @Test
+    void transfersCopyFoldersBetweenFilesystemsAndMoveWithin() throws IOException {
+        MemoryFileSystem from = sample();
+        MemoryFileSystem to = MemoryFileSystem.builder("to").folder("inbox").build();
+        FilePath me = FilePath.of("home", "me");
+        List<FileEntry> picked = from.list(me).stream().filter(e -> e.name().equals("projects") || e.name().equals("notes.txt")).toList();
+        from.createDirectory(me.resolve("projects"), "deep");
+
+        List<String> created = FileTransfers.run(new TransferRequest(from, picked, to, FilePath.of("inbox"), false));
+        assertThat(created).containsExactlyInAnyOrder("projects", "notes.txt");
+        assertThat(to.stat(FilePath.of("inbox", "projects", "deep"))).isPresent();
+        assertThat(from.stat(me.resolve("notes.txt"))).isPresent();
+
+        FileEntry notes = from.stat(me.resolve("notes.txt")).orElseThrow();
+        FileTransfers.run(new TransferRequest(from, List.of(notes), from, me.resolve("projects"), true));
+        assertThat(from.stat(me.resolve("notes.txt"))).isEmpty();
+        assertThat(from.stat(me.resolve("projects").resolve("notes.txt"))).isPresent();
+
+        FileEntry projects = from.stat(me.resolve("projects")).orElseThrow();
+        assertThatThrownBy(() -> FileTransfers.run(new TransferRequest(from, List.of(projects), from, me.resolve("projects").resolve("deep"), false)))
+                .isInstanceOf(IOException.class).hasMessageContaining("inside itself");
+    }
+
+    @Test
+    void localMovesAndRootedPathsReachTheDisk() throws IOException {
+        LocalFileSystem local = LocalFileSystem.get();
+        Files.createDirectories(temp.resolve("a"));
+        Files.createDirectories(temp.resolve("b"));
+        Files.writeString(temp.resolve("a/x.txt"), "x");
+        FilePath a = local.fromPath(temp.resolve("a"));
+
+        FilePath moved = local.move(a.resolve("x.txt"), local.fromPath(temp.resolve("b")));
+        assertThat(Files.exists(temp.resolve("b/x.txt"))).isTrue();
+        assertThat(moved.name()).isEqualTo("x.txt");
+        RootedFileSystem rooted = new RootedFileSystem(local, local.fromPath(temp));
+        assertThat(LocalFileSystem.diskPath(rooted, FilePath.of("b", "x.txt"))).contains(temp.resolve("b").resolve("x.txt").toAbsolutePath().normalize());
+        assertThat(LocalFileSystem.diskPath(sample(), FilePath.of("etc"))).isEmpty();
     }
 }

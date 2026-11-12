@@ -230,7 +230,7 @@ public final class FileBrowserDemo {
     // ------------------------------------------------------------------ smoke test and screenshots
 
     private boolean waitFor(BooleanSupplier condition) {
-        long end = System.currentTimeMillis() + 10_000;
+        long end = System.currentTimeMillis() + 30_000;
         while (!condition.getAsBoolean()) {
             if (System.currentTimeMillis() > end) {
                 return false;
@@ -277,7 +277,7 @@ public final class FileBrowserDemo {
 
         // The local disks: the sample folder, its breadcrumb and its order.
         if (!idle(local)) {
-            problems.add("the local browser did not finish listing");
+            problems.add("the local browser did not finish listing: loading " + local.isLoading() + ", pending " + FileBrowserProbe.pendingCalls(local) + ", status " + FileBrowserProbe.status(local));
         }
         expect(problems, samplePath.equals(local.getCurrentPath()), "local: shows " + local.getCurrentPath());
         List<String> shown = names(local);
@@ -362,6 +362,47 @@ public final class FileBrowserDemo {
         remote.navigate(FilePath.of("home", "deploy"));
         idle(remote);
 
+        // Step 2: commands, the context menus, new folder, rename, copy and paste, delete, on the rooted folder.
+        select(rooted);
+        rooted.setDeleteConfirmation(entries -> true);
+        rooted.navigate(FilePath.TOP);
+        idle(rooted);
+        List<String> background = FileBrowserProbe.contextMenu(rooted, false);
+        expect(problems, background.equals(List.of("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Properties")),
+                "rooted: background menu " + background);
+        int renames = FileBrowserProbe.renamesStarted(rooted);
+        rooted.newFolder();
+        waitFor(() -> FileBrowserProbe.renamesStarted(rooted) > renames);
+        idle(rooted);
+        expect(problems, names(rooted).contains("New folder"), "rooted: new folder " + names(rooted));
+        FileBrowserProbe.finishRename(rooted, "Made by the smoke test");
+        waitFor(() -> names(rooted).contains("Made by the smoke test"));
+        idle(rooted);
+        expect(problems, Files.isDirectory(sample.resolve("Made by the smoke test")), "rooted: the renamed folder is on disk");
+        FileBrowserProbe.select(rooted, "notes.txt");
+        List<String> items = FileBrowserProbe.contextMenu(rooted, true);
+        expect(problems, items.contains("Rename") && items.contains("Copy as path"), "rooted: item menu " + items);
+        rooted.copy();
+        rooted.paste();
+        waitFor(() -> names(rooted).contains("notes - Copy.txt"));
+        idle(rooted);
+        expect(problems, Files.exists(sample.resolve("notes - Copy.txt")), "rooted: the copy is on disk");
+        FileBrowserProbe.select(rooted, "notes - Copy.txt", "Made by the smoke test");
+        rooted.delete();
+        waitFor(() -> !names(rooted).contains("notes - Copy.txt"));
+        idle(rooted);
+        expect(problems, !Files.exists(sample.resolve("notes - Copy.txt")) && !Files.exists(sample.resolve("Made by the smoke test")),
+                "rooted: deleted from disk");
+        // Copied from the local disks, pasted on the slow server: an upload through the FileSystem API.
+        FileBrowserProbe.select(rooted, "install.sh");
+        rooted.copy();
+        select(remote);
+        remote.paste();
+        waitFor(() -> names(remote).contains("install.sh"));
+        idle(remote);
+        expect(problems, names(remote).contains("install.sh"), "remote: pasted " + names(remote));
+        select(local);
+
         // Every theme: each part is themed; zoom grows the bars, not the window.
         for (Theme theme : available) {
             themes.setTheme(theme);
@@ -414,6 +455,16 @@ public final class FileBrowserDemo {
                 DemoSupport.screenshot(shell, dir, "filebrowser-" + name + "-" + theme.id());
             }
         }
+        // Renaming in place.
+        themes.setTheme(available.getFirst());
+        select(rooted);
+        FileBrowserProbe.select(rooted, "Kubernetes Install On RHEL 9.docx");
+        rooted.rename();
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-rename");
+        FileBrowserProbe.finishRename(rooted, null);
+        DemoSupport.settle(display);
+
         // A chevron's drop-down, with the window behind it.
         themes.setTheme(available.getFirst());
         select(local);

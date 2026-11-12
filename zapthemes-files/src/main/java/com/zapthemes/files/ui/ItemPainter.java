@@ -3,6 +3,7 @@ package com.zapthemes.files.ui;
 import java.util.function.Function;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
@@ -14,6 +15,8 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.TreeItem;
 
 import com.zapthemes.core.ThemeManager;
+import com.zapthemes.core.style.ResolvedStyle;
+import com.zapthemes.core.style.ThemeContext;
 
 /**
  * Draws the icon and name in the first column of a table or tree, instead of {@code setImage}: the
@@ -61,6 +64,35 @@ final class ItemPainter {
         return item instanceof TableItem row ? row.getFont(0) : item instanceof TreeItem node ? node.getFont(0) : null;
     }
 
+    private static final boolean GTK = "gtk".equals(SWT.getPlatform());
+
+    /** The color under the text of {@code item}, when it is known: not for a row under the mouse, nor one the platform selects. */
+    private Color background(Item item, Event event) {
+        if ((event.detail & SWT.HOT) != 0) {
+            return null;
+        }
+        if (selected(item)) {
+            ThemeManager manager = ThemeManager.get(control.getDisplay());
+            ResolvedStyle style = manager.styleOf(control);
+            return style.has("selectionBackground") ? new ThemeContext(manager.resources()).color(style, "selectionBackground") : null;
+        }
+        return item instanceof TableItem row ? row.getBackground() : item instanceof TreeItem node ? node.getBackground() : null;
+    }
+
+    private boolean selected(Item item) {
+        if (item instanceof TableItem row) {
+            return row.getParent().isSelected(row.getParent().indexOf(row));
+        }
+        if (item instanceof TreeItem node) {
+            for (TreeItem selected : node.getParent().getSelection()) {
+                if (selected == node) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private void measure(Event event) {
         if (event.index != 0) {
             return;
@@ -96,9 +128,26 @@ final class ItemPainter {
         String text = textOf.apply(item);
         // GTK hands over the GC with the font of whatever it drew last.
         gc.setFont(font(item));
+        if (selected(item)) {
+            // The theme paints selected rows itself (its selectionBackground): its text color goes with it.
+            ThemeManager manager = ThemeManager.get(control.getDisplay());
+            ResolvedStyle style = manager.styleOf(control);
+            if (style.has("selectionBackground")) {
+                Color color = new ThemeContext(manager.resources()).color(style, "selectionForeground");
+                gc.setForeground(color != null ? color : control.getForeground());
+            }
+        }
         if (!text.isEmpty()) {
             Point extent = gc.textExtent(text);
-            gc.drawText(text, x, event.y + (event.height - extent.y) / 2, true);
+            int y = event.y + (event.height - extent.y) / 2;
+            Color under = GTK ? background(item, event) : null;
+            if (under != null) {
+                // GTK may render a row twice in one frame without clearing it, which would draw
+                // transparent text twice (bolder): fill behind it with the row's own color.
+                gc.setBackground(under);
+                gc.fillRectangle(x, y, extent.x, extent.y);
+            }
+            gc.drawText(text, x, y, true);
         }
     }
 }

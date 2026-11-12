@@ -20,7 +20,7 @@ runnable program:
 | `zapthemes-swt` | Proxies for every SWT widget: `com.zapthemes.swt.{widgets,custom,browser,opengl}` |
 | `zapthemes-themes` | The bundled themes: `zap-light`, `zap-dark`, `zap-high-contrast` |
 | `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar`; the Office-style `Ribbon` and the shared command model (`com.zapthemes.widgets.command`) |
-| `zapthemes-files` | An Explorer-style `FileBrowser` over local, rooted and virtual filesystems (see [the file browser plan](file-browser-plan.md)); theme types `FileBrowser`, `FileNavigationBar`, `FileStatusBar` |
+| `zapthemes-files` | An Explorer-style `FileBrowser` over local, rooted and virtual filesystems (see [the file browser plan](file-browser-plan.md)); theme types `FileBrowser`, `FileNavigationBar`, `FileCommandBar`, `FileStatusBar` |
 | `zapthemes-jface-ribbon` | JFace support for the ribbon: actions as commands, contribution items, `RibbonApplicationWindow` |
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
 | `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |

@@ -56,9 +56,12 @@ final class FileTable {
         table.setHeaderVisible(true);
         table.addListener(SWT.SetData, this::setData);
         table.addListener(SWT.Paint, this::paintMessage);
+        table.addListener(SWT.MouseDown, this::slowClick);
+        table.addListener(SWT.MouseDoubleClick, e -> slowClickGeneration++);
+        table.addListener(SWT.KeyDown, e -> slowClickGeneration++);
         ItemPainter.install(table, item -> {
             FileEntry entry = rowOf(item);
-            return entry != null ? browser.icons().get(entry, browser.iconSize()) : null;
+            return entry != null ? browser.icons().get(entry, browser.iconSize(), browser.isCut(entry)) : null;
         }, item -> {
             FileEntry entry = rowOf(item);
             return entry != null ? name(entry) : "";
@@ -70,8 +73,15 @@ final class FileTable {
         return index >= 0 && index < rows.size() ? rows.get(index) : null;
     }
 
-    private static String name(FileEntry entry) {
-        return entry.displayName() + (entry.link() ? "  →" : "");
+    private String name(FileEntry entry) {
+        String name = entry.displayName();
+        if (!browser.isShowExtensions() && !entry.isContainer() && entry.label() == null) {
+            String extension = FileTypes.extension(name);
+            if (!extension.isEmpty()) {
+                name = name.substring(0, name.length() - extension.length() - 1);
+            }
+        }
+        return name + (entry.link() ? "  →" : "");
     }
 
     /**
@@ -82,6 +92,53 @@ final class FileTable {
         ThemeManager manager = ThemeManager.get(table.getDisplay());
         org.eclipse.swt.graphics.Color stripe = new ThemeContext(manager.resources()).color(manager.styleOf(table), "alternateRowBackground");
         item.setBackground(stripe != null && index % 2 == 1 ? stripe : null);
+    }
+
+    /**
+     * A click on the name of the one item already selected, not part of a double click, renames it
+     * in place (after the double-click time, as Explorer does).
+     */
+    private void slowClick(Event event) {
+        int generation = ++slowClickGeneration;
+        if (event.button != 1 || (event.stateMask & SWT.MODIFIER_MASK) != 0 || table.getSelectionCount() != 1) {
+            return;
+        }
+        TableItem item = table.getItem(new org.eclipse.swt.graphics.Point(event.x, event.y));
+        if (item == null || table.indexOf(item) != table.getSelectionIndex() || !item.getBounds(0).contains(event.x, event.y)) {
+            return;
+        }
+        FileEntry entry = rowOf(item);
+        table.getDisplay().timerExec(table.getDisplay().getDoubleClickTime() + 50, () -> {
+            if (generation == slowClickGeneration && !table.isDisposed() && table.getSelectionCount() == 1 && entry != null
+                    && entry.equals(selection().stream().findFirst().orElse(null))) {
+                browser.actions().rename();
+            }
+        });
+    }
+
+    private int slowClickGeneration;
+    private InlineEditor editor;
+
+    /** Opens a field over {@code entry}'s name; false if it isn't shown. */
+    boolean startRename(FileEntry entry, java.util.function.Consumer<String> commit) {
+        int index = rows.indexOf(entry);
+        if (index < 0) {
+            return false;
+        }
+        if (editor != null && editor.isOpen()) {
+            editor.finish(false);
+        }
+        table.showItem(table.getItem(index));
+        Rectangle cell = table.getItem(index).getBounds(0);
+        int offset = ThemeManager.get(table.getDisplay()).resources().zoomedPixels(2 + 6) + browser.iconSize();
+        Rectangle bounds = new Rectangle(cell.x + offset, cell.y, Math.max(40, cell.width - offset), cell.height);
+        editor = InlineEditor.open(table, bounds, entry.name(), entry.isContainer(), commit, () -> table.setFocus());
+        return true;
+    }
+
+    /** The open rename field, or null (tests). */
+    InlineEditor editor() {
+        return editor != null && editor.isOpen() ? editor : null;
     }
 
     /** Explorer's short date and time, with a four-digit year: {@code 4/8/2024 1:45 PM}. */

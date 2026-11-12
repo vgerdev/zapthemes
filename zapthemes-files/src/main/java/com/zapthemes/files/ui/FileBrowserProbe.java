@@ -99,4 +99,46 @@ public final class FileBrowserProbe {
     public static String error(FileBrowser browser) {
         return browser.error();
     }
+
+    /** The labels of the context menu ({@code "-"} for separators), of the selection or of the folder shown. */
+    public static List<String> contextMenu(FileBrowser browser, boolean onItems) {
+        org.eclipse.swt.widgets.Menu menu = browser.createContextMenu(browser.fileTable().table, onItems);
+        try {
+            return java.util.Arrays.stream(menu.getItems())
+                    .map(i -> (i.getStyle() & org.eclipse.swt.SWT.SEPARATOR) != 0 ? "-" : i.getText().split("\t")[0].replace("&", "")).toList();
+        } finally {
+            menu.dispose();
+        }
+    }
+
+    /** Selects the entries named {@code names} in the file view, as a click would. */
+    public static void select(FileBrowser browser, String... names) {
+        List<FileEntry> rows = browser.fileTable().rows();
+        List<String> wanted = List.of(names);
+        int[] indices = java.util.stream.IntStream.range(0, rows.size()).filter(i -> wanted.contains(rows.get(i).name())).toArray();
+        browser.fileTable().table.setSelection(indices);
+        browser.fileTable().table.notifyListeners(org.eclipse.swt.SWT.Selection, new org.eclipse.swt.widgets.Event());
+        browser.focused(false);
+    }
+
+    /** How many in-place renames have started. */
+    public static int renamesStarted(FileBrowser browser) {
+        return browser.actions().renamesStarted();
+    }
+
+    /**
+     * Ends an in-place rename: commits {@code name}, or cancels with null. If the field already
+     * closed (it may lose its focus at once without a window manager), renames the selection directly.
+     */
+    public static void finishRename(FileBrowser browser, String name) {
+        InlineEditor editor = browser.fileTable().editor() != null ? browser.fileTable().editor() : browser.navigationTree().editor();
+        if (editor != null) {
+            if (name != null) {
+                editor.text().setText(name);
+            }
+            editor.finish(name != null);
+        } else if (name != null && browser.getSelectedEntries().size() == 1) {
+            browser.actions().commitRename(browser.getSelectedEntries().getFirst(), name);
+        }
+    }
 }
