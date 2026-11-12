@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 
@@ -47,6 +48,7 @@ final class Win32Frame extends WindowFrame {
 
     private static final System.Logger LOG = System.getLogger(Win32Frame.class.getName());
 
+    static final int WM_NCDESTROY = 0x0082;
     static final int WM_NCCALCSIZE = 0x0083;
     static final int WM_NCHITTEST = 0x0084;
     static final int WM_NCMOUSEMOVE = 0x00A0;
@@ -87,6 +89,7 @@ final class Win32Frame extends WindowFrame {
     private static boolean lookedUp;
     private static boolean failureLogged;
 
+    private Display display;
     private long shellHandle;
     private long barHandle;
     private Object shellCallback;
@@ -95,6 +98,8 @@ final class Win32Frame extends WindowFrame {
     private long barAddress;
     private long shellOld;
     private long barOld;
+    /** {@link #dispose()} ran: the procedures only pass messages on. */
+    private boolean detached;
     private Part nativeHover;
     private Part nativePressed;
     /** The pointer is back on the bar's own parts (client moves can still come while it's over maximize). */
@@ -137,6 +142,7 @@ final class Win32Frame extends WindowFrame {
     @Override
     void install() throws ReflectiveOperationException {
         Api os = api();
+        display = bar.getDisplay();
         shellHandle = os.handle(shell);
         barHandle = os.handle(bar);
         shellCallback = os.callback(this, "shellProc");
@@ -149,25 +155,75 @@ final class Win32Frame extends WindowFrame {
         frameChanged();
     }
 
+    /**
+     * Puts the old window procedures back. A procedure that someone subclassed on top of ours (the
+     * bar's tooltip does, through comctl32's {@code SetWindowSubclass}, while a part with a tooltip
+     * is hovered) can't be taken out: that subclass still calls our address. Its callback then only
+     * passes messages on, and is freed after the window's last message ({@code WM_NCDESTROY});
+     * freeing it now would send that window's next message, during {@code DestroyWindow}, into
+     * freed code, and end the process with {@code 0xC000041D}.
+     */
     @Override
     void dispose() {
+        if (detached) {
+            return;
+        }
+        detached = true;
         Api os = api();
-        try {
-            if (barOld != 0 && os.getWindowLongPtr(barHandle, GWLP_WNDPROC) == barAddress) {
-                os.setWindowLongPtr(barHandle, GWLP_WNDPROC, barOld);
-            }
-            if (shellOld != 0 && os.getWindowLongPtr(shellHandle, GWLP_WNDPROC) == shellAddress) {
-                os.setWindowLongPtr(shellHandle, GWLP_WNDPROC, shellOld);
-                if (!shell.isDisposed()) {
+        if (unhook(os, barHandle, barOld, barAddress)) {
+            os.dispose(barCallback);
+            barCallback = null;
+        }
+        if (unhook(os, shellHandle, shellOld, shellAddress)) {
+            os.dispose(shellCallback);
+            shellCallback = null;
+            if (!shell.isDisposed()) {
+                try {
                     frameChanged();
+                } catch (ReflectiveOperationException e) {
+                    LOG.log(Level.DEBUG, "Could not bring the caption back", e);
                 }
             }
+        }
+    }
+
+    /** Whether {@code hwnd} has its old procedure back, so nothing calls {@code address} any more. */
+    private static boolean unhook(Api os, long hwnd, long old, long address) {
+        if (old == 0) {
+            return true;
+        }
+        try {
+            if (os.getWindowLongPtr(hwnd, GWLP_WNDPROC) != address) {
+                return false;
+            }
+            os.setWindowLongPtr(hwnd, GWLP_WNDPROC, old);
+            return true;
         } catch (ReflectiveOperationException e) {
-            LOG.log(Level.DEBUG, "Could not restore the window procedures", e);
-        } finally {
-            os.dispose(barCallback);
-            os.dispose(shellCallback);
-            barCallback = shellCallback = null;
+            LOG.log(Level.DEBUG, "Could not restore a window procedure", e);
+            return false;
+        }
+    }
+
+    /** Whether the callbacks still bound: the ones {@link #dispose()} could not free yet. */
+    boolean holdsCallbacks() {
+        return barCallback != null || shellCallback != null;
+    }
+
+    /** After a detached procedure's last message: free its callback once the call has returned. */
+    private void destroyed(long hwnd) {
+        try {
+            display.asyncExec(() -> {
+                Api os = api();
+                if (hwnd == barHandle) {
+                    os.dispose(barCallback);
+                    barCallback = null;
+                } else {
+                    os.dispose(shellCallback);
+                    shellCallback = null;
+                }
+            });
+        } catch (RuntimeException e) {
+            // The display is gone: so is the process's last window; the callback stays bound.
         }
     }
 
@@ -179,6 +235,9 @@ final class Win32Frame extends WindowFrame {
 
     /** The shell's window procedure; called by native code through SWT's {@code Callback}. */
     long shellProc(long hwnd, long msg, long wParam, long lParam) {
+        if (detached) {
+            return passOn(shellOld, hwnd, msg, wParam, lParam);
+        }
         try {
             switch ((int) msg) {
                 case WM_COMMAND -> {
@@ -230,6 +289,9 @@ final class Win32Frame extends WindowFrame {
 
     /** The bar's window procedure: caption parts are transparent, so the shell hit-tests them. */
     long barProc(long hwnd, long msg, long wParam, long lParam) {
+        if (detached) {
+            return passOn(barOld, hwnd, msg, wParam, lParam);
+        }
         try {
             if ((int) msg == WM_NCHITTEST && hitCode(partAt(lParam), bar.titleIsCaption(), false) != HTCLIENT) {
                 return HTTRANSPARENT;
@@ -238,6 +300,15 @@ final class Win32Frame extends WindowFrame {
             logOnce(t);
         }
         return callOld(barOld, hwnd, msg, wParam, lParam);
+    }
+
+    /** A detached procedure: the old one does everything; after the last message, free the callback. */
+    private long passOn(long old, long hwnd, long msg, long wParam, long lParam) {
+        long result = callOld(old, hwnd, msg, wParam, lParam);
+        if ((int) msg == WM_NCDESTROY) {
+            destroyed(hwnd);
+        }
+        return result;
     }
 
     private static long callOld(long old, long hwnd, long msg, long wParam, long lParam) {
