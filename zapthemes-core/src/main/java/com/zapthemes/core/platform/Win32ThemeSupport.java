@@ -9,6 +9,7 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Scrollable;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Slider;
@@ -99,6 +100,10 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
             return;
         }
         for (Shell shell : display.getShells()) {
+            // A menu bar takes the menuBar colors only when it is created; existing ones are told again.
+            if (shell.getMenuBar() != null && !shell.getMenuBar().isDisposed()) {
+                api.recolor(shell.getMenuBar());
+            }
             api.redraw(shell);
         }
     }
@@ -122,6 +127,8 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
         private final Method setWindowTheme;
         private final Method redrawWindow;
         private final Method drawMenuBar;
+        private final Method initThemeColors;
+        private final Method updateBackground;
 
         Native() throws ReflectiveOperationException {
             Class<?> os = Class.forName("org.eclipse.swt.internal.win32.OS");
@@ -131,6 +138,20 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
             setWindowTheme = os.getMethod("SetWindowTheme", long.class, char[].class, char[].class);
             redrawWindow = os.getMethod("RedrawWindow", long.class, rect, long.class, int.class);
             drawMenuBar = os.getMethod("DrawMenuBar", long.class);
+            initThemeColors = Menu.class.getDeclaredMethod("initThemeColors");
+            initThemeColors.setAccessible(true);
+            updateBackground = Menu.class.getDeclaredMethod("updateBackground");
+            updateBackground.setAccessible(true);
+        }
+
+        /** Gives {@code menuBar} the display's menu bar colors again, as SWT does when it creates one. */
+        void recolor(Menu menuBar) {
+            try {
+                initThemeColors.invoke(menuBar);
+                updateBackground.invoke(menuBar);
+            } catch (ReflectiveOperationException e) {
+                LOG.log(Level.DEBUG, "Could not recolor the menu bar of " + menuBar.getParent(), e);
+            }
         }
 
         void theme(Control control, boolean dark, String themeName) {
