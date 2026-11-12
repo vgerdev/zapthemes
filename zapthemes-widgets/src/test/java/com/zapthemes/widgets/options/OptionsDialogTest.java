@@ -80,6 +80,8 @@ class OptionsDialogTest {
         OptionsDialog dialog = dialog();
         org.eclipse.swt.widgets.Shell shell = dialog.create("ribbon");
         assertThat(shell.getText()).isEqualTo("Word Options");
+        assertThat(shell.getBounds()).as("half the main window, centered on it")
+                .isEqualTo(new org.eclipse.swt.graphics.Rectangle(275, 200, 450, 300));
         assertThat(dialog.navigation().getItems()).containsExactly("General", "Customize Ribbon", "Quick Access Toolbar");
         assertThat(dialog.navigation().getSelection()).containsExactly("Customize Ribbon");
         assertThat(texts(shell)).contains("Customize the Ribbon.", "ribbon contents").doesNotContain("general contents");

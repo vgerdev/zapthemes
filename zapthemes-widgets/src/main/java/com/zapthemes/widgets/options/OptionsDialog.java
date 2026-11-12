@@ -114,10 +114,10 @@ public final class OptionsDialog {
             navigation.select(first);
             show(first);
         }
-        shell.pack();
+        // Half the main window's width and height, centered on it.
         Rectangle owner = parent.getBounds();
-        Point size = shell.getSize();
-        shell.setLocation(owner.x + (owner.width - size.x) / 2, owner.y + Math.max(0, (owner.height - size.y) / 3));
+        Point size = new Point(owner.width / 2, owner.height / 2);
+        shell.setBounds(owner.x + (owner.width - size.x) / 2, owner.y + (owner.height - size.y) / 2, size.x, size.y);
         return shell;
     }
 
