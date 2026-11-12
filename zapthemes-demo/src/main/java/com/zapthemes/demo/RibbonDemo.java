@@ -32,6 +32,8 @@ import com.zapthemes.widgets.command.CommandMenu;
 import com.zapthemes.widgets.command.CommandRegistry;
 import com.zapthemes.widgets.command.CustomizationStore;
 import com.zapthemes.widgets.command.Images;
+import com.zapthemes.widgets.options.OptionsDialog;
+import com.zapthemes.widgets.ribbon.CustomizeRibbonDialog;
 import com.zapthemes.widgets.ribbon.MessageBar;
 import com.zapthemes.widgets.ribbon.Ribbon;
 import com.zapthemes.widgets.ribbon.RibbonColorButton;
@@ -122,6 +124,7 @@ public final class RibbonDemo {
         defineCommands();
 
         ribbon = new Ribbon(shell, SWT.NONE, commands);
+        ribbon.setCustomizeHandler(() -> options("ribbon"));
         ribbon.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         ribbon.setAccentColor(WORD_BLUE);
         buildRibbon();
@@ -157,6 +160,13 @@ public final class RibbonDemo {
         }));
     }
 
+    /** The Options window, like Word Options, at page {@code page}; Customize the Ribbon... opens it too. */
+    private void options(String page) {
+        new OptionsDialog(shell, "Ribbon Demo Options")
+                .addPage("ribbon", "Customize Ribbon", "Customize the Ribbon.", new CustomizeRibbonDialog(ribbon))
+                .open(page);
+    }
+
     private void run(String id) {
         commands.get(id).run(new com.zapthemes.widgets.command.CommandEvent(commands.get(id), shell));
     }
@@ -171,6 +181,7 @@ public final class RibbonDemo {
         // File
         cmd("file.save", "&Save", "S", blue, "File").shortcut(SWT.MOD1 | 'S').description("Save this document.");
         cmd("file.close", "&Close", "X", slate, "File");
+        cmd("file.options", "&Options", "O", slate, "File").onRun(e -> options("ribbon"));
         // Clipboard
         cmd("home.paste", "&Paste", "P", slate, "Home").style(Command.Style.SPLIT).shortcut(SWT.MOD1 | 'V')
                 .description("Add content from the clipboard to your document.")
@@ -320,13 +331,10 @@ public final class RibbonDemo {
             backstage.addCommand("file.close");
             backstage.addSeparator();
             backstage.addPage("account", "Account", null, page -> new Label(page, SWT.NONE).setText("Signed out"));
-            backstage.addPage("options", "Options", null, page -> {
-                Button customize = new Button(page, SWT.PUSH);
-                customize.setText("Customize the Ribbon...");
-                customize.addListener(SWT.Selection, e -> ribbon.openCustomizeDialog());
-            });
+            // As in Office, Options opens the app's Options window.
+            backstage.addCommand("file.options");
             // KeyTips over the entries are picked from their labels; Office uses T for Options.
-            backstage.setKeyTip("options", "T");
+            backstage.setKeyTip("file.options", "T");
         });
 
         RibbonTab home = ribbon.addTab("home", "Home").setKeyTip("H");

@@ -58,6 +58,9 @@ import com.zapthemes.swt.widgets.Text;
  */
 public class TitleBar extends Canvas {
 
+    /** Runs instead of the built-in customize dialog when set: see {@code setCustomizeHandler}. */
+    private Runnable customizeHandler;
+
     /** What is at a point of the bar ({@link #getPart(int, int)}). */
     public enum Part {
         /** Outside the bar. */
@@ -623,10 +626,36 @@ public class TitleBar extends Canvas {
         setCustomization(defaults());
     }
 
-    /** Opens the "More Commands..." dialog: add, remove and reorder the quick access commands. */
+    /**
+     * Opens the "More Commands..." dialog: add, remove and reorder the quick access commands. With
+     * a handler set ({@link #setCustomizeHandler}), runs that instead.
+     */
     public void openCustomizeDialog() {
         checkWidget();
-        new QuickAccessDialog(this).open();
+        if (customizeHandler != null) {
+            customizeHandler.run();
+        } else {
+            new QuickAccessDialog(this).open();
+        }
+    }
+
+    /**
+     * Has "More Commands..." run {@code handler} instead of opening its own dialog: an app with
+     * an Options window opens it at its {@link #quickAccessPage()}, as Office does. {@code null}
+     * goes back to the dialog.
+     */
+    public void setCustomizeHandler(Runnable handler) {
+        checkWidget();
+        this.customizeHandler = handler;
+    }
+
+    /**
+     * The "More Commands..." dialog's contents as a page of an
+     * {@link com.zapthemes.widgets.options.OptionsDialog}: OK there applies it to the bar.
+     */
+    public com.zapthemes.widgets.options.OptionsPage quickAccessPage() {
+        checkWidget();
+        return new QuickAccessDialog(this);
     }
 
     // ------------------------------------------------------------------ window buttons

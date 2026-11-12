@@ -35,6 +35,9 @@ import com.zapthemes.widgets.command.Command;
 import com.zapthemes.widgets.command.CommandMenu;
 import com.zapthemes.widgets.command.CommandRegistry;
 import com.zapthemes.widgets.command.CustomizationStore;
+import com.zapthemes.widgets.options.OptionsDialog;
+import com.zapthemes.widgets.options.OptionsPage;
+import com.zapthemes.widgets.ribbon.CustomizeRibbonDialog;
 import com.zapthemes.widgets.ribbon.Ribbon;
 import com.zapthemes.widgets.ribbon.RibbonGroup;
 import com.zapthemes.widgets.ribbon.RibbonTab;
@@ -171,7 +174,7 @@ public final class TitleBarDemo {
                 .action("Switch account", () -> System.out.println("Switch account"))
                 .action("Sign out", () -> System.out.println("Sign out")));
 
-        Ribbon ribbon = ribbon(shell, bar, commands, accent);
+        Ribbon ribbon = ribbon(shell, bar, commands, accent, name);
         ribbon.setQuickAccessHook(bar::addToQuickAccess);
         if (store != null) {
             ribbon.setCustomizationStore(store);
@@ -297,8 +300,14 @@ public final class TitleBarDemo {
     }
 
     /** A small ribbon: File (the backstage), Home and View, as in Office. */
-    private Ribbon ribbon(Shell shell, TitleBar bar, CommandRegistry commands, RGB accent) {
+    private Ribbon ribbon(Shell shell, TitleBar bar, CommandRegistry commands, RGB accent, String name) {
         Ribbon ribbon = new Ribbon(shell, SWT.NONE, commands);
+        // As in Office: File > Options opens the app's Options window, and Customize the Ribbon...
+        // and More Commands... open it at their pages.
+        String app = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        command(commands, "file.options", "&Options", null, null, "File").onRun(e -> options(shell, bar, ribbon, app, null));
+        ribbon.setCustomizeHandler(() -> options(shell, bar, ribbon, app, "ribbon"));
+        bar.setCustomizeHandler(() -> options(shell, bar, ribbon, app, "qat"));
         ribbon.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
         ribbon.setAccentColor(accent);
         ribbon.setFileTab("File", backstage -> {
@@ -314,17 +323,8 @@ public final class TitleBarDemo {
             backstage.addCommand("file.close");
             backstage.addSeparator();
             backstage.addPage("account", "Account", null, page -> new Label(page, SWT.NONE).setText("Pat Doe"));
-            // As in Office: File > Options holds both customizations.
-            backstage.addPage("options", "Options", null, page -> {
-                page.setLayout(new GridLayout(1, false));
-                Button customizeRibbon = new Button(page, SWT.PUSH);
-                customizeRibbon.setText("Customize the &Ribbon...");
-                customizeRibbon.addListener(SWT.Selection, e -> ribbon.openCustomizeDialog());
-                Button customizeToolbar = new Button(page, SWT.PUSH);
-                customizeToolbar.setText("&Quick Access Toolbar...");
-                customizeToolbar.addListener(SWT.Selection, e -> bar.openCustomizeDialog());
-            });
-            backstage.setKeyTip("options", "T");
+            backstage.addCommand("file.options");
+            backstage.setKeyTip("file.options", "T");
         });
         RibbonTab home = ribbon.addTab("home", "Home").setKeyTip("H");
         RibbonGroup clipboard = home.addGroup("home.clipboard", "Clipboard").setImage(commands.get("home.paste").images());
@@ -404,6 +404,38 @@ public final class TitleBarDemo {
         font.dispose();
         images.add(image);
         return image;
+    }
+
+    /** The app's Options window, like Word Options, open at page {@code page} (General when null). */
+    private void options(Shell shell, TitleBar bar, Ribbon ribbon, String app, String page) {
+        new OptionsDialog(shell, app + " Options")
+                .addPage("general", "General", "General options for working with " + app + ".", new GeneralOptions())
+                .addPage("ribbon", "Customize Ribbon", "Customize the Ribbon.", new CustomizeRibbonDialog(ribbon))
+                .addPage("qat", "Quick Access Toolbar", "Customize the Quick Access Toolbar.", bar.quickAccessPage())
+                .open(page);
+    }
+
+    /** Options > General: the theme, as Office's "Office Theme". OK switches to it. */
+    private final class GeneralOptions implements OptionsPage {
+        private org.eclipse.swt.widgets.Combo theme;
+
+        @Override
+        public void create(org.eclipse.swt.widgets.Composite parent) {
+            parent.setLayout(new GridLayout(2, false));
+            Label label = new Label(parent, SWT.NONE);
+            label.setText("Office &Theme:");
+            theme = new com.zapthemes.swt.widgets.Combo(parent, SWT.READ_ONLY);
+            available.forEach(t -> theme.add(t.name()));
+            theme.select(Math.max(0, available.indexOf(themes.getTheme())));
+        }
+
+        @Override
+        public void apply() {
+            int index = theme.getSelectionIndex();
+            if (index >= 0 && available.get(index) != themes.getTheme()) {
+                themes.setTheme(available.get(index));
+            }
+        }
     }
 
     private void switchTheme() {
