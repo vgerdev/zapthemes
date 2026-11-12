@@ -190,7 +190,7 @@ haven't set yourself.
 | 5 ✅ | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
 | 6 ✅ | **Wizard: palette, names, colors and fonts** | `zapthemes-editor` with `ThemeWizard`, pages 1–3, the preview pane, and the editing model (an undo stack per page; "set by user" vs auto-filled). | |
 | 7 ✅ | **Wizard: controls, finish, round-trip** | Page 4 (tree, property table, overrides, adding variants, classes and states), the finish page, saving, reopening; a round-trip test (open, then save, gives the same file) on every bundled theme. | |
-| 8 | **App, docs, CI** | The standalone app (`run`, `--smoke`, screenshots of each page in each theme); opening the wizard from the JFace demo and ZapNotes preferences; the theme authoring guide's "Theme editor" section and the v2 format; the README run list; CI smoke tests and screenshots on all platforms. | |
+| 8 ✅ | **App, docs, CI** | The standalone app (`run`, `--smoke`, screenshots of each page in each theme); opening the wizard from the JFace demo and ZapNotes preferences; the theme authoring guide's "Theme editor" section and the v2 format; the README run list; CI smoke tests and screenshots on all platforms. | |
 
 ## Risks
 
@@ -547,3 +547,34 @@ Tests:
   preview selects its type.
 - `ThemeWizardDemo`: the smoke test covers all five pages and a control property edit; screenshots
   include the controls page with `Table` selected from the preview.
+
+## Step 8 in detail
+
+- **The standalone app**, `com.zapthemes.editor.app.ThemeEditor` in `zapthemes-editor`:
+  `./gradlew :zapthemes-editor:run` starts a new theme, `-Pfile=<theme.json>` edits a saved one
+  (`ThemeWizard.edit`), and `-Ptheme=<id>` picks the editor's own theme (by default the desktop's:
+  high contrast, dark or light). `zapthemes-themes` is now a dependency of the editor, for the
+  bundled themes.
+- **`smokeTest` and `screenshots`** in `zapthemes-editor` took over `ThemeWizardDemo`'s (removed,
+  with `runThemeWizard`, `smokeTestThemeWizard` and `screenshotsThemeWizard`): every page in every
+  bundled window theme, the window's theme outside the preview and the edited one in it, edits on
+  each page reaching the preview, and undo. It never finishes, so it saves nothing, and its palettes
+  go to a temporary directory. The screenshots run after the demos' (`mustRunAfter`), since GTK's
+  `Control.print` can capture another window on top.
+- **The JFace demo** has *Theme Wizard* under Dialogs and on the toolbar; Finish makes the new
+  theme the window's. Its smoke test opens it with the other dialogs, in every theme.
+- **ZapNotes**, on the staged artifacts like an outside application, depends on
+  `com.zapthemes:zapthemes-editor`:
+  - Preferences › Appearance lists Automatic, the bundled themes and the user's own, loaded from
+    `~/.zapthemes/themes/*.json` (or `-Dzapnotes.themes`). A file that does not load, or whose id
+    is a bundled theme's, is skipped.
+  - *New Theme…* opens the wizard; *Edit Theme…* (the user's own themes) opens it on that file. A
+    theme the wizard saves is loaded, listed, selected and applied at once, and Window › Theme in
+    every window gets it too.
+  - `--smoke` does not read the user's themes, and opens the theme wizard with the other dialogs.
+- **CI** runs `:zapthemes-editor:smokeTest` on every platform, and `:zapthemes-editor:screenshots`
+  on Linux and macOS, uploaded with the demos' screenshots.
+- **Docs:** the guide's section 8, "The theme editor" (the app, opening the wizard from an
+  application, the pages, where palettes and themes are saved), and its format section now says
+  what the `editor` block holds and that a swatch hides a name of the same name. The README's run
+  list has `./gradlew :zapthemes-editor:run`.

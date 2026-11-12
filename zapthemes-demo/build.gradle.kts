@@ -114,15 +114,8 @@ val smokePreview = tasks.register<JavaExec>("smokeTestPreview") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
-val smokeThemeWizard = tasks.register<JavaExec>("smokeTestThemeWizard") {
-    group = "verification"
-    description = "Smoke-tests the theme wizard: each page themed apart from its preview, and edits reaching the preview."
-    mainClass = "com.zapthemes.demo.ThemeWizardDemo"
-    classpath = sourceSets.main.get().runtimeClasspath
-    args("--smoke")
-}
 val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar,
-    smokePreview, smokeThemeWizard)
+    smokePreview)
 smokeTasks.forEach { task ->
     task.configure {
         dependsOn(clearRecordedKeys)
@@ -192,14 +185,6 @@ tasks.register<JavaExec>("runPreview") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
-// The theme wizard.
-tasks.register<JavaExec>("runThemeWizard") {
-    group = "application"
-    description = "Runs the theme wizard."
-    mainClass = "com.zapthemes.demo.ThemeWizardDemo"
-    classpath = sourceSets.main.get().runtimeClasspath
-}
-
 // The Nebula widgets demo.
 tasks.register<JavaExec>("runNebula") {
     group = "application"
@@ -221,7 +206,6 @@ val screenshotTasks = mapOf(
     "Ribbon" to "com.zapthemes.demo.RibbonDemo",
     "TitleBar" to "com.zapthemes.demo.TitleBarDemo",
     "Preview" to "com.zapthemes.demo.PreviewDemo",
-    "ThemeWizard" to "com.zapthemes.demo.ThemeWizardDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"

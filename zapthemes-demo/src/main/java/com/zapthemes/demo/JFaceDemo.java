@@ -65,6 +65,7 @@ import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.ThemeRegistry;
 import com.zapthemes.core.model.Theme;
 import com.zapthemes.swt.custom.SashForm;
+import com.zapthemes.editor.ThemeWizard;
 import com.zapthemes.themes.BundledThemes;
 
 /**
@@ -193,6 +194,24 @@ public final class JFaceDemo extends ApplicationWindow {
         dialogs.put("Popup", () -> new DemoPopup(getShell()));
         dialogs.put("Notification", () -> NotificationPopup.forShell(getShell()).title("ZapThemes", true)
                 .text("NotificationPopup uses the theme's notification and popup classes.").build());
+        dialogs.put("Theme Wizard", this::themeWizard);
+    }
+
+    /** The theme editor (zapthemes-editor); Finish saves the new theme and makes it the window's. */
+    private Window themeWizard() {
+        ThemeWizard wizard = new ThemeWizard(available);
+        WizardDialog dialog = new WizardDialog(getShell(), wizard) {
+            @Override
+            protected void finishPressed() {
+                super.finishPressed();
+                if (wizard.result() != null) {
+                    themes.setTheme(wizard.result());
+                    setStatus("Theme: " + wizard.result().name() + ", saved in " + wizard.savedFile());
+                }
+            }
+        };
+        dialog.setPageSize(ThemeWizard.PAGE_SIZE);
+        return dialog;
     }
 
     private static Action action(String text, Runnable run) {
