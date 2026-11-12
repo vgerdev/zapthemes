@@ -198,7 +198,10 @@ class ThemeWizardTest {
         assertThat(page.viewer().isCellEditorActive()).isTrue();
         page.viewer().cancelEditing();
 
-        // A click that selects a row does not rename it; a second, slow click does.
+        // A click that selects a row does not rename it; a second, slow click does. The clicks must land
+        // on the row: only its group is left open, so that it is in view on every platform.
+        page.viewer().collapseAll();
+        page.viewer().expandToLevel(new NamesPage.GroupNode(EditorModel.ADDED), 1);
         page.viewer().setSelection(new StructuredSelection(model.name("foreground").orElseThrow()));
         settle();
         clickName(page, "badgeBackground");
@@ -308,7 +311,10 @@ class ThemeWizardTest {
     private void clickName(NamesPage page, String name) {
         org.eclipse.swt.widgets.Tree tree = page.viewer().getTree();
         org.eclipse.swt.widgets.TreeItem item = find(tree, name);
+        tree.showItem(item);
+        settle();
         org.eclipse.swt.graphics.Rectangle bounds = item.getBounds(0);
+        assertThat(tree.getClientArea().contains(bounds.x + 4, bounds.y + bounds.height / 2)).as(name + " is in view").isTrue();
         if (tree.getSelectionCount() != 1 || tree.getSelection()[0] != item) {
             tree.setSelection(item);
             Event selection = new Event();
