@@ -170,10 +170,38 @@ class ThemeWizardTest {
         dialog.showPage(wizard.namesPage());
         settle();
         NamesPage page = wizard.namesPage();
+        // Whether renaming starts is counted as it happens: without a window manager (CI's Xvfb), the
+        // field can lose focus right after, and a field that loses focus ends the rename, as it should.
+        int[] started = { 0 };
+        page.viewer().getColumnViewerEditor().addEditorActivationListener(new org.eclipse.jface.viewers.ColumnViewerEditorActivationListener() {
+            @Override
+            public void beforeEditorActivated(org.eclipse.jface.viewers.ColumnViewerEditorActivationEvent event) {
+            }
+
+            @Override
+            public void afterEditorActivated(org.eclipse.jface.viewers.ColumnViewerEditorActivationEvent event) {
+                started[0]++;
+            }
+
+            @Override
+            public void beforeEditorDeactivated(org.eclipse.jface.viewers.ColumnViewerEditorDeactivationEvent event) {
+            }
+
+            @Override
+            public void afterEditorDeactivated(org.eclipse.jface.viewers.ColumnViewerEditorDeactivationEvent event) {
+            }
+        });
+        dialog.getShell().forceActive();
+        page.viewer().getTree().setFocus();
+        settle();
 
         click(button(page, "Add name"));
         assertThat(model.name("newName")).isPresent();
-        assertThat(page.viewer().isCellEditorActive()).as("renaming starts in place").isTrue();
+        assertThat(started[0]).as("renaming starts in place").isEqualTo(1);
+        // Type at once, with no events in between that could move the focus.
+        if (!page.viewer().isCellEditorActive()) {
+            page.viewer().editElement(model.name("newName").orElseThrow(), 0);
+        }
         Text editor = find(page.viewer().getTree(), Text.class, t -> t.isVisible());
 
         editor.setText("2bad");
@@ -195,8 +223,9 @@ class ThemeWizardTest {
         assertThat(button(page, "Rename").isEnabled()).isFalse();
         page.viewer().setSelection(new StructuredSelection(model.name("badgeBackground").orElseThrow()));
         settle();
+        int before = started[0];
         click(button(page, "Rename"));
-        assertThat(page.viewer().isCellEditorActive()).isTrue();
+        assertThat(started[0]).as("Rename starts renaming").isEqualTo(before + 1);
         page.viewer().cancelEditing();
 
         // A click that selects a row does not rename it; a second, slow click does. The clicks must land
@@ -205,15 +234,16 @@ class ThemeWizardTest {
         page.viewer().expandToLevel(new NamesPage.GroupNode(EditorModel.ADDED), 1);
         page.viewer().setSelection(new StructuredSelection(model.name("foreground").orElseThrow()));
         settle();
+        before = started[0];
         clickName(page, "badgeBackground");
-        assertThat(page.viewer().isCellEditorActive()).as("the selecting click").isFalse();
+        assertThat(started[0]).as("the selecting click").isEqualTo(before);
         try {
             Thread.sleep(display.getDoubleClickTime() + 150);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
         clickName(page, "badgeBackground");
-        assertThat(page.viewer().isCellEditorActive()).as("the second, slow click").isTrue();
+        assertThat(started[0]).as("the second, slow click").isEqualTo(before + 1);
         page.viewer().cancelEditing();
 
         click(button(page, "Remove"));

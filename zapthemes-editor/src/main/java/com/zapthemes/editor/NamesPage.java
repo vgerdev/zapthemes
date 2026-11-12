@@ -156,14 +156,21 @@ final class NamesPage extends EditorPage {
 
     @Override
     protected void refresh() {
+        // While a name is renamed in place, the tree is left alone: refreshing it or setting its
+        // selection would end the edit (on GTK, a selection set again ends it).
+        if (viewer.isCellEditorActive()) {
+            updateButtons();
+            return;
+        }
         Object selection = viewer.getStructuredSelection().getFirstElement();
         if (viewer.getInput() == null) {
             viewer.setInput(model);
-        } else if (!viewer.isCellEditorActive()) {
+        } else {
             viewer.refresh();
         }
         if (selection instanceof NameInfo info) {
-            model.name(info.name()).ifPresent(now -> viewer.setSelection(new StructuredSelection(now), true));
+            model.name(info.name()).filter(now -> !now.equals(info) || viewer.getStructuredSelection().getFirstElement() == null)
+                    .ifPresent(now -> viewer.setSelection(new StructuredSelection(now), true));
         }
         updateButtons();
     }
@@ -178,8 +185,17 @@ final class NamesPage extends EditorPage {
         if (tryEdit(() -> model.addName(name, EditorModel.COLOR))) {
             viewer.refresh();
             NameInfo info = model.name(name).orElseThrow();
+            viewer.expandToLevel(new GroupNode(info.group()), 1);
             viewer.setSelection(new StructuredSelection(info), true);
             viewer.editElement(info, 0);
+            if (!viewer.isCellEditorActive()) {
+                // The new row's item may not exist yet (GTK expands and creates items later): try again then.
+                viewer.getTree().getDisplay().asyncExec(() -> {
+                    if (!viewer.getTree().isDisposed() && !viewer.isCellEditorActive() && model.name(name).isPresent()) {
+                        viewer.editElement(model.name(name).orElseThrow(), 0);
+                    }
+                });
+            }
         }
     }
 
