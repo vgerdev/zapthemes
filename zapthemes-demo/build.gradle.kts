@@ -19,6 +19,7 @@ dependencies {
     implementation(project(":zapthemes-nebula-incubation"))
     implementation(project(":zapthemes-themes"))
     implementation(project(":zapthemes-editor"))
+    implementation(project(":zapthemes-files"))
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
@@ -121,8 +122,15 @@ val smokeThemeWizard = tasks.register<JavaExec>("smokeTestThemeWizard") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeFileBrowser = tasks.register<JavaExec>("smokeTestFileBrowser") {
+    group = "verification"
+    description = "Smoke-tests the file browser: local, rooted and slow virtual filesystems, the breadcrumb and its drop-downs."
+    mainClass = "com.zapthemes.demo.FileBrowserDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
 val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar,
-    smokePreview, smokeThemeWizard)
+    smokePreview, smokeThemeWizard, smokeFileBrowser)
 smokeTasks.forEach { task ->
     task.configure {
         dependsOn(clearRecordedKeys)
@@ -200,6 +208,14 @@ tasks.register<JavaExec>("runThemeWizard") {
     classpath = sourceSets.main.get().runtimeClasspath
 }
 
+// The Explorer-style file browser.
+tasks.register<JavaExec>("runFileBrowser") {
+    group = "application"
+    description = "Runs the file browser demo."
+    mainClass = "com.zapthemes.demo.FileBrowserDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 // The Nebula widgets demo.
 tasks.register<JavaExec>("runNebula") {
     group = "application"
@@ -222,6 +238,7 @@ val screenshotTasks = mapOf(
     "TitleBar" to "com.zapthemes.demo.TitleBarDemo",
     "Preview" to "com.zapthemes.demo.PreviewDemo",
     "ThemeWizard" to "com.zapthemes.demo.ThemeWizardDemo",
+    "FileBrowser" to "com.zapthemes.demo.FileBrowserDemo",
 ).map { (name, main) ->
     tasks.register<JavaExec>("screenshots$name") {
         group = "documentation"
