@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -95,6 +96,52 @@ class OptionsDialogTest {
         assertThat(events).as("and built once").containsExactly("create ribbon", "create general");
         assertThat(display.getShells()).as("one window, no pop-ups").hasSize(2);
         shell.dispose();
+    }
+
+    /** A page that needs {@code width} x {@code height}. */
+    private static OptionsPage sized(int width, int height) {
+        return parent -> {
+            parent.setLayout(new org.eclipse.swt.layout.GridLayout());
+            Label label = new Label(parent, SWT.NONE);
+            org.eclipse.swt.layout.GridData data = new org.eclipse.swt.layout.GridData();
+            data.widthHint = width;
+            data.heightHint = height;
+            label.setLayoutData(data);
+        };
+    }
+
+    @Test
+    void theWindowIsBigEnoughForItsPagesButNotTheMonitor() {
+        Rectangle screen = owner.getMonitor().getClientArea();
+        OptionsDialog dialog = new OptionsDialog(owner, "Word Options")
+                .addPage("small", "Small", null, sized(50, 50))
+                .addPage("big", "Big", null, sized(800, 500))
+                .addPage("huge", "Huge", null, sized(screen.width * 2, screen.height * 2));
+
+        // Half the main window when the page fits in that.
+        org.eclipse.swt.widgets.Shell shell = dialog.create("small");
+        assertThat(shell.getSize()).isEqualTo(new org.eclipse.swt.graphics.Point(450, 300));
+
+        // A bigger page, shown later, grows the window, still centered on the main window.
+        dialog.select("big");
+        Rectangle bounds = shell.getBounds();
+        assertThat(bounds.width).isGreaterThan(800);
+        assertThat(bounds.height).isGreaterThan(500);
+        Rectangle main = owner.getBounds();
+        if (bounds.x > screen.x && bounds.y > screen.y) {
+            assertThat(bounds.x + bounds.width / 2).isCloseTo(main.x + main.width / 2, org.assertj.core.data.Offset.offset(1));
+            assertThat(bounds.y + bounds.height / 2).isCloseTo(main.y + main.height / 2, org.assertj.core.data.Offset.offset(1));
+        }
+        shell.dispose();
+
+        // Never larger than the monitor, and on it.
+        org.eclipse.swt.widgets.Shell huge = new OptionsDialog(owner, "Word Options").addPage("huge", "Huge", null, sized(screen.width * 2, screen.height * 2))
+                .create("huge");
+        Rectangle hugeBounds = huge.getBounds();
+        assertThat(hugeBounds.width).isLessThanOrEqualTo(screen.width);
+        assertThat(hugeBounds.height).isLessThanOrEqualTo(screen.height);
+        assertThat(screen.contains(hugeBounds.x, hugeBounds.y)).isTrue();
+        huge.dispose();
     }
 
     @Test

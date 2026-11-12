@@ -114,11 +114,26 @@ public final class OptionsDialog {
             navigation.select(first);
             show(first);
         }
-        // Half the main window's width and height, centered on it.
         Rectangle owner = parent.getBounds();
-        Point size = new Point(owner.width / 2, owner.height / 2);
-        shell.setBounds(owner.x + (owner.width - size.x) / 2, owner.y + (owner.height - size.y) / 2, size.x, size.y);
+        fit(new Point(owner.width / 2, owner.height / 2));
         return shell;
+    }
+
+    /**
+     * Sizes the window to at least {@code minimum} and at least what its contents need, but no
+     * larger than the monitor's work area, centered on the main window and kept on the monitor.
+     */
+    private void fit(Point minimum) {
+        Point needed = shell.computeSize(SWT.DEFAULT, SWT.DEFAULT);
+        Rectangle screen = parent.getMonitor().getClientArea();
+        int width = Math.min(Math.max(minimum.x, needed.x), screen.width);
+        int height = Math.min(Math.max(minimum.y, needed.y), screen.height);
+        Rectangle owner = parent.getBounds();
+        int x = owner.x + (owner.width - width) / 2;
+        int y = owner.y + (owner.height - height) / 2;
+        x = Math.max(screen.x, Math.min(x, screen.x + screen.width - width));
+        y = Math.max(screen.y, Math.min(y, screen.y + screen.height - height));
+        shell.setBounds(x, y, width, height);
     }
 
     private int indexOf(String id) {
@@ -153,6 +168,11 @@ public final class OptionsDialog {
             page.page().create(contents);
             pageComposites.set(index, composite);
             created.add(page);
+            stack.topControl = composite;
+            if (shell.getSize().x > 0) {
+                // A page built after the window was sized: grow the window if the page needs it.
+                fit(shell.getSize());
+            }
         }
         stack.topControl = composite;
         pageArea.layout(true, true);
