@@ -22,13 +22,13 @@ import com.zapthemes.editor.palette.PaletteStore;
 import com.zapthemes.swt.widgets.Shell;
 
 /**
- * The theme wizard ({@link ThemeWizard}): palette, common names, colors and fonts, each page with
- * a preview of the theme being built.
+ * The theme wizard ({@link ThemeWizard}): palette, common names, colors and fonts, controls, and
+ * saving, each page with a preview of the theme being built.
  *
  * <p>{@code --smoke}, for every bundled theme as the window's theme: on every page, every control
  * outside the preview has the window's theme and every control in it the edited theme; edits on
- * each page (regenerate, a duplicated theme, an added name, a color) reach the preview, and undo
- * takes them back. Exits non-zero on failure. {@code --screenshots <dir>} also saves each page.
+ * each page (regenerate, a duplicated theme, an added name, a color, a control property) reach the
+ * preview, and undo takes them back. It never finishes, so it saves nothing. Exits non-zero on failure. {@code --screenshots <dir>} also saves each page.
  */
 public final class ThemeWizardDemo {
 
@@ -118,6 +118,30 @@ public final class ThemeWizardDemo {
             if (screenshots != null) {
                 DemoSupport.screenshot(dialog.getShell(), screenshots, "wizard-edited-" + window.id());
             }
+
+            dialog.showPage(wizard.getPage("controls"));
+            model.setRuleValue(EditorModel.RuleKey.of("Table"), "headerBackground", new com.google.gson.JsonPrimitive("$accent"));
+            DemoSupport.settle(display);
+            checked += expectShown(dialog, model, "set a control property", problems);
+            if (!model.theme().controls().get("Table").get("headerBackground").getAsString().equals("$accent")) {
+                problems.add(window.id() + ": the Table rule did not take the edit");
+            }
+            model.undo(EditorModel.Page.CONTROLS);
+            DemoSupport.settle(display);
+            // A click on a control of the preview selects its type.
+            org.eclipse.swt.widgets.Control[] table = { null };
+            walk(previewOf(dialog, wizard.getPage("controls")), c -> {
+                if (c instanceof org.eclipse.swt.widgets.Table && table[0] == null) {
+                    table[0] = c;
+                }
+            });
+            org.eclipse.swt.widgets.Event click = new org.eclipse.swt.widgets.Event();
+            click.button = 1;
+            table[0].notifyListeners(org.eclipse.swt.SWT.MouseDown, click);
+            DemoSupport.settle(display);
+            if (screenshots != null) {
+                DemoSupport.screenshot(dialog.getShell(), screenshots, "wizard-controls-table-" + window.id());
+            }
             checked += check(dialog, model, window, "values (edited)", problems);
 
             dialog.close();
@@ -125,7 +149,7 @@ public final class ThemeWizardDemo {
         }
         if (problems.isEmpty()) {
             System.out.println("SMOKE OK: theme wizard, " + checked + " control checks over " + available.size()
-                    + " window themes, 3 pages, edits and undo");
+                    + " window themes, " + 5 + " pages, edits and undo");
             return 0;
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));

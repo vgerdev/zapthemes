@@ -1,6 +1,7 @@
 package com.zapthemes.editor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -257,11 +258,34 @@ class ThemeWizardTest {
     }
 
     @Test
-    void finishGivesTheThemeAndCancelNothing() {
+    void finishSavesTheFullThemeWhereTheFinishPageSaysAndCancelSavesNothing() throws Exception {
         model.addName("badgeBackground", EditorModel.COLOR);
+        dialog.showPage(wizard.finishPage());
+        settle();
+        FinishPage page = wizard.finishPage();
+        assertThat(page.idField().getText()).isEqualTo("untitled");
+        assertThat(page.fileField().getText()).endsWith("untitled.json");
+
+        type(page.idField(), "ocean-dark");
+        assertThat(model.id()).isEqualTo("ocean-dark");
+        assertThat(page.fileField().getText()).as("the file follows the id").endsWith("ocean-dark.json");
+        type(page.idField(), "no spaces");
+        assertThat(page.getErrorMessage()).contains("only letters");
+        assertThat(dialogButton("Finish").isEnabled()).isFalse();
+        type(page.idField(), "ocean-dark");
+        Path file = palettes.resolve("themes").resolve("ocean.json");
+        type(page.fileField(), file.toString());
+        assertThat(page.checks().getItemCount()).as("no problems").isZero();
+
         click(dialogButton("Finish"));
+
         assertThat(wizard.result()).isNotNull();
-        assertThat(wizard.result().names()).containsKey("badgeBackground");
+        assertThat(wizard.savedFile()).isEqualTo(file);
+        Theme saved = new ThemeRegistry().loadFile(file);
+        assertThat(saved.id()).isEqualTo("ocean-dark");
+        assertThat(saved.parent()).isNull();
+        assertThat(saved.names()).containsKey("badgeBackground");
+        assertThat(saved.controls()).isEqualTo(wizard.result().controls());
 
         ThemeWizard other = new ThemeWizard(new EditorModel(bundled, 4), new PaletteStore(palettes));
         WizardDialog second = ThemeWizard.dialog(parent, other);
@@ -271,6 +295,115 @@ class ThemeWizardTest {
         dialog = second;
         click(dialogButton("Cancel"));
         assertThat(other.result()).isNull();
+    }
+
+    @Test
+    void anErrorKeepsFinishOffAndEditingASavedThemeSavesItBack() throws Exception {
+        assertThatThrownBy(() -> model.setRuleValue(EditorModel.RuleKey.of("Table"), "headerBackground",
+                new com.google.gson.JsonPrimitive("$nothing"))).hasMessageContaining("not a swatch");
+        // A broken theme file can still be opened: its error shows, and Finish stays off.
+        model.open(EditorModelTest.broken(bundled.get(1)), null);
+        settle();
+        dialog.showPage(wizard.finishPage());
+        settle();
+        assertThat(rowsOf(wizard.finishPage().checks())).anyMatch(r -> r.startsWith("Error") && r.contains("nothing"));
+        assertThat(dialogButton("Finish").isEnabled()).isFalse();
+        dialog.close();
+
+        Path file = palettes.resolve("mine.json");
+        EditorModel mine = new EditorModel(bundled, 5);
+        mine.setIdentity("mine", "Mine", true);
+        mine.save(file);
+        wizard = ThemeWizard.edit(bundled, file);
+        assertThat(wizard.model().history(Page.PALETTE).canUndo()).as("opening is not an edit").isFalse();
+        dialog = ThemeWizard.dialog(parent, wizard);
+        dialog.setBlockOnOpen(false);
+        dialog.open();
+        settle();
+        assertThat(wizard.getWindowTitle()).isEqualTo("Edit Theme");
+        dialog.showPage(wizard.finishPage());
+        settle();
+        assertThat(wizard.finishPage().fileField().getText()).isEqualTo(file.toString());
+        click(dialogButton("Finish"));
+        assertThat(java.nio.file.Files.readString(file)).isEqualTo(mine.toJson());
+    }
+
+    @Test
+    void theControlsPageSetsANameOrAnOverridePerRule() {
+        dialog.showPage(wizard.controlsPage());
+        settle();
+        ControlsPage page = wizard.controlsPage();
+        page.select("Table");
+        settle();
+        var table = page.properties().getTable();
+        assertThat(rowsOf(table)).anyMatch(r -> r.startsWith("headerBackground"));
+
+        // A common name, chosen in place.
+        int row = rowIndex(table, "headerBackground");
+        page.properties().editElement(page.properties().getElementAt(row), 2);
+        org.eclipse.swt.custom.CCombo combo = find(table, org.eclipse.swt.custom.CCombo.class, c -> c.isVisible());
+        int accent = java.util.Arrays.asList(combo.getItems()).indexOf("accent");
+        combo.select(accent);
+        combo.notifyListeners(SWT.Selection, new Event());
+        combo.notifyListeners(SWT.DefaultSelection, new Event());
+        settle();
+        assertThat(model.ruleValue(EditorModel.RuleKey.of("Table"), "headerBackground")).contains(new com.google.gson.JsonPrimitive("$accent"));
+        assertThat(table.getItem(rowIndex(table, "headerBackground")).getText(0)).startsWith("• ");
+
+        // An override, typed in place.
+        int height = rowIndex(table, "rowHeight");
+        if (height >= 0) {
+            page.properties().editElement(page.properties().getElementAt(height), 3);
+            Text text = find(table, Text.class, t -> t.isVisible());
+            text.setText("30");
+            text.notifyListeners(SWT.DefaultSelection, new Event());
+            settle();
+            assertThat(model.theme().controls().get("Table").get("rowHeight").getAsInt()).isEqualTo(30);
+        }
+
+        // Reset takes the change back.
+        page.properties().setSelection(new StructuredSelection(page.properties().getElementAt(rowIndex(table, "headerBackground"))));
+        settle();
+        click(button(page, "Reset"));
+        assertThat(model.isEdited(EditorModel.RuleKey.of("Table"), "headerBackground")).isFalse();
+        assertThat(page.preview().shown()).isSameAs(model.theme());
+    }
+
+    @Test
+    void clickingAControlInThePreviewSelectsItsType() {
+        dialog.showPage(wizard.controlsPage());
+        settle();
+        ControlsPage page = wizard.controlsPage();
+        org.eclipse.swt.widgets.Tree tree = find(page.preview(), org.eclipse.swt.widgets.Tree.class, t -> true);
+        Event down = new Event();
+        down.button = 1;
+        tree.notifyListeners(SWT.MouseDown, down);
+        settle();
+        assertThat(page.rule()).contains(EditorModel.RuleKey.of("Tree"));
+    }
+
+    private void type(Text field, String text) {
+        field.setText(text);
+        field.notifyListeners(SWT.Modify, new Event());
+        settle();
+    }
+
+    private static int rowIndex(org.eclipse.swt.widgets.Table table, String property) {
+        for (int i = 0; i < table.getItemCount(); i++) {
+            String text = table.getItem(i).getText(0);
+            if (text.equals(property) || text.equals("• " + property)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static List<String> rowsOf(org.eclipse.swt.widgets.Table table) {
+        List<String> rows = new ArrayList<>();
+        for (var item : table.getItems()) {
+            rows.add(item.getText(0) + " " + item.getText(1));
+        }
+        return rows;
     }
 
     @Test

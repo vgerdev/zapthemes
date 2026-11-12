@@ -189,7 +189,7 @@ haven't set yourself.
 | 4 ✅ | **Scoped preview themes (core)** | `ThemeManager.preview(Composite, Theme)` themes one subtree with a theme of its own, independent of the display's theme, and follows edits without disposing anything. This is needed because the wizard itself must stay readable while the theme being edited may be half-finished. | The riskiest core change: stylers, Skin listeners, registries and figures all assume one theme per display. |
 | 5 ✅ | **Palette model and generator** | Pure Java with no UI: OKLCH/HSL conversions, harmony rules, lock and regenerate (seeded, so tests are repeatable), tints and shades, k-means on `ImageData`, WCAG contrast, auto-fill from palette to names. Unit tests run headless. | Testable on its own; pages 1–3 are thin on top of it. |
 | 6 ✅ | **Wizard: palette, names, colors and fonts** | `zapthemes-editor` with `ThemeWizard`, pages 1–3, the preview pane, and the editing model (an undo stack per page; "set by user" vs auto-filled). | |
-| 7 | **Wizard: controls, finish, round-trip** | Page 4 (tree, property table, overrides, adding variants, classes and states), the finish page, saving, reopening; a round-trip test (open, then save, gives the same file) on every bundled theme. | |
+| 7 ✅ | **Wizard: controls, finish, round-trip** | Page 4 (tree, property table, overrides, adding variants, classes and states), the finish page, saving, reopening; a round-trip test (open, then save, gives the same file) on every bundled theme. | |
 | 8 | **App, docs, CI** | The standalone app (`run`, `--smoke`, screenshots of each page in each theme); opening the wizard from the JFace demo and ZapNotes preferences; the theme authoring guide's "Theme editor" section and the v2 format; the README run list; CI smoke tests and screenshots on all platforms. | |
 
 ## Risks
@@ -499,3 +499,51 @@ Tests:
   theme and on every page, that each control has the window's theme and each control of the
   preview the edited theme, and that edits on each page reach the preview and undo takes them back.
   `screenshotsThemeWizard` saves each page in each window theme.
+
+## Step 7 in detail
+
+**Controls (page 4).** A tree of every catalog type by library (and *All types*, for `*.x` class
+rules), each with its variants, the style classes on it and its states: the catalog's, and the
+rules the theme has. A filter box matches type names and property keys. Selecting a node lists its
+properties (the base's and its own, plus keys the theme sets that the catalog does not describe):
+- **Common name**, chosen in place from the names with that part. The default map's name shows
+  as "(default)", also when the theme does not set the property.
+- **Override**, edited in place: a color (color dialog), a font (font dialog), a number, a flag, a
+  choice or text, shown in italics. *Reset* takes a change back to the base's value.
+- **Add variant…** (style bits such as `CHECK` or `MULTI|WRAP`) and **Add class…** add a rule.
+- Clicking a control in the preview selects its type.
+- In the model: `RuleKey(type, variant, styleClass, state)` and `setRuleValue` / `addRule`, with
+  undo on the controls page. A state's edit goes into the rule's whole `states` object, so the
+  base's other states stay. A reference to an unknown name, or to a name without the property's
+  part, is refused.
+
+**Finish (page 5).** The id, name and dark flag; the file (by default
+`~/.zapthemes/themes/<id>.json`, following the id until one is chosen); *Use the theme in this
+application when the wizard closes*; and the checks: errors from `ThemeValidator` keep Finish off,
+contrast warnings do not. Finish writes the theme and `result()` and `savedFile()` give it.
+
+**Saving and reopening.**
+- `EditorModel.save` writes `theme()`, which is layered on a resolved base, so the file is a full
+  theme with no `extends`. It also writes `editor.libraryVersion` and `editor.generator`.
+- `EditorModel.open(theme, file)` and `ThemeWizard.edit(themes, file)` open a saved theme to change
+  it: its id, name and file stay, its generator settings fill page 1, and each name keeps its color
+  as written, a reference (`$accent`) or a color, so nothing the editor knows is lost. *Open theme
+  file…* on page 1 does the same; *Duplicate* still makes a copy (`<id>-copy`).
+- A theme that cannot be resolved (a broken file) still opens: the preview says why it cannot show
+  it, and the finish page lists the errors.
+
+Not done: `editor.upgraded` (Risks) is for upgrades that fill in new properties, which no format
+version does yet.
+
+Tests:
+- `EditorModelTest` (19): **every bundled theme opened and saved keeps its names, controls,
+  classes, platform settings, registries and defaults exactly as written**, resolves alike for
+  every catalog type, variant, class and state, and saved again gives the same file. A generated
+  theme saved and reopened keeps its palette, generator, references and rule edits; control rules,
+  states, added variants and classes, and their undo; the id and the checks.
+- `ThemeWizardTest` (11): Finish saves where the finish page says, with the file following the
+  id and bad ids refused; a broken theme keeps Finish off; editing a saved theme saves it back; on
+  the controls page a common name and an override are set in place and reset; a click on the
+  preview selects its type.
+- `ThemeWizardDemo`: the smoke test covers all five pages and a control property edit; screenshots
+  include the controls page with `Table` selected from the preview.
