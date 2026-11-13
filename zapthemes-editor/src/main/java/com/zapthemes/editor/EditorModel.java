@@ -642,7 +642,9 @@ public final class EditorModel {
 
     /**
      * What is wrong with the theme: errors, which keep it from loading (unknown names, cycles, bad
-     * values), then warnings (contrast pairs below their minimum). Errors start with "Error: ".
+     * values), then warnings: contrast pairs of the names below their minimum, then text colors of
+     * the rules on their backgrounds ({@link com.zapthemes.editor.palette.TextContrast}). Errors
+     * start with "Error: ".
      */
     public List<String> problems() {
         List<String> problems = new ArrayList<>();
@@ -654,6 +656,9 @@ public final class EditorModel {
                 problems.add(String.format(java.util.Locale.ROOT, "Warning: %s on %s is %.1f:1, below %.1f:1", pair.name(),
                         pair.against(), pair.ratio(), pair.minimum()));
             }
+        }
+        for (com.zapthemes.editor.palette.TextContrast.Problem problem : com.zapthemes.editor.palette.TextContrast.check(theme)) {
+            problems.add("Warning: " + problem.message());
         }
         return problems;
     }
