@@ -404,7 +404,8 @@ public final class FileBrowserDemo {
         remote.paste();
         waitFor(() -> names(remote).contains("install.sh"));
         idle(remote);
-        expect(problems, names(remote).contains("install.sh"), "remote: pasted " + names(remote));
+        expect(problems, names(remote).contains("install.sh"), "remote: pasted " + names(remote) + ", status "
+                + FileBrowserProbe.status(remote) + ", error " + FileBrowserProbe.error(remote) + ", rooted error " + FileBrowserProbe.error(rooted));
         select(local);
 
         // Every theme: each part is themed; zoom grows the bars, not the window.
