@@ -181,10 +181,10 @@ final class NavigationTree {
         if (topItem == null || topItem.isDisposed()) {
             return;
         }
-        reveal(topItem, 0, path, generation);
+        reveal(topItem, 0, path, generation, false);
     }
 
-    private void reveal(org.eclipse.swt.widgets.TreeItem item, int depth, FilePath path, int generation) {
+    private void reveal(org.eclipse.swt.widgets.TreeItem item, int depth, FilePath path, int generation, boolean relisted) {
         if (generation != revealGeneration || item.isDisposed()) {
             return;
         }
@@ -201,11 +201,17 @@ final class NavigationTree {
             for (org.eclipse.swt.widgets.TreeItem child : item.getItems()) {
                 if (child.getData() instanceof Node c && c.path.name().equals(segment)) {
                     item.setExpanded(true);
-                    reveal(child, depth + 1, path, generation);
+                    reveal(child, depth + 1, path, generation, false);
                     return;
                 }
             }
-            // Not a listed folder (hidden, or gone): the nearest one listed stays selected.
+            if (!relisted) {
+                // Listed before the browser went there: a hidden folder on the way was left out.
+                node.loaded = false;
+                reveal(item, depth, path, generation, true);
+                return;
+            }
+            // Not a listed folder (gone): the nearest one listed stays selected.
             select(item);
         });
     }
