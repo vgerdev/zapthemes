@@ -21,6 +21,7 @@ runnable program:
 | `zapthemes-swt` | Proxies for every SWT widget: `com.zapthemes.swt.{widgets,custom,browser,opengl}` |
 | `zapthemes-themes` | The bundled themes: `zap-light`, `zap-dark`, `zap-high-contrast` |
 | `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar`; the Office-style `Ribbon` and the shared command model (`com.zapthemes.widgets.command`) |
+| `zapthemes-files` | An Explorer-style `FileBrowser` over local, rooted and virtual filesystems (see [the file browser plan](file-browser-plan.md)); theme types `FileBrowser`, `FileNavigationBar`, `FileStatusBar` |
 | `zapthemes-jface-ribbon` | JFace support for the ribbon: actions as commands, contribution items, `RibbonApplicationWindow` |
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
 | `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |
@@ -417,7 +418,8 @@ per-state setters.
 |---|---|---|
 | `*` | `darkThemePreferred` | Dark title bars and native dialogs (`Shell.setDarkThemePreferred`) |
 | `win32` | `darkScrollbars`, `darkCombos`, `darkTextIcons`, `progressBarColors` | SWT's Windows dark-mode switches (booleans) |
-| `win32` | `menuBarBackground`, `menuBarForeground`, `menuBarBorderColor`, `tableHeaderLineColor`, `disabledLabelForeground` | Colors Windows draws itself |
+| `win32` | `menuBarBackground`, `menuBarForeground` | Menu bar colors. SWT draws a colored menu bar's text itself, always white (gray in an inactive window), whatever `menuBarForeground` says. So they are used only on a background that white text reaches 4.5:1 on; on a lighter one the menu bar is left to Windows, light with dark text. zap-dark sets them; zap-light leaves them out. |
+| `win32` | `menuBarBorderColor`, `tableHeaderLineColor`, `disabledLabelForeground` | Colors Windows draws itself |
 | `gtk` | `menuBarBackground`, `menuBarForeground`, `menuBackground`, `menuForeground`, `menuSelectionBackground`, `menuSelectionForeground` | Menu bar and menu colors, as GTK CSS. GTK 3 keeps a light menu bar under `darkThemePreferred`, so a dark theme needs these. |
 
 ### Check a theme
@@ -428,6 +430,15 @@ swatch and a name of the same name, malformed colors and fonts, unknown style bi
 class or state rules. An empty list means the theme is valid. Run it in a unit test for each of your
 themes, as [ThemeValidatorTest](../zapthemes-core/src/test/java/com/zapthemes/core/ThemeValidatorTest.java)
 does for the bundled ones.
+
+The theme editor's checks (its last page) add contrast warnings, which do not keep a theme from
+loading: the pairs the common names declare (`foreground` on `background`, `surface` and `raised`,
+...), and the text colors of the rules (`TextContrast` in `com.zapthemes.editor.palette`). In every
+rule, each `foreground` or `...Foreground` key is checked on its `background` or `...Background`
+key (`headerForeground` on `headerBackground`), with the rule read over `defaults` and its control
+type, so a rule that changes only its background is checked against the foreground it keeps, and
+each state over its rule. Text needs 4.5:1; disabled text 3:1. A light Windows `menuBarBackground`
+is reported too, as SWT's white menu bar text would not read on it.
 
 `PropertyCatalog.load().undescribed(theme)` lists what a theme sets that no module on the class path
 describes: a misspelled type, property, style class, state, registry entry or platform setting, which
@@ -552,9 +563,14 @@ The pages, each with Undo and Redo for its own edits (Ctrl+Z, Ctrl+Y outside tex
 4. **Controls.** Every control type the property catalog knows, by library, with its variants,
    style classes and states. Each property uses a common name, the default map's unless you pick
    another, or an override of its own for that rule. Clicking a control in the preview selects its
-   type.
+   type. A warning icon marks each rule whose text is hard to read on its background, and its type
+   and library, so a problem in a collapsed branch still shows; hovering over the icon lists the
+   problems. Selecting a marked rule puts its warning at the top of the page and marks the two
+   properties involved.
 5. **Save.** The id, the name, light or dark, and the file (`~/.zapthemes/themes/<id>.json` unless
    you choose one). Errors (an unknown name, a cycle) keep Finish off; contrast warnings do not.
+   The warnings cover the common names' pairs and every rule's text color on its background,
+   such as a Table's `headerForeground` on its `headerBackground` ([Check a theme](#check-a-theme)).
 
 Finish writes a **full** theme: every rule of the theme it started from is written out, with no
 `extends`, so it does not change when the library's themes do. Opening it again fills every page

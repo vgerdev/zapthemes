@@ -40,6 +40,13 @@ class PlatformThemeSupportTest {
               }
             }
             """), "dark");
+    private static final Theme LIGHT = ThemeJson.read(new StringReader("""
+            {
+              "id": "platform-light",
+              "palette": { "bg": "#F7F8FA", "fg": "#1F2328" },
+              "platform": { "win32": { "menuBarBackground": "$bg", "menuBarForeground": "$fg" } }
+            }
+            """), "light");
     private static final Theme PLAIN = ThemeJson.read(new StringReader("{ \"id\": \"platform-plain\" }"), "plain");
 
     private final Display display = Display.getDefault();
@@ -80,6 +87,60 @@ class PlatformThemeSupportTest {
         manager.setTheme(PLAIN);
         assertThat(display.getData(WIN32 + "Combo.useDarkTheme")).isEqualTo(false);
         assertThat(display.getData(WIN32 + "ProgressBar.useColors")).isEqualTo(false);
+    }
+
+    @Test
+    void win32MenuBarsMadeUnderOneThemeTakeTheNextOnesColors() throws ReflectiveOperationException {
+        Assumptions.assumeTrue(SWT.getPlatform().equals("win32"), "win32 only");
+        ThemeManager manager = ThemeManager.get(display);
+        manager.setTheme(DARK);
+        Shell shell = new Shell(display);
+        Menu bar = new Menu(shell, SWT.BAR);
+        new MenuItem(bar, SWT.CASCADE).setText("File");
+        shell.setMenuBar(bar);
+        shell.open();
+        assertThat(menuColors(bar)).containsExactly(colorRef(0x10, 0x10, 0x10), colorRef(0xEE, 0xEE, 0xEE));
+        assertThat(drawnBySwt(bar)).as("dark: SWT draws the items").isTrue();
+
+        // SWT draws a colored menu bar's text white, so a light one is left to Windows; a switch
+        // must tell existing menu bars, and their items.
+        manager.setTheme(LIGHT);
+        assertThat(menuColors(bar)).as("light: Windows' own colors").containsExactly(-1, -1);
+        assertThat(drawnBySwt(bar)).as("light: Windows draws the items, with dark text").isFalse();
+
+        manager.setTheme(DARK);
+        assertThat(menuColors(bar)).containsExactly(colorRef(0x10, 0x10, 0x10), colorRef(0xEE, 0xEE, 0xEE));
+        assertThat(drawnBySwt(bar)).as("dark again").isTrue();
+
+        manager.setTheme(PLAIN);
+        assertThat(menuColors(bar)).as("SWT's own colors").containsExactly(-1, -1);
+        assertThat(drawnBySwt(bar)).isFalse();
+    }
+
+    /** Whether SWT draws {@code menu}'s first item itself ({@code HBMMENU_CALLBACK}), as it does on a colored menu bar. */
+    private static boolean drawnBySwt(org.eclipse.swt.widgets.Menu menu) throws ReflectiveOperationException {
+        Class<?> os = Class.forName("org.eclipse.swt.internal.win32.OS");
+        Class<?> infoClass = Class.forName("org.eclipse.swt.internal.win32.MENUITEMINFO");
+        Object info = infoClass.getConstructor().newInstance();
+        infoClass.getField("cbSize").setInt(info, infoClass.getField("sizeof").getInt(null));
+        infoClass.getField("fMask").setInt(info, os.getField("MIIM_BITMAP").getInt(null));
+        long handle = org.eclipse.swt.widgets.Menu.class.getField("handle").getLong(menu);
+        os.getMethod("GetMenuItemInfo", long.class, int.class, boolean.class, infoClass).invoke(null, handle, 0, true, info);
+        return infoClass.getField("hbmpItem").getLong(info) == os.getField("HBMMENU_CALLBACK").getLong(null);
+    }
+
+    /** The menu's background and foreground pixels, as SWT keeps them. */
+    private static int[] menuColors(org.eclipse.swt.widgets.Menu menu) throws ReflectiveOperationException {
+        var background = org.eclipse.swt.widgets.Menu.class.getDeclaredField("background");
+        var foreground = org.eclipse.swt.widgets.Menu.class.getDeclaredField("foreground");
+        background.setAccessible(true);
+        foreground.setAccessible(true);
+        return new int[] { background.getInt(menu), foreground.getInt(menu) };
+    }
+
+    /** A Windows COLORREF: 0x00BBGGRR. */
+    private static int colorRef(int red, int green, int blue) {
+        return blue << 16 | green << 8 | red;
     }
 
     @Test

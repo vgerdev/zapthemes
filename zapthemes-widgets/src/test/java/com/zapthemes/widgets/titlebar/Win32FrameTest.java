@@ -156,62 +156,220 @@ class Win32FrameTest {
     }
 
     @Test
-    void clickingTheIconOpensTheSystemMenuAndItsCommandsWork() {
+    void clickingTheIconOpensTheSystemMenuAndItsCommandsWork() throws Exception {
         // Real input (SendInput): a held mouse button kept SC_KEYMENU from opening the menu.
-        Assumptions.assumeTrue(System.getenv("CI") == null, "needs the interactive desktop");
-        shell.forceActive();
-        settle();
-        Point icon = bar.toDisplay(center(bar.getPartBounds(Part.SYSTEM_MENU)));
-        post(SWT.MouseMove, e -> {
-            e.x = icon.x;
-            e.y = icon.y;
-        });
-        settle();
-        post(SWT.MouseDown, e -> e.button = 1);
-        // The menu is modal: drive it from timers that fire inside its loop.
-        display.timerExec(300, () -> post(SWT.MouseUp, e -> e.button = 1));
-        display.timerExec(600, () -> {
-            // Up wraps to the last item, Close; Enter chooses it.
-            key(SWT.ARROW_UP);
-            key(SWT.CR);
-        });
-        long end = System.currentTimeMillis() + 3000;
-        while (!shell.isDisposed() && System.currentTimeMillis() < end) {
-            if (!display.readAndDispatch()) {
-                display.timerExec(20, () -> { });
-                display.sleep();
+        RealInput input = realInput();
+        try {
+            Point icon = bar.toDisplay(center(bar.getPartBounds(Part.SYSTEM_MENU)));
+            input.moveTo(icon);
+            long hwnd = os.handle(shell);
+            boolean[] menuOpened = new boolean[1];
+            // The menu is modal: drive it from timers that fire inside its loop.
+            display.timerExec(300, input::release);
+            display.timerExec(600, () -> {
+                menuOpened[0] = input.inMenuMode();
+                if (menuOpened[0]) {
+                    // Up wraps to the last item, Close; Enter chooses it. Posted to this thread's
+                    // queue, where the menu loop reads them, so no keystroke can reach another app.
+                    input.postKey(hwnd, VK_UP);
+                    input.postKey(hwnd, VK_RETURN);
+                } else {
+                    input.cancelMode(hwnd);
+                }
+            });
+            // Whatever happens above, the menu loop ends: nothing waits on the user.
+            input.cancelModeAfter(hwnd, 4000);
+            input.press();
+            long end = System.currentTimeMillis() + 6000;
+            while (!shell.isDisposed() && System.currentTimeMillis() < end) {
+                if (!display.readAndDispatch()) {
+                    display.timerExec(20, () -> { });
+                    display.sleep();
+                }
             }
+            assertThat(menuOpened[0]).as("the system menu opened").isTrue();
+            assertThat(shell.isDisposed()).as("Close from the system menu closed the window").isTrue();
+        } finally {
+            input.close();
         }
-        assertThat(shell.isDisposed()).isTrue();
     }
 
     @Test
-    void theWindowButtonsLightUpUnderTheRealPointer() {
+    void theWindowButtonsLightUpUnderTheRealPointer() throws Exception {
         // Real input: maximize is non-client (snap layouts), the others are the bar's. Moving
         // between them used to drop the hover: the bar's MouseExit undid maximize's, and leaving
         // maximize cleared close's.
+        RealInput input = realInput();
+        try {
+            for (Part part : new Part[] { Part.MINIMIZE, Part.MAXIMIZE, Part.CLOSE, Part.MAXIMIZE, Part.MINIMIZE }) {
+                Point at = bar.toDisplay(center(bar.getPartBounds(part)));
+                for (int dx = -6; dx <= 0; dx += 2) {
+                    input.moveTo(new Point(at.x + dx, at.y));
+                }
+                assertThat(bar.hoverPart()).as("hover over " + part).isEqualTo(part);
+            }
+            input.moveTo(shell.toDisplay(400, 300));
+            assertThat(bar.hoverPart()).isNull();
+        } finally {
+            input.close();
+        }
+    }
+
+    private static final int VK_RETURN = 0x0D;
+    private static final int VK_UP = 0x26;
+
+    /**
+     * Real input for this test's shell, or the test is skipped. Real input goes to whatever window
+     * is foreground and under the pointer: on a desktop where someone works in other apps, Windows'
+     * foreground lock can keep {@code forceActive} from bringing the shell up (it then flashes on
+     * the taskbar, under the other windows), and the user can move the mouse at any moment. So each
+     * step first checks that the shell is foreground and that the pointer is where it was posted,
+     * over this shell, and skips the test otherwise; nothing is ever clicked or typed elsewhere.
+     */
+    private RealInput realInput() throws ReflectiveOperationException {
         Assumptions.assumeTrue(System.getenv("CI") == null, "needs the interactive desktop");
+        RealInput input = new RealInput();
         shell.forceActive();
         settle();
-        for (Part part : new Part[] { Part.MINIMIZE, Part.MAXIMIZE, Part.CLOSE, Part.MAXIMIZE, Part.MINIMIZE }) {
-            Point at = bar.toDisplay(center(bar.getPartBounds(part)));
-            for (int dx = -6; dx <= 0; dx += 2) {
-                int x = at.x + dx;
-                post(SWT.MouseMove, e -> {
-                    e.x = x;
-                    e.y = at.y;
-                });
-                settle();
-            }
-            assertThat(bar.hoverPart()).as("hover over " + part).isEqualTo(part);
+        input.assumeForeground();
+        return input;
+    }
+
+    private final class RealInput implements AutoCloseable {
+        private final Class<?> os = Class.forName("org.eclipse.swt.internal.win32.OS");
+        private final Class<?> guiThreadInfo = Class.forName("org.eclipse.swt.internal.win32.GUITHREADINFO");
+        private final long shellHandle = Win32FrameTest.this.os.handle(shell);
+        private final int thread = (int) os.getMethod("GetCurrentThreadId").invoke(null);
+        private final Point start = display.getCursorLocation();
+        private final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        private volatile boolean pressed;
+        private Point last;
+
+        RealInput() throws ReflectiveOperationException {
         }
-        Point away = shell.toDisplay(400, 300);
-        post(SWT.MouseMove, e -> {
-            e.x = away.x;
-            e.y = away.y;
-        });
-        settle();
-        assertThat(bar.hoverPart()).isNull();
+
+        void assumeForeground() {
+            long foreground = call("GetForegroundWindow");
+            Assumptions.assumeTrue(foreground == shellHandle, () -> "the test window is not foreground (Windows' "
+                    + "foreground lock: another app has the user's input); foreground is 0x" + Long.toHexString(foreground));
+        }
+
+        /** Moves the real pointer to {@code at} (display points), or skips if it lands elsewhere. */
+        void moveTo(Point at) {
+            assumeForeground();
+            post(SWT.MouseMove, e -> {
+                e.x = at.x;
+                e.y = at.y;
+            });
+            last = at;
+            settle();
+            assumePointerOverShell();
+        }
+
+        private void assumePointerOverShell() {
+            Point at = last;
+            Point now = display.getCursorLocation();
+            Assumptions.assumeTrue(near(now, at),
+                    () -> "the pointer is at " + now + ", not where it was posted, " + at + " (moved by the user?)");
+            org.eclipse.swt.widgets.Control under = display.getCursorControl();
+            Assumptions.assumeTrue(under != null && under.getShell() == shell,
+                    () -> "another window is under the pointer at " + at + ": " + under);
+            assumeForeground();
+        }
+
+        /** Presses the left button where the pointer is, once it is still over the shell. */
+        void press() {
+            assumePointerOverShell();
+            pressed = true;
+            post(SWT.MouseDown, e -> e.button = 1);
+        }
+
+        /** Releases the button if this test holds it; safe from any thread and more than once. */
+        void release() {
+            if (pressed) {
+                pressed = false;
+                post(SWT.MouseUp, e -> e.button = 1);
+            }
+        }
+
+        boolean inMenuMode() {
+            try {
+                Object info = guiThreadInfo.getConstructor().newInstance();
+                guiThreadInfo.getField("cbSize").setInt(info, guiThreadInfo.getField("sizeof").getInt(null));
+                os.getMethod("GetGUIThreadInfo", int.class, guiThreadInfo).invoke(null, thread, info);
+                int flags = guiThreadInfo.getField("flags").getInt(info);
+                return (flags & (0x4 /* GUI_INMENUMODE */ | 0x10 /* GUI_POPUPMENUMODE */)) != 0;
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        void postKey(long hwnd, int vk) {
+            postMessage(hwnd, 0x0100 /* WM_KEYDOWN */, vk, 1);
+            postMessage(hwnd, 0x0101 /* WM_KEYUP */, vk, 0xC0000001L);
+        }
+
+        /** Ends a menu loop or a captured drag, as Windows does when another window takes over. */
+        void cancelMode(long hwnd) {
+            postMessage(hwnd, 0x001F /* WM_CANCELMODE */, 0, 0);
+        }
+
+        /**
+         * From another thread, after {@code millis} and every half second then until {@link #close}:
+         * releases the button and cancels any menu loop, even if this thread is stuck in one.
+         */
+        void cancelModeAfter(long hwnd, long millis) {
+            Thread watchdog = new Thread(() -> {
+                try {
+                    if (done.await(millis, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        return;
+                    }
+                    do {
+                        release();
+                        cancelMode(hwnd);
+                    } while (!done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }, "Win32FrameTest watchdog");
+            watchdog.setDaemon(true);
+            watchdog.start();
+        }
+
+        /** Never leaves the button held, and puts the pointer back where the user had it. */
+        @Override
+        public void close() {
+            done.countDown();
+            release();
+            // Only while the pointer is still where this test put it: the user may have taken it.
+            if (last != null && near(display.getCursorLocation(), last)) {
+                post(SWT.MouseMove, e -> {
+                    e.x = start.x;
+                    e.y = start.y;
+                });
+            }
+            settle();
+        }
+
+        private static boolean near(Point a, Point b) {
+            return Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1;
+        }
+
+        private void postMessage(long hwnd, int msg, long wParam, long lParam) {
+            try {
+                Win32FrameTest.this.os.postMessage(hwnd, msg, wParam, lParam);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        private long call(String function) {
+            try {
+                return (long) os.getMethod(function).invoke(null);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
     }
 
     @Test
@@ -229,11 +387,6 @@ class Win32FrameTest {
         event.type = type;
         setup.accept(event);
         display.post(event);
-    }
-
-    private void key(int code) {
-        post(SWT.KeyDown, e -> e.keyCode = code);
-        post(SWT.KeyUp, e -> e.keyCode = code);
     }
 
     @Test
