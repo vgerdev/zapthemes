@@ -44,6 +44,7 @@
     },
     "Ribbon": {
       "useAppAccent": false,
+      "selectedTabForeground": "$accent",
       "states": {
         "hover": { "borderColor": "$accent" },
         "pressed": {
@@ -77,7 +78,7 @@
         "success": { "background": "$background" }
       }
     },
-    "CTabFolder": { "selectionBarThickness": 3 },
+    "CTabFolder": { "selectionForeground": "$accent", "selectionBarThickness": 3 },
     "FlatButton": {
       "borderColor": "$border",
       "states": {

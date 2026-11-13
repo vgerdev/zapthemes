@@ -541,10 +541,11 @@ Tests:
   every catalog type, variant, class and state, and saved again gives the same file. A generated
   theme saved and reopened keeps its palette, generator, references and rule edits; control rules,
   states, added variants and classes, and their undo; the id and the checks.
-- `ThemeWizardTest` (11): Finish saves where the finish page says, with the file following the
+- `ThemeWizardTest` (12): Finish saves where the finish page says, with the file following the
   id and bad ids refused; a broken theme keeps Finish off; editing a saved theme saves it back; on
-  the controls page a common name and an override are set in place and reset; a click on the
-  preview selects its type.
+  the controls page a common name and an override are set in place and reset; text that is hard to
+  read is marked on its rule, type and library and on its two properties, and the page warns; a
+  click on the preview selects its type.
 - `ThemeWizardDemo`: the smoke test covers all five pages and a control property edit; screenshots
   include the controls page with `Table` selected from the preview.
 
