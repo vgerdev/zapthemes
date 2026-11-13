@@ -562,7 +562,10 @@ The pages, each with Undo and Redo for its own edits (Ctrl+Z, Ctrl+Y outside tex
 4. **Controls.** Every control type the property catalog knows, by library, with its variants,
    style classes and states. Each property uses a common name, the default map's unless you pick
    another, or an override of its own for that rule. Clicking a control in the preview selects its
-   type.
+   type. A warning icon marks each rule whose text is hard to read on its background, and its type
+   and library, so a problem in a collapsed branch still shows; hovering over the icon lists the
+   problems. Selecting a marked rule puts its warning at the top of the page and marks the two
+   properties involved.
 5. **Save.** The id, the name, light or dark, and the file (`~/.zapthemes/themes/<id>.json` unless
    you choose one). Errors (an unknown name, a cycle) keep Finish off; contrast warnings do not.
    The warnings cover the common names' pairs and every rule's text color on its background,

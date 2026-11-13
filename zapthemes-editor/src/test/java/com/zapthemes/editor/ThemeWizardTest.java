@@ -400,6 +400,43 @@ class ThemeWizardTest {
     }
 
     @Test
+    void theControlsPageMarksTextThatIsHardToRead() {
+        dialog.showPage(wizard.controlsPage());
+        settle();
+        ControlsPage page = wizard.controlsPage();
+        page.select("Text");
+        settle();
+        assertThat(page.getMessage()).isNull();
+        var tree = page.types();
+        var typeNode = (ControlsPage.TypeNode) tree.getStructuredSelection().getFirstElement();
+        assertThat(((org.eclipse.swt.widgets.TreeItem) tree.testFindItem(typeNode)).getImage()).isNull();
+
+        // Text on its own color: the page says so, and the tree and both properties are marked.
+        model.setRuleValue(EditorModel.RuleKey.of("Text"), "background", new com.google.gson.JsonPrimitive("$foreground"));
+        settle();
+        assertThat(page.getMessage()).startsWith("Hard to read: Text: foreground #").contains("is 1.0:1, below 4.5:1");
+        assertThat(page.getMessageType()).isEqualTo(org.eclipse.jface.dialogs.IMessageProvider.WARNING);
+        assertThat(page.problemsOf(typeNode)).hasSize(1);
+        assertThat(((org.eclipse.swt.widgets.TreeItem) tree.testFindItem(typeNode)).getImage()).isNotNull();
+        var library = new ControlsPage.LibraryNode(typeNode.spec().group());
+        assertThat(((org.eclipse.swt.widgets.TreeItem) tree.testFindItem(library)).getImage()).isNotNull();
+        var table = page.properties().getTable();
+        assertThat(table.getItem(rowIndex(table, "background")).getImage(0)).isNotNull();
+        assertThat(table.getItem(rowIndex(table, "foreground")).getImage(0)).isNotNull();
+        assertThat(table.getItem(rowIndex(table, "font")).getImage(0)).isNull();
+
+        // A problem in a state marks its type, and the type's message points at it.
+        model.setRuleValue(EditorModel.RuleKey.of("Text"), "background", null);
+        model.setRuleValue(EditorModel.RuleKey.of("Tree").withState("selected"), "background", new com.google.gson.JsonPrimitive("$foreground"));
+        settle();
+        assertThat(page.getMessage()).isNull();
+        page.select("Tree");
+        settle();
+        assertThat(page.getMessage()).contains("Tree's variants, classes or states");
+        assertThat(((org.eclipse.swt.widgets.TreeItem) tree.testFindItem(tree.getStructuredSelection().getFirstElement())).getImage()).isNotNull();
+    }
+
+    @Test
     void clickingAControlInThePreviewSelectsItsType() {
         dialog.showPage(wizard.controlsPage());
         settle();
