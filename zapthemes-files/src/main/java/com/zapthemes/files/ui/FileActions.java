@@ -463,7 +463,10 @@ final class FileActions {
             clipboard.dispose();
         }
         Held h = held;
-        if (h != null && Objects.equals(text, h.text())) {
+        // Windows may refuse the clipboard for a moment after a copy: with neither text nor files
+        // to read, the items copied here are pasted.
+        boolean unreadable = text == null && (files == null || files.length == 0);
+        if (h != null && (unreadable || Objects.equals(text, h.text()))) {
             transfer(new TransferRequest(h.fs(), h.entries(), fs, target, h.cut()), h.cut());
             return;
         }

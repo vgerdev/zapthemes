@@ -310,6 +310,19 @@ class FileBrowserTest {
     }
 
     @Test
+    void theTreeFollowsIntoHiddenFolders() {
+        // Hidden folders stay out of the tree, except those on the way to the folder shown
+        // (%TEMP% is under the hidden AppData on Windows).
+        browser.setFileSystem(server());
+        idle();
+        waitFor(() -> ME.equals(browser.navigationTree().selectedPath()));
+        browser.navigate(ME.resolve(".config"));
+        idle();
+        waitFor(() -> ME.resolve(".config").equals(browser.navigationTree().selectedPath()));
+        assertThat(browser.navigationTree().tree.getSelection()[0].getText()).isEqualTo(".config");
+    }
+
+    @Test
     void zoomGrowsTheBarsAndIconsButNotTheWindow() {
         browser.setFileSystem(server());
         idle();
