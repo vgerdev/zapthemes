@@ -400,6 +400,63 @@ class ThemeWizardTest {
     }
 
     @Test
+    void unreadableSelectedItemsAreFlaggedWhereTheirColorsAreEditedUntilFixed() {
+        // A combo's drop-down list is a List: its selected item on the text's own color.
+        dialog.showPage(wizard.controlsPage());
+        settle();
+        ControlsPage controls = wizard.controlsPage();
+        controls.select("List");
+        settle();
+        assertThat(controls.getMessage()).isNull();
+        var table = controls.properties().getTable();
+        assertThat(table.getItem(rowIndex(table, "selectionBackground")).getImage(0)).isNull();
+
+        model.setRuleValue(EditorModel.RuleKey.of("List"), "selectionBackground", new com.google.gson.JsonPrimitive("$foreground"));
+        settle();
+        assertThat(controls.getMessage()).startsWith("Hard to read: List: selected items: selectionForeground #")
+                .contains("on selectionBackground #").contains("below 4.5:1");
+        assertThat(controls.getMessageType()).isEqualTo(org.eclipse.jface.dialogs.IMessageProvider.WARNING);
+        assertThat(table.getItem(rowIndex(table, "selectionBackground")).getImage(0)).isNotNull();
+        assertThat(table.getItem(rowIndex(table, "selectionForeground")).getImage(0)).isNotNull();
+        assertThat(table.getItem(rowIndex(table, "background")).getImage(0)).isNull();
+        controls.select("Table");
+        settle();
+        assertThat(controls.getMessage()).as("only the list's rule").isNull();
+
+        // The colors page lists the pair, with where it is painted, under both names.
+        dialog.showPage(wizard.colorsPage());
+        settle();
+        ColorsPage colors = wizard.colorsPage();
+        colors.select("selectionForeground");
+        settle();
+        assertThat(painted(colors)).anySatisfy(row -> assertThat(row).startsWith("selectionForeground foreground ")
+                .contains("⚠").endsWith("List: selected items"));
+        colors.select("foreground");
+        settle();
+        assertThat(painted(colors)).anyMatch(row -> row.endsWith("List: selected items"));
+
+        // Fixed: a readable selection, and the warnings go.
+        model.setRuleValue(EditorModel.RuleKey.of("List"), "selectionBackground", new com.google.gson.JsonPrimitive("$selection"));
+        settle();
+        assertThat(painted(colors)).noneMatch(row -> row.contains("List"));
+        assertThat(painted(colors)).noneMatch(row -> row.contains("⚠"));
+        dialog.showPage(controls);
+        controls.select("List");
+        settle();
+        assertThat(controls.getMessage()).isNull();
+        assertThat(table.getItem(rowIndex(table, "selectionBackground")).getImage(0)).isNull();
+    }
+
+    /** The colors page's contrast rows: text, on, ratio, level and where it is painted. */
+    private static List<String> painted(ColorsPage page) {
+        List<String> rows = new ArrayList<>();
+        for (var item : page.contrastTable().getItems()) {
+            rows.add(String.join(" ", item.getText(0), item.getText(1), item.getText(2), item.getText(3), item.getText(4)).strip());
+        }
+        return rows;
+    }
+
+    @Test
     void clickingAControlInThePreviewSelectsItsType() {
         dialog.showPage(wizard.controlsPage());
         settle();

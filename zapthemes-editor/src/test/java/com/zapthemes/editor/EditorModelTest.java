@@ -495,6 +495,35 @@ class EditorModelTest {
         assertThat(checked).isGreaterThan(100);
     }
 
+    @Test
+    void selectedItemsAreCheckedAsTheyArePaintedWithoutRepeatingTheNamesPairs() {
+        EditorModel model = model();
+        // The bundled rules paint selectionForeground on selection, which the names declare already.
+        assertThat(model.selectionContrast()).extracting(p -> p.text() + " on " + p.on() + " in " + p.where())
+                .contains("selectionForeground on selection in List: selected items", "selectionForeground on selection in Table: selected rows");
+        assertThat(model.contrast()).filteredOn(p -> p.name().equals("selectionForeground") && p.against().equals("selection"))
+                .singleElement().satisfies(p -> assertThat(p.where()).isNull());
+
+        // A list whose selection is drawn on the text's own color: a pair of its own, and a warning.
+        model.setRuleValue(RuleKey.of("List"), "selectionBackground", new JsonPrimitive("$foreground"));
+        ContrastCheck.Pair list = model.contrast().stream().filter(p -> "List: selected items".equals(p.where())).findFirst().orElseThrow();
+        assertThat(list.name()).isEqualTo("selectionForeground");
+        assertThat(list.against()).isEqualTo("foreground");
+        assertThat(list.ok()).isFalse();
+        assertThat(model.contrastOf("foreground")).contains(list);
+        assertThat(model.problems()).anyMatch(p -> p.startsWith("Warning: List: selected items: selectionForeground on foreground is "));
+
+        // Two controls painting the same pair share one row.
+        model.setRuleValue(RuleKey.of("Tree"), "selectionBackground", new JsonPrimitive("$foreground"));
+        assertThat(model.contrast()).filteredOn(p -> p.where() != null && p.where().contains("selected"))
+                .singleElement().satisfies(p -> assertThat(p.where()).isEqualTo("List: selected items; Tree: selected rows"));
+
+        model.setRuleValue(RuleKey.of("List"), "selectionBackground", null);
+        model.setRuleValue(RuleKey.of("Tree"), "selectionBackground", null);
+        assertReadable(model);
+        assertThat(model.problems()).noneMatch(p -> p.contains("selected"));
+    }
+
     private static void assertReadable(EditorModel model) {
         assertThat(model.contrast()).hasSizeGreaterThan(20);
         assertThat(model.contrast()).filteredOn(p -> !p.ok()).as("contrast failures")

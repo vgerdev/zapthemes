@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +38,7 @@ import com.zapthemes.editor.palette.Harmony;
 import com.zapthemes.editor.palette.NameFill;
 import com.zapthemes.editor.palette.Palette;
 import com.zapthemes.editor.palette.PaletteGenerator;
+import com.zapthemes.editor.palette.SelectionContrast;
 import com.zapthemes.editor.palette.Swatch;
 
 /**
@@ -207,9 +209,37 @@ public final class EditorModel {
         return userFonts.containsKey(name) ? Source.SET : Source.AUTO;
     }
 
-    /** Every contrast pair the base names declare, with the current colors. */
+    /**
+     * Every contrast pair the base names declare, with the current colors, then the pairs controls
+     * paint for selected and highlighted items ({@link SelectionContrast}) that are not one of
+     * those: a per-control override, or a fallback such as {@code foreground} on the hover row.
+     * Controls that paint the same two names share one pair, whose {@code where} lists them.
+     */
     public List<ContrastCheck.Pair> contrast() {
-        return ContrastCheck.check(colors);
+        List<ContrastCheck.Pair> pairs = new ArrayList<>(ContrastCheck.check(colors));
+        Set<List<String>> declared = new HashSet<>();
+        pairs.forEach(p -> declared.add(List.of(p.name(), p.against())));
+        Map<List<String>, ContrastCheck.Pair> painted = new LinkedHashMap<>();
+        for (SelectionContrast.Pair pair : selectionContrast()) {
+            ContrastCheck.Pair named = pair.asNamePair();
+            List<String> key = List.of(named.name(), named.against());
+            if (!declared.contains(key)) {
+                painted.merge(key, named, (a, b) -> new ContrastCheck.Pair(a.name(), a.against(), Math.min(a.ratio(), b.ratio()),
+                        a.minimum(), a.where() + "; " + b.where()));
+            }
+        }
+        pairs.addAll(painted.values());
+        return pairs;
+    }
+
+    /** The text on selected and highlighted items of lists, tables and trees, as they are painted. */
+    public List<SelectionContrast.Pair> selectionContrast() {
+        try {
+            return SelectionContrast.check(theme);
+        } catch (RuntimeException e) {
+            // A theme that cannot be resolved has errors; problems() lists them.
+            return List.of();
+        }
     }
 
     /** The pairs {@code name} is part of, as the text or the background. */
@@ -642,7 +672,8 @@ public final class EditorModel {
 
     /**
      * What is wrong with the theme: errors, which keep it from loading (unknown names, cycles, bad
-     * values), then warnings (contrast pairs below their minimum). Errors start with "Error: ".
+     * values), then warnings (contrast pairs below their minimum, {@link #contrast()}). Errors start
+     * with "Error: ".
      */
     public List<String> problems() {
         List<String> problems = new ArrayList<>();
@@ -651,8 +682,8 @@ public final class EditorModel {
         }
         for (ContrastCheck.Pair pair : contrast()) {
             if (!pair.ok()) {
-                problems.add(String.format(java.util.Locale.ROOT, "Warning: %s on %s is %.1f:1, below %.1f:1", pair.name(),
-                        pair.against(), pair.ratio(), pair.minimum()));
+                problems.add(String.format(java.util.Locale.ROOT, "Warning: %s%s on %s is %.1f:1, below %.1f:1",
+                        pair.where() == null ? "" : pair.where() + ": ", pair.name(), pair.against(), pair.ratio(), pair.minimum()));
             }
         }
         return problems;

@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.IMessageProvider;
 import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.ArrayContentProvider;
@@ -51,6 +53,7 @@ import com.zapthemes.core.catalog.TypeSpec;
 import com.zapthemes.editor.EditorModel.NameInfo;
 import com.zapthemes.editor.EditorModel.Page;
 import com.zapthemes.editor.EditorModel.RuleKey;
+import com.zapthemes.editor.palette.SelectionContrast;
 import com.zapthemes.swt.custom.SashForm;
 import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Composite;
@@ -62,7 +65,10 @@ import com.zapthemes.swt.widgets.Text;
  * bits), the style classes on it, and its owner-draw states. Each property of the selected rule
  * shows the common name it uses (the default map's, unless the theme says otherwise) or an
  * override, a color, font or value of its own for this rule only. Clicking a control in the preview
- * selects its type.
+ * selects its type. When the text on selected or highlighted items of a list, table or tree is hard
+ * to read ({@link SelectionContrast}), the two properties of the pair are marked with a warning
+ * icon in that type's rule (the hover state's rule for the row under the mouse) and the page's
+ * message says what is wrong; the colors page lists the same pairs.
  */
 final class ControlsPage extends EditorPage {
 
@@ -99,6 +105,8 @@ final class ControlsPage extends EditorPage {
     private final ChipImages images = new ChipImages();
     private Object selected;
     private final Listener previewClicks = this::previewClicked;
+    /** The selection pairs below their minimum, as of the last refresh. */
+    private List<SelectionContrast.Pair> selectionProblems = List.of();
 
     ControlsPage(EditorModel model, PropertyCatalog catalog) {
         super("controls", "Controls", "Every control type, with the common name each property uses. Override a property "
@@ -178,8 +186,21 @@ final class ControlsPage extends EditorPage {
             }
 
             @Override
+            public Image getImage(Object element) {
+                return problemsOf((Row) element).isEmpty() ? null : JFaceResources.getImage(Dialog.DLG_IMG_MESSAGE_WARNING);
+            }
+
+            @Override
             public String getToolTipText(Object element) {
-                return ((Row) element).spec().description();
+                Row row = (Row) element;
+                String description = row.spec().description();
+                List<SelectionContrast.Pair> problems = problemsOf(row);
+                if (problems.isEmpty()) {
+                    return description;
+                }
+                StringBuilder tip = new StringBuilder("Hard to read:");
+                problems.forEach(p -> tip.append("\n").append(p.message()));
+                return description == null || description.isEmpty() ? tip.toString() : tip + "\n\n" + description;
             }
         }, null);
         column("Kind", 44, new ColumnLabelProvider() {
@@ -238,6 +259,7 @@ final class ControlsPage extends EditorPage {
 
     @Override
     protected void refresh() {
+        selectionProblems = model.selectionContrast().stream().filter(p -> !p.ok()).toList();
         if (types.getInput() == null) {
             types.setInput(model);
             select(selected != null ? selected : catalog.type("Button").map(TypeNode::new).orElse(null));
@@ -311,6 +333,7 @@ final class ControlsPage extends EditorPage {
             properties.setInput(List.of());
             ruleLabel.setText("Select a type.");
             updateButtons();
+            updateMessage();
             return;
         }
         TypeSpec spec = spec().orElseThrow();
@@ -338,6 +361,50 @@ final class ControlsPage extends EditorPage {
                 + (spec.description().isEmpty() ? "" : " — " + spec.description()));
         ruleLabel.getParent().layout(new Control[] { ruleLabel });
         updateButtons();
+        updateMessage();
+    }
+
+    // ------------------------------------------------------------------ selection contrast
+
+    /** The selection pairs below their minimum that the selected rule's {@code row} is part of. */
+    List<SelectionContrast.Pair> problemsOf(Row row) {
+        return ruleProblems().stream().filter(p -> keyOf(p, true).equals(row.spec().key()) || keyOf(p, false).equals(row.spec().key()))
+                .toList();
+    }
+
+    /**
+     * The failing pairs of the selected rule: a type's plain rule has its pairs; its hover state's
+     * rule has the row under the mouse.
+     */
+    private List<SelectionContrast.Pair> ruleProblems() {
+        Optional<RuleKey> key = rule();
+        if (key.isEmpty() || key.get().variant() != null || key.get().styleClass() != null) {
+            return List.of();
+        }
+        RuleKey rule = key.get();
+        return selectionProblems.stream().filter(p -> p.type().equals(rule.type()))
+                .filter(p -> rule.state() == null || rule.state().equals("hover") && p.backKey().startsWith("states.hover.")).toList();
+    }
+
+    /** The key a property row of the selected rule has for the pair's text or highlight. */
+    private String keyOf(SelectionContrast.Pair pair, boolean text) {
+        String key = text ? pair.textKey() : pair.backKey();
+        boolean inState = rule().map(RuleKey::state).isPresent();
+        if (key.startsWith("states.hover.")) {
+            return inState ? key.substring("states.hover.".length()) : "";
+        }
+        return inState ? "" : key;
+    }
+
+    /** The page's message: what is hard to read on the selected rule's selected or highlighted items. */
+    private void updateMessage() {
+        List<SelectionContrast.Pair> problems = ruleProblems();
+        if (problems.isEmpty()) {
+            setMessage(null);
+        } else {
+            setMessage("Hard to read: " + problems.getFirst().message()
+                    + (problems.size() > 1 ? " (and " + (problems.size() - 1) + " more)" : ""), IMessageProvider.WARNING);
+        }
     }
 
     private List<PropertySpec> specs(TypeSpec spec) {

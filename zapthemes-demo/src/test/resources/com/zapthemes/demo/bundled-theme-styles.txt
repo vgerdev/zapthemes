@@ -139,6 +139,8 @@ Link
   linkForeground = #2D6AE6FF
 List
   background = #FFFFFFFF
+  selectionBackground = #CFDEFCFF
+  selectionForeground = #1F2328FF
 NatTable
   accentColor = #2D6AE6FF
   alternateRowBackground = #F3F4F6FF
@@ -586,6 +588,8 @@ Link
   linkForeground = #5992FEFF
 List
   background = #2B2D30FF
+  selectionBackground = #2E436EFF
+  selectionForeground = #DFE1E5FF
 NatTable
   accentColor = #316FEBFF
   alternateRowBackground = #303236FF
@@ -1011,6 +1015,9 @@ Legend
   foreground = #FFFFFFFF
 Link
   linkForeground = #00FFFFFF
+List
+  selectionBackground = #0037DAFF
+  selectionForeground = #FFFFFFFF
 NatTable
   accentColor = #FFFF00FF
   alternateRowBackground = #141414FF
