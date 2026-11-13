@@ -558,7 +558,11 @@ public class FileBrowser extends Composite {
     void listFolderEntries(FilePath folder, BiConsumer<List<FileEntry>, Throwable> done) {
         FileSystem fs = fileSystem;
         boolean hidden = showHidden;
-        loader.run(() -> fs.list(folder).stream().filter(FileEntry::isContainer).filter(e -> hidden || !e.hidden())
+        // A hidden folder on the way to the one shown is listed anyway (AppData, for %TEMP%), so
+        // the tree and the breadcrumb can show where the browser is.
+        FilePath shown = current;
+        loader.run(() -> fs.list(folder).stream().filter(FileEntry::isContainer)
+                .filter(e -> hidden || !e.hidden() || shown != null && shown.startsWith(e.path()))
                 .sorted(FileOrder.by(FileOrder.Key.NAME, true)).toList(), done);
     }
 
