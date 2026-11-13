@@ -26,9 +26,11 @@ import org.eclipse.jface.preference.PreferenceDialog;
 import org.eclipse.jface.preference.PreferenceManager;
 import org.eclipse.jface.preference.PreferenceNode;
 import org.eclipse.jface.preference.PreferenceStore;
-import org.eclipse.jface.preference.RadioGroupFieldEditor;
+import org.eclipse.jface.preference.PreferencePage;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ComboViewer;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.widgets.WidgetFactory;
 import org.eclipse.jface.window.Window;
@@ -51,6 +53,7 @@ import com.zapthemes.core.ThemeKeys;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.ThemeRegistry;
 import com.zapthemes.core.model.Theme;
+import com.zapthemes.editor.ThemeWizard;
 import com.zapthemes.themes.BundledThemes;
 
 /**
@@ -71,14 +74,23 @@ public final class ZapNotes {
     final Model model = Model.sample();
     final Display display;
     final ThemeManager themes;
-    final PreferenceStore preferences = new PreferenceStore();
+    final PreferenceStore preferences;
+    private final Path preferencesFile;
     private final ThemeRegistry registry = new ThemeRegistry();
     private final List<NotesWindow> windows = new ArrayList<>();
     private final List<IAction> themeActions = new ArrayList<>();
+    private final List<MenuManager> themeMenus = new ArrayList<>();
+    /** The user's own themes (made with the theme editor), by id, with their files. */
+    private final Map<String, Path> userThemes = new LinkedHashMap<>();
 
-    private ZapNotes(Display display) {
+    private ZapNotes(Display display, boolean smoke) {
         this.display = display;
+        preferencesFile = preferencesFile(smoke);
+        preferences = preferenceStore(preferencesFile, smoke);
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
+        if (!smoke) {
+            loadUserThemes();
+        }
         themes = ThemeManager.get(display);
         preferences.setDefault(THEME, AUTO);
         preferences.setDefault(WRAP, true);
@@ -100,7 +112,7 @@ public final class ZapNotes {
     }
 
     private static void run(Display display, List<String> options) {
-        ZapNotes app = new ZapNotes(display);
+        ZapNotes app = new ZapNotes(display, options.contains("--smoke") || options.contains("--screenshots"));
         app.openWindow();
         int shots = options.indexOf("--screenshots");
         if (options.contains("--smoke") || shots >= 0) {
@@ -159,33 +171,122 @@ public final class ZapNotes {
         themeActions.forEach(a -> a.setChecked(chosen.equals(a.getId())));
     }
 
+    /**
+     * The preferences, kept in {@code ~/.zapthemes/zapnotes.properties} (or
+     * {@code -Dzapnotes.preferences}); the smoke test keeps them in a temporary file. A store needs a
+     * file: the preference dialog saves it on OK.
+     */
+    private static Path preferencesFile(boolean smoke) {
+        Path file;
+        try {
+            String chosen = System.getProperty("zapnotes.preferences");
+            file = smoke ? Files.createTempDirectory("zapnotes").resolve("zapnotes.properties")
+                    : chosen != null ? Path.of(chosen) : Path.of(System.getProperty("user.home"), ".zapthemes", "zapnotes.properties");
+            if (file.getParent() != null) {
+                Files.createDirectories(file.getParent());
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return file;
+    }
+
+    private static PreferenceStore preferenceStore(Path file, boolean smoke) {
+        PreferenceStore store = new PreferenceStore(file.toString());
+        if (!smoke && Files.isRegularFile(file)) {
+            try {
+                store.load();
+            } catch (java.io.IOException e) {
+                System.err.println("ZapNotes: could not read the preferences in " + file + ": " + e.getMessage());
+            }
+        }
+        return store;
+    }
+
+    /** Where the user's themes are: {@code ~/.zapthemes/themes}, where the theme editor saves them, or {@code -Dzapnotes.themes}. */
+    static Path userThemesDirectory() {
+        String dir = System.getProperty("zapnotes.themes");
+        return dir != null ? Path.of(dir) : Path.of(System.getProperty("user.home"), ".zapthemes", "themes");
+    }
+
+    /** Loads every theme file in {@link #userThemesDirectory()}; a file that does not load is skipped. */
+    private void loadUserThemes() {
+        Path dir = userThemesDirectory();
+        if (!Files.isDirectory(dir)) {
+            return;
+        }
+        try (var files = Files.list(dir)) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".json")).sorted().toList()) {
+                try {
+                    addUserTheme(file);
+                } catch (RuntimeException e) {
+                    System.err.println("ZapNotes: skipped the theme " + file + ": " + e.getMessage());
+                }
+            }
+        } catch (java.io.IOException e) {
+            System.err.println("ZapNotes: could not read " + dir + ": " + e.getMessage());
+        }
+    }
+
+    /** Registers the theme in {@code file} (again, after it was edited); a bundled theme's id is refused. */
+    private String addUserTheme(Path file) {
+        Theme theme = registry.loadFile(file);
+        if (BundledThemes.IDS.contains(theme.id())) {
+            throw new IllegalArgumentException("its id " + theme.id() + " is a bundled theme's");
+        }
+        boolean added = !userThemes.containsKey(theme.id());
+        userThemes.put(theme.id(), file);
+        if (added) {
+            String[] choice = { registry.resolve(theme.id()).name(), theme.id() };
+            themeMenus.removeIf(menu -> menu.getMenu() != null && menu.getMenu().isDisposed());
+            themeMenus.forEach(menu -> {
+                menu.add(themeAction(choice));
+                menu.update(true);
+            });
+        }
+        return theme.id();
+    }
+
+    /** The bundled themes, resolved: the ones the theme editor duplicates and builds on. */
+    List<Theme> bundledThemes() {
+        return BundledThemes.IDS.stream().map(registry::resolve).toList();
+    }
+
     private List<String[]> themeChoices() {
         List<String[]> choices = new ArrayList<>();
         choices.add(new String[] { "&Automatic (follows the desktop)", AUTO });
         for (String id : BundledThemes.IDS) {
             choices.add(new String[] { registry.resolve(id).name(), id });
         }
+        for (String id : userThemes.keySet()) {
+            choices.add(new String[] { registry.resolve(id).name(), id });
+        }
         return choices;
     }
 
-    /** Window › Theme: one radio item per theme, shared by every window. */
+    /** Window › Theme: one radio item per theme, shared by every window; themes made later are added. */
     MenuManager themeMenu() {
         MenuManager menu = new MenuManager("&Theme");
         for (String[] choice : themeChoices()) {
-            Action action = new Action(choice[0], IAction.AS_RADIO_BUTTON) {
-                @Override
-                public void run() {
-                    if (isChecked()) {
-                        preferences.setValue(THEME, choice[1]);
-                    }
-                }
-            };
-            action.setId(choice[1]);
-            action.setChecked(choice[1].equals(preferences.getString(THEME)));
-            themeActions.add(action);
-            menu.add(action);
+            menu.add(themeAction(choice));
         }
+        themeMenus.add(menu);
         return menu;
+    }
+
+    private Action themeAction(String[] choice) {
+        Action action = new Action(choice[0], IAction.AS_RADIO_BUTTON) {
+            @Override
+            public void run() {
+                if (isChecked()) {
+                    preferences.setValue(THEME, choice[1]);
+                }
+            }
+        };
+        action.setId(choice[1]);
+        action.setChecked(choice[1].equals(preferences.getString(THEME)));
+        themeActions.add(action);
+        return action;
     }
 
     IAction nextThemeAction() {
@@ -288,17 +389,7 @@ public final class ZapNotes {
 
     PreferenceDialog preferences(Shell parent) {
         PreferenceManager pages = new PreferenceManager();
-        pages.addToRoot(new PreferenceNode("appearance", new FieldEditorPreferencePage("Appearance", FieldEditorPreferencePage.GRID) {
-            {
-                setPreferenceStore(preferences);
-                setDescription("The theme applies to every window at once.");
-            }
-
-            @Override
-            protected void createFieldEditors() {
-                addField(new RadioGroupFieldEditor(THEME, "Theme", 1, themeChoices().toArray(String[][]::new), getFieldEditorParent(), true));
-            }
-        }));
+        pages.addToRoot(new PreferenceNode("appearance", new AppearancePage()));
         pages.addToRoot(new PreferenceNode("editor", new FieldEditorPreferencePage("Editor", FieldEditorPreferencePage.GRID) {
             {
                 setPreferenceStore(preferences);
@@ -310,6 +401,103 @@ public final class ZapNotes {
             }
         }));
         return new PreferenceDialog(parent, pages);
+    }
+
+    /**
+     * The themes: Automatic, the bundled ones and the user's own. New Theme… and Edit Theme… open
+     * the theme editor (zapthemes-editor); a theme it saves is added, selected and applied at once.
+     */
+    private final class AppearancePage extends PreferencePage {
+        private TableViewer list;
+        private Button edit;
+
+        AppearancePage() {
+            super("Appearance");
+            setPreferenceStore(preferences);
+            setDescription("The theme applies to every window at once. Your own themes are saved in " + userThemesDirectory() + ".");
+        }
+
+        @Override
+        protected Control createContents(Composite parent) {
+            Composite page = WidgetFactory.composite(SWT.NONE).create(parent);
+            GridLayoutFactory.fillDefaults().numColumns(2).applyTo(page);
+            list = new TableViewer(page, SWT.BORDER | SWT.SINGLE | SWT.FULL_SELECTION | SWT.V_SCROLL);
+            list.setContentProvider(ArrayContentProvider.getInstance());
+            list.setLabelProvider(new LabelProvider() {
+                @Override
+                public String getText(Object element) {
+                    String[] choice = (String[]) element;
+                    return choice[0].replace("&", "") + (userThemes.containsKey(choice[1]) ? "  (yours)" : "");
+                }
+            });
+            GridDataFactory.fillDefaults().grab(true, true).hint(260, 160).applyTo(list.getTable());
+            list.addSelectionChangedListener(e -> edit.setEnabled(selected().filter(userThemes::containsKey).isPresent()));
+            Composite buttons = WidgetFactory.composite(SWT.NONE).create(page);
+            GridLayoutFactory.fillDefaults().applyTo(buttons);
+            GridDataFactory.fillDefaults().align(SWT.FILL, SWT.TOP).applyTo(buttons);
+            Button create = WidgetFactory.button(SWT.PUSH).text("&New Theme...").onSelect(e -> newTheme()).create(buttons);
+            GridDataFactory.fillDefaults().applyTo(create);
+            edit = WidgetFactory.button(SWT.PUSH).text("&Edit Theme...").onSelect(e -> editTheme()).create(buttons);
+            edit.setToolTipText("Changes one of your own themes; bundled themes can be duplicated in New Theme...");
+            GridDataFactory.fillDefaults().applyTo(edit);
+            fill(preferences.getString(THEME));
+            return page;
+        }
+
+        private void fill(String select) {
+            List<String[]> choices = themeChoices();
+            list.setInput(choices);
+            choices.stream().filter(c -> c[1].equals(select)).findFirst().ifPresent(c -> list.setSelection(new StructuredSelection((Object) c)));
+            edit.setEnabled(selected().filter(userThemes::containsKey).isPresent());
+        }
+
+        private java.util.Optional<String> selected() {
+            return list.getStructuredSelection().getFirstElement() instanceof String[] choice ? java.util.Optional.of(choice[1])
+                    : java.util.Optional.empty();
+        }
+
+        private void newTheme() {
+            ThemeWizard wizard = new ThemeWizard(bundledThemes());
+            if (ThemeWizard.dialog(getShell(), wizard).open() == Window.OK) {
+                adopt(wizard.savedFile());
+            }
+        }
+
+        private void editTheme() {
+            selected().map(userThemes::get).ifPresent(file -> {
+                ThemeWizard wizard = ThemeWizard.edit(bundledThemes(), file);
+                if (ThemeWizard.dialog(getShell(), wizard).open() == Window.OK) {
+                    adopt(wizard.savedFile());
+                }
+            });
+        }
+
+        /** Loads the saved theme, lists it, selects it and applies it. */
+        private void adopt(Path file) {
+            try {
+                String id = addUserTheme(file);
+                fill(id);
+                if (id.equals(preferences.getString(THEME))) {
+                    applyTheme();
+                } else {
+                    preferences.setValue(THEME, id);
+                }
+            } catch (RuntimeException e) {
+                setErrorMessage("Could not use the theme in " + file + ": " + e.getMessage());
+            }
+        }
+
+        @Override
+        protected void performDefaults() {
+            fill(AUTO);
+            super.performDefaults();
+        }
+
+        @Override
+        public boolean performOk() {
+            selected().ifPresent(id -> preferences.setValue(THEME, id));
+            return true;
+        }
     }
 
     MessageDialog about(Shell parent) {
@@ -376,6 +564,7 @@ public final class ZapNotes {
         dialogs.put("wizard", () -> newNoteWizard(first));
         dialogs.put("find", () -> findDialog(first));
         dialogs.put("preferences", () -> preferences(first.getShell()));
+        dialogs.put("theme wizard", () -> ThemeWizard.dialog(first.getShell(), new ThemeWizard(bundledThemes())));
         dialogs.put("rename", () -> renameDialog(first.getShell(), release));
         dialogs.put("delete", () -> deleteDialog(first.getShell(), release));
         dialogs.put("about", () -> about(first.getShell()));
@@ -415,6 +604,7 @@ public final class ZapNotes {
             }
         }
         preferences.setValue(THEME, AUTO);
+        checked += preferencesSaveOnOk(first.getShell(), problems);
         if (problems.isEmpty()) {
             System.out.println("SMOKE OK: " + checked + " controls in 2 windows, the field assists and " + dialogs.size()
                     + " dialogs tagged and themed, in " + BundledThemes.IDS.size() + " themes");
@@ -422,6 +612,70 @@ public final class ZapNotes {
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));
         return 1;
+    }
+
+    /**
+     * OK in the preferences saves them: the store has a file. A store without one made OK report
+     * "File name not specified" for every page, in a modal error dialog; one that opens now is
+     * closed and reported, so the smoke test cannot hang on it.
+     */
+    private int preferencesSaveOnOk(Shell parent, List<String> problems) {
+        PreferenceDialog dialog = preferences(parent);
+        dialog.setBlockOnOpen(false);
+        dialog.open();
+        settle();
+        Set<Shell> before = Set.of(display.getShells());
+        boolean[] errorShown = { false };
+        Runnable closeErrors = new Runnable() {
+            @Override
+            public void run() {
+                for (Shell shell : display.getShells()) {
+                    if (!before.contains(shell) && shell.isVisible()) {
+                        errorShown[0] = true;
+                        shell.close();
+                    }
+                }
+                if (dialog.getShell() != null && !dialog.getShell().isDisposed()) {
+                    display.timerExec(500, this);
+                }
+            }
+        };
+        display.timerExec(500, closeErrors);
+        Button ok = findButton(dialog.getShell(), IDialogConstants.OK_LABEL, "Apply and Close");
+        if (ok == null) {
+            problems.add("preferences: no OK button");
+            dialog.close();
+            return 0;
+        }
+        ok.notifyListeners(SWT.Selection, new org.eclipse.swt.widgets.Event());
+        settle();
+        display.timerExec(-1, closeErrors);
+        if (errorShown[0]) {
+            problems.add("preferences: OK reported an error instead of saving");
+        }
+        if (dialog.getShell() != null && !dialog.getShell().isDisposed()) {
+            problems.add("preferences: OK did not close the dialog");
+            dialog.close();
+        }
+        if (!Files.isRegularFile(preferencesFile)) {
+            problems.add("preferences: OK did not save " + preferencesFile);
+        }
+        return 1;
+    }
+
+    private static Button findButton(Control control, String... texts) {
+        if (control instanceof Button button && List.of(texts).contains(button.getText().replace("&", ""))) {
+            return button;
+        }
+        if (control instanceof Composite composite) {
+            for (Control child : composite.getChildren()) {
+                Button found = findButton(child, texts);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private Shell newestShell(Set<Shell> except) {

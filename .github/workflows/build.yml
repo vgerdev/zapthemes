@@ -28,15 +28,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 xvfb
       - name: Build and test (Linux, under Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest :zapthemes-examples:smokeTest --console=plain
+        run: xvfb-run -a ./gradlew build :zapthemes-demo:smokeTest :zapthemes-editor:smokeTest :zapthemes-samples:smokeTest :zapthemes-examples:smokeTest --console=plain
       - name: Build and test
         if: runner.os != 'Linux'
         shell: bash
-        run: ./gradlew build :zapthemes-demo:smokeTest :zapthemes-samples:smokeTest :zapthemes-examples:smokeTest --console=plain
+        run: ./gradlew build :zapthemes-demo:smokeTest :zapthemes-editor:smokeTest :zapthemes-samples:smokeTest :zapthemes-examples:smokeTest --console=plain
       # Screenshots of every demo in every theme, to review GTK and Cocoa rendering by eye.
       - name: Screenshots (Linux, under Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s "-screen 0 1600x1200x24" ./gradlew :zapthemes-demo:screenshots --console=plain
+        run: xvfb-run -a -s "-screen 0 1600x1200x24" ./gradlew :zapthemes-demo:screenshots :zapthemes-editor:screenshots --console=plain
       # ZapNotes builds on the staged artifacts only, as an outside application would.
       - name: ZapNotes on the staged artifacts (Linux, under Xvfb)
         if: runner.os == 'Linux'
@@ -56,7 +56,7 @@ jobs:
           path: zapthemes-examples/build/screenshots/snippets/
       - name: Screenshots
         if: runner.os == 'macOS'
-        run: ./gradlew :zapthemes-demo:screenshots --console=plain
+        run: ./gradlew :zapthemes-demo:screenshots :zapthemes-editor:screenshots --console=plain
       # Control.print on Cocoa leaves dialogs blank and cannot capture hovers; screen captures show
       # what users see (zapthemes-demo/build/screenshots/screen).
       - name: Screen captures of the JFace demo (macOS)
@@ -66,7 +66,9 @@ jobs:
         if: runner.os != 'Windows'
         with:
           name: screenshots-${{ matrix.os }}
-          path: zapthemes-demo/build/screenshots/
+          path: |
+            zapthemes-demo/build/screenshots/
+            zapthemes-editor/build/screenshots/
           if-no-files-found: error
 
   # FreeBSD: no SWT fragment is published upstream; the build uses the ports SWT jar
