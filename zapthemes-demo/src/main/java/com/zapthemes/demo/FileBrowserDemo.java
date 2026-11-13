@@ -108,7 +108,9 @@ public final class FileBrowserDemo {
     /** A folder like the one in Explorer's screenshots, with fixed dates so screenshots repeat. */
     private static Path createSample() {
         try {
-            Path root = Files.createTempDirectory("zapthemes-files-demo").resolve("tiaa-work");
+            // The real path: on Windows CI the temporary directory is a short name (RUNNER~1),
+            // which the tree's listing of the Users folder never shows.
+            Path root = Files.createTempDirectory("zapthemes-files-demo").toRealPath().resolve("tiaa-work");
             Files.createDirectories(root.resolve("iad-email-images"));
             Files.createDirectories(root.resolve("uptime-kuma-helm/templates"));
             Files.createDirectories(root.resolve("reports/2025/q1"));
