@@ -40,6 +40,13 @@ class PlatformThemeSupportTest {
               }
             }
             """), "dark");
+    private static final Theme LIGHT = ThemeJson.read(new StringReader("""
+            {
+              "id": "platform-light",
+              "palette": { "bg": "#F7F8FA", "fg": "#1F2328" },
+              "platform": { "win32": { "menuBarBackground": "$bg", "menuBarForeground": "$fg" } }
+            }
+            """), "light");
     private static final Theme PLAIN = ThemeJson.read(new StringReader("{ \"id\": \"platform-plain\" }"), "plain");
 
     private final Display display = Display.getDefault();
@@ -80,6 +87,40 @@ class PlatformThemeSupportTest {
         manager.setTheme(PLAIN);
         assertThat(display.getData(WIN32 + "Combo.useDarkTheme")).isEqualTo(false);
         assertThat(display.getData(WIN32 + "ProgressBar.useColors")).isEqualTo(false);
+    }
+
+    @Test
+    void win32MenuBarsMadeUnderOneThemeTakeTheNextOnesColors() throws ReflectiveOperationException {
+        Assumptions.assumeTrue(SWT.getPlatform().equals("win32"), "win32 only");
+        ThemeManager manager = ThemeManager.get(display);
+        manager.setTheme(DARK);
+        Shell shell = new Shell(display);
+        Menu bar = new Menu(shell, SWT.BAR);
+        new MenuItem(bar, SWT.CASCADE).setText("File");
+        shell.setMenuBar(bar);
+        shell.open();
+        assertThat(menuColors(bar)).containsExactly(colorRef(0x10, 0x10, 0x10), colorRef(0xEE, 0xEE, 0xEE));
+
+        // SWT reads the menu bar colors when a menu bar is created; a switch must tell existing ones.
+        manager.setTheme(LIGHT);
+        assertThat(menuColors(bar)).containsExactly(colorRef(0xF7, 0xF8, 0xFA), colorRef(0x1F, 0x23, 0x28));
+
+        manager.setTheme(PLAIN);
+        assertThat(menuColors(bar)).as("SWT's own colors").containsExactly(-1, -1);
+    }
+
+    /** The menu's background and foreground pixels, as SWT keeps them. */
+    private static int[] menuColors(org.eclipse.swt.widgets.Menu menu) throws ReflectiveOperationException {
+        var background = org.eclipse.swt.widgets.Menu.class.getDeclaredField("background");
+        var foreground = org.eclipse.swt.widgets.Menu.class.getDeclaredField("foreground");
+        background.setAccessible(true);
+        foreground.setAccessible(true);
+        return new int[] { background.getInt(menu), foreground.getInt(menu) };
+    }
+
+    /** A Windows COLORREF: 0x00BBGGRR. */
+    private static int colorRef(int red, int green, int blue) {
+        return blue << 16 | green << 8 | red;
     }
 
     @Test
