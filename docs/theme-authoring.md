@@ -1,7 +1,8 @@
 # Using ZapThemes and writing themes
 
 This guide covers adding ZapThemes to an SWT or JFace application, choosing and switching themes,
-writing your own theme in JSON, and making your own widgets theme-aware. The
+writing your own theme in JSON (or making one in the theme editor, section 8), and making your own
+widgets theme-aware. The
 [samples](../zapthemes-samples/src/main/java/com/zapthemes/samples) show each step in a small,
 runnable program:
 
@@ -353,7 +354,7 @@ names their colors.
 | `id`, `name` | Unique id (what `registry.resolve` takes) and display name |
 | `extends` | Id of the theme this one is layered on. Each block is merged key by key, so a theme can change only what differs; a common name merges by part, so giving it only a color keeps the parent's font. A name or swatch replaced here also changes every rule of the parent that refers to it. |
 | `dark` | Whether the theme is dark, for tools such as the theme editor. Theming does not read it (use `platform` for what the OS draws). |
-| `swatches` | Raw colors, `#RRGGBB` or `#RRGGBBAA`, referenced as `"$name"`: the theme's palette, before any meaning is given to them |
+| `swatches` | Raw colors, `#RRGGBB` or `#RRGGBBAA`, referenced as `"$name"`: the theme's palette, before any meaning is given to them. A swatch hides a common name of the same name, so name them apart (the editor's are `ground`, `panel`, `ink`, `accent1`, ...). |
 | `names` | Common names (`foreground`, `border`, `heading1`, ...), referenced as `"$name"`. Each is an object holding a `color`, a `font`, or both; either part may itself refer to a swatch or to another name. A reference takes the part its key asks for: a color key (`background`, `foreground`, `...Background`, `...Foreground`, `...Color`) takes the color, a font key (`font`, `...Font`) the font, and any other key the color if there is one, else the font. A name without the part asked for, an unknown name and a reference cycle are errors. |
 | fonts | `{ "name": "Segoe UI", "height": 9, "style": "bold\|italic" }`. `name` may be a list, `["Segoe UI", "Cantarell", ".AppleSystemUIFont"]`: the first family installed is used, so one theme fits every platform. `"inherit": "$name"` starts from another name's font and overrides only what it gives. A missing name or height keeps the system font's. |
 | `defaults` | Properties for every widget, applied first |
@@ -362,7 +363,7 @@ names their colors.
 | `states` (inside a rule) | Overrides while a widget is `hover`, `pressed`, `selected`, `focused` or `disabled` |
 | `platform` | What the OS draws itself: `*` for all platforms, then `win32`, `gtk` or `cocoa` |
 | `registries` | Named resources of other toolkits: JFace `colors` and `fonts`, and `systemColors`, which replaces `Display.getSystemColor` constants inside the Nebula and JFace Text forks |
-| `editor` | The theme editor's own state (generator settings, locked swatches). Theming ignores it, and reading and writing a theme keeps it. |
+| `editor` | The theme editor's own state: `libraryVersion` (the library it was written with) and `generator` (`rule`, `base` color and `locked` swatches). Theming ignores it, and reading and writing a theme keeps it. |
 
 ### The bundled themes' names
 
@@ -504,3 +505,59 @@ Commands are shared with other bars (the title bar's quick access toolbar) throu
 `com.zapthemes.widgets.command`: one `CommandRegistry` per shell, and one `CustomizationStore`
 file with a section per bar. JFace apps add `zapthemes-jface-ribbon` for actions as commands and a
 `RibbonApplicationWindow`.
+
+## 8. The theme editor
+
+`zapthemes-editor` makes themes without writing JSON: a JFace wizard that any ZapThemes application
+can open, and a standalone app on it. Every page has a live preview of the theme being built
+(buttons, text, a table, a tree, a Nebula Grid, an XYGraph, and headings, links, status colors and
+code in their names' colors and fonts), while the wizard itself keeps the application's theme
+([Preview a theme in part of a window](#preview-a-theme-in-part-of-a-window)).
+
+```bash
+./gradlew :zapthemes-editor:run                       # a new theme
+./gradlew :zapthemes-editor:run -Pfile=my-theme.json  # change a saved one
+./gradlew :zapthemes-editor:run -Ptheme=zap-dark      # the editor's own theme (by default, the desktop's)
+```
+
+From an application (with `zapthemes-editor` on the class path):
+
+```java
+List<Theme> bundled = BundledThemes.IDS.stream().map(registry::resolve).toList();
+ThemeWizard wizard = new ThemeWizard(bundled);               // or ThemeWizard.edit(bundled, file)
+if (ThemeWizard.dialog(shell, wizard).open() == Window.OK) {
+    Theme theme = registry.register(wizard.result());       // saved in wizard.savedFile()
+    ThemeManager.get(display).setTheme(theme);
+}
+```
+
+The JFace demo has it under Dialogs › Theme Wizard, and ZapNotes in Preferences › Appearance
+(New Theme… and Edit Theme…), which also lists the themes saved in `~/.zapthemes/themes`.
+
+The pages, each with Undo and Redo for its own edits (Ctrl+Z, Ctrl+Y outside text fields):
+
+1. **Palette.** Duplicate a bundled theme, open a theme file to change it, use a saved palette or
+   a theme's colors, or generate one: a harmony rule (complementary, analogous, triadic,
+   tetradic, monochromatic) from a base color, 5 to 8 swatches, light or dark. Lock the swatches you
+   like and *Regenerate* the rest; take colors from an image; change a swatch by hue, saturation
+   and lightness, or pick one of its tints and shades. *Save palette* keeps it in
+   `~/.zapthemes/palettes`.
+2. **Common names.** Every name, grouped, with its color, font and where it comes from. Colors you
+   have not set are filled from the palette, by contrast: the background from the darkest or
+   lightest swatch, text that reads on it, the accent from the most saturated swatch, status colors
+   toward red, amber, green and blue. *Add name* for names of your own (renamed in place, with F2).
+3. **Colors and fonts.** For each name, a swatch (it follows the palette), a tint or shade, or a
+   custom color; a font as a list of families (the first one installed wins), a size and a style,
+   optionally starting from another name's font. Each contrast pair the name is part of shows its
+   WCAG ratio: text should reach 4.5:1 (3:1 for disabled text).
+4. **Controls.** Every control type the property catalog knows, by library, with its variants,
+   style classes and states. Each property uses a common name, the default map's unless you pick
+   another, or an override of its own for that rule. Clicking a control in the preview selects its
+   type.
+5. **Save.** The id, the name, light or dark, and the file (`~/.zapthemes/themes/<id>.json` unless
+   you choose one). Errors (an unknown name, a cycle) keep Finish off; contrast warnings do not.
+
+Finish writes a **full** theme: every rule of the theme it started from is written out, with no
+`extends`, so it does not change when the library's themes do. Opening it again fills every page
+as it was: the palette and its generator settings, each name's color as written (`"$accent"` stays
+a reference), and the rules.

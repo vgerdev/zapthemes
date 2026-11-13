@@ -27,6 +27,8 @@ dependencies {
     // Source viewer for the note body (brings com.zapthemes:zapthemes-text).
     implementation("com.zapthemes:zapthemes-jface-text:$zapthemes")
     implementation("com.zapthemes:zapthemes-themes:$zapthemes")
+    // The theme editor: Preferences › Appearance › New Theme... and Edit Theme...
+    implementation("com.zapthemes:zapthemes-editor:$zapthemes")
     // The official data binding, on the forked JFace.
     implementation("org.eclipse.platform:org.eclipse.jface.databinding:1.16.0")
     implementation("org.eclipse.platform:org.eclipse.swt.$swtFragment:3.135.0")
