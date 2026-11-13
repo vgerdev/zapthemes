@@ -88,7 +88,7 @@
     "Button[PUSH]": { "background": "$raised" },
     "CTabFolder": {
       "selectionBackground": "$surface",
-      "selectionForeground": "$accent",
+      "selectionForeground": "$link",
       "selectionBarThickness": 2,
       "highlight": true
     },
@@ -99,7 +99,7 @@
       "tabForeground": "$foreground",
       "tabHoverBackground": "$hover",
       "selectedTabBackground": "$chrome",
-      "selectedTabForeground": "$accent",
+      "selectedTabForeground": "$foreground",
       "tabIndicatorColor": "$accent",
       "groupLabelForeground": "$muted",
       "separatorColor": "$border",
@@ -178,6 +178,7 @@
           "foreground": "$onAccent"
         },
         "disabled": {
+          "background": "$background",
           "foreground": "$disabled",
           "borderColor": "$raised"
         },
@@ -364,7 +365,7 @@
       "background": "$accent",
       "foreground": "$onAccent"
     },
-    "Label.muted": { "foreground": "$disabled" },
+    "Label.muted": { "foreground": "$muted" },
     "*.banner": {
       "background": "$surface",
       "foreground": "$foreground"
@@ -404,8 +405,6 @@
     },
     "win32": {
       "progressBarColors": true,
-      "menuBarBackground": "$background",
-      "menuBarForeground": "$foreground",
       "menuBarBorderColor": "$raised",
       "tableHeaderLineColor": "$gridLine",
       "disabledLabelForeground": "$disabled"

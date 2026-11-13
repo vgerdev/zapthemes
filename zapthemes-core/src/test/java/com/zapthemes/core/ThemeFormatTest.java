@@ -333,6 +333,11 @@ class ThemeFormatTest {
                     String where = parent + " " + type + (classes == null ? "" : "." + classes);
                     assertThat(is.keys()).as(where).isEqualTo(was.keys());
                     for (String key : was.keys()) {
+                        if (type.equals("Ribbon") && key.equals("selectedTabForeground") && !parent.equals("zap-high-contrast")) {
+                            // The selected tab's text was the accent, below 4.5:1 on its tab in
+                            // zap-light; it is now the foreground, with the accent indicator.
+                            continue;
+                        }
                         if (key.equals(ResolvedStyle.STATES)) {
                             for (String state : was.states()) {
                                 ResolvedStyle wasState = was.overridesOf(state);
@@ -349,7 +354,10 @@ class ThemeFormatTest {
                     }
                 }
             }
-            assertThat(after.platform().value("menuBarBackground")).isEqualTo(before.platform().value("menuBarBackground"));
+            if (!(parent.equals("zap-light") && SWT.getPlatform().equals("win32"))) {
+                // zap-light no longer colors the Windows menu bar: SWT would draw its text white.
+                assertThat(after.platform().value("menuBarBackground")).isEqualTo(before.platform().value("menuBarBackground"));
+            }
         }
     }
 

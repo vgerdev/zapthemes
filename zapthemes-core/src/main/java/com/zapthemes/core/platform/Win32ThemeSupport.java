@@ -10,6 +10,7 @@ import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Menu;
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Scrollable;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Slider;
@@ -37,7 +38,12 @@ import com.zapthemes.core.style.ResolvedStyle;
  *   <tr><td>{@code disabledLabelForeground} (color)</td><td>{@code Label.disabledForegroundColor}</td></tr>
  * </table>
  *
- * SWT reads most of these flags when a widget is created. For a live switch the explorer dark mode
+ * SWT draws the text of a colored menu bar itself, always white (gray in an inactive window),
+ * whatever {@code menuBarForeground} says. So the menu bar colors are used only on a background
+ * that white text reads on ({@link #MENU_BAR_TEXT_CONTRAST}); on a lighter one the menu bar is left
+ * to Windows, which draws it light with dark text.
+ *
+ * <p>SWT reads most of these flags when a widget is created. For a live switch the explorer dark mode
  * of existing scrollables, buttons, sliders and combos is updated through SWT's internal
  * {@code OS} class; if that is not available (another SWT version) only new widgets change, and a
  * warning is logged once.
@@ -60,6 +66,9 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
             "tableHeaderLineColor", "Table.headerLineColor",
             "disabledLabelForeground", "Label.disabledForegroundColor");
 
+    /** The least contrast of SWT's white menu bar text on {@code menuBarBackground}: WCAG AA for text. */
+    public static final double MENU_BAR_TEXT_CONTRAST = 4.5;
+
     private static final int RDW_INVALIDATE = 0x1;
     private static final int RDW_ERASE = 0x4;
     private static final int RDW_ALLCHILDREN = 0x80;
@@ -73,6 +82,29 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
         BOOLEANS.forEach((key, swtKey) -> display.setData(PREFIX + swtKey, settings.bool(key).orElse(false)));
         // A null value makes SWT go back to its default color.
         COLORS.forEach((key, swtKey) -> display.setData(PREFIX + swtKey, settings.color(key).map(resources::color).orElse(null)));
+        if (!menuBarColorsReadable(settings.color("menuBarBackground").map(c -> c.rgb))) {
+            display.setData(PREFIX + "menuBarBackgroundColor", null);
+            display.setData(PREFIX + "menuBarForegroundColor", null);
+        }
+    }
+
+    /**
+     * Whether SWT's white menu bar text reads on {@code background}; true when there is none, as
+     * then SWT does not draw the menu bar itself.
+     */
+    public static boolean menuBarColorsReadable(java.util.Optional<org.eclipse.swt.graphics.RGB> background) {
+        return background.map(rgb -> whiteTextContrast(rgb) >= MENU_BAR_TEXT_CONTRAST).orElse(true);
+    }
+
+    /** The WCAG contrast ratio of white on {@code rgb}. */
+    public static double whiteTextContrast(org.eclipse.swt.graphics.RGB rgb) {
+        double luminance = 0.2126 * linear(rgb.red) + 0.7152 * linear(rgb.green) + 0.0722 * linear(rgb.blue);
+        return 1.05 / (luminance + 0.05);
+    }
+
+    private static double linear(int channel) {
+        double c = channel / 255.0;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
     @Override
@@ -129,6 +161,7 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
         private final Method drawMenuBar;
         private final Method initThemeColors;
         private final Method updateBackground;
+        private final Method updateImage;
 
         Native() throws ReflectiveOperationException {
             Class<?> os = Class.forName("org.eclipse.swt.internal.win32.OS");
@@ -142,13 +175,22 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
             initThemeColors.setAccessible(true);
             updateBackground = Menu.class.getDeclaredMethod("updateBackground");
             updateBackground.setAccessible(true);
+            updateImage = MenuItem.class.getDeclaredMethod("updateImage");
+            updateImage.setAccessible(true);
         }
 
-        /** Gives {@code menuBar} the display's menu bar colors again, as SWT does when it creates one. */
+        /**
+         * Gives {@code menuBar} the display's menu bar colors again, as SWT does when it creates one,
+         * and its items the drawing that goes with them: drawn by SWT when there are colors, by
+         * Windows when there are none.
+         */
         void recolor(Menu menuBar) {
             try {
                 initThemeColors.invoke(menuBar);
                 updateBackground.invoke(menuBar);
+                for (MenuItem item : menuBar.getItems()) {
+                    updateImage.invoke(item);
+                }
             } catch (ReflectiveOperationException e) {
                 LOG.log(Level.DEBUG, "Could not recolor the menu bar of " + menuBar.getParent(), e);
             }

@@ -62,7 +62,9 @@
     "win32": {
       "darkScrollbars": true,
       "darkCombos": true,
-      "darkTextIcons": true
+      "darkTextIcons": true,
+      "menuBarBackground": "$background",
+      "menuBarForeground": "$foreground"
     }
   }
 }
