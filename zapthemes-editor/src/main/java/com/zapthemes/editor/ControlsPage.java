@@ -1,6 +1,7 @@
 package com.zapthemes.editor;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -492,10 +493,11 @@ final class ControlsPage extends EditorPage {
         return new RGB(value >> 16 & 0xFF, value >> 8 & 0xFF, value & 0xFF);
     }
 
-    /** The names a property can take: those with its part. */
+    /** The names a property can take: those with its part, in alphabetical order (ignoring case). */
     private List<String> compatibleNames(Row row) {
         boolean font = row.spec().kind() == PropertyKind.FONT;
-        return model.names().stream().filter(n -> font ? n.hasFont() : n.hasColor()).map(NameInfo::name).toList();
+        return model.names().stream().filter(n -> font ? n.hasFont() : n.hasColor()).map(NameInfo::name)
+                .sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder())).toList();
     }
 
     private Font italic;
@@ -600,7 +602,10 @@ final class ControlsPage extends EditorPage {
 
     // ------------------------------------------------------------------ editing in place
 
-    /** The common name of a color or font property, chosen in place; "(default)" is the default map's. */
+    /**
+     * The common name of a color or font property, chosen in place; "(default)" is the default map's,
+     * first, and the other names follow in alphabetical order.
+     */
     private final class NameEditing extends EditingSupport {
         private List<String> choices = List.of();
 
@@ -629,7 +634,7 @@ final class ControlsPage extends EditorPage {
                     labels.add(name);
                 }
             }
-            return new ComboBoxCellEditor(properties.getTable(), labels.toArray(String[]::new), SWT.READ_ONLY);
+            return new PickCellEditor(properties.getTable(), labels.toArray(String[]::new));
         }
 
         @Override
@@ -666,8 +671,8 @@ final class ControlsPage extends EditorPage {
             return switch (spec.kind()) {
                 case COLOR -> new ColorCellEditor(properties.getTable());
                 case FONT -> new FontCellEditor(properties.getTable());
-                case BOOLEAN -> new ComboBoxCellEditor(properties.getTable(), new String[] { "true", "false" }, SWT.READ_ONLY);
-                case CHOICE -> new ComboBoxCellEditor(properties.getTable(), spec.choices().toArray(String[]::new), SWT.READ_ONLY);
+                case BOOLEAN -> new PickCellEditor(properties.getTable(), new String[] { "true", "false" });
+                case CHOICE -> new PickCellEditor(properties.getTable(), spec.choices().toArray(String[]::new));
                 default -> new TextCellEditor(properties.getTable());
             };
         }
@@ -710,6 +715,40 @@ final class ControlsPage extends EditorPage {
                 setErrorMessage("A whole number, please.");
                 return null;
             }
+        }
+    }
+
+    /**
+     * A read-only combo that applies an item picked from its list at once, as if editing ended, so
+     * the row, the undo history and the preview show it without focus leaving the combo. A selection
+     * the arrow keys make waits for Enter or focus loss, like a plain {@link ComboBoxCellEditor}.
+     */
+    static final class PickCellEditor extends ComboBoxCellEditor {
+        private boolean keyed;
+
+        PickCellEditor(org.eclipse.swt.widgets.Composite parent, String[] items) {
+            super(parent, items, SWT.READ_ONLY);
+        }
+
+        @Override
+        protected Control createControl(org.eclipse.swt.widgets.Composite parent) {
+            Control combo = super.createControl(parent);
+            // The combo sends KeyDown to its listeners before an arrow key moves the selection.
+            combo.addListener(SWT.KeyDown, e -> {
+                keyed = true;
+                combo.getDisplay().asyncExec(() -> keyed = false);
+            });
+            combo.addListener(SWT.Selection, e -> {
+                if (!keyed) {
+                    // After the combo's own handling, so it is not deactivated inside its list's event.
+                    combo.getDisplay().asyncExec(() -> {
+                        if (!combo.isDisposed() && isActivated()) {
+                            focusLost();
+                        }
+                    });
+                }
+            });
+            return combo;
         }
     }
 
