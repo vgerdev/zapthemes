@@ -100,13 +100,33 @@ class PlatformThemeSupportTest {
         shell.setMenuBar(bar);
         shell.open();
         assertThat(menuColors(bar)).containsExactly(colorRef(0x10, 0x10, 0x10), colorRef(0xEE, 0xEE, 0xEE));
+        assertThat(drawnBySwt(bar)).as("dark: SWT draws the items").isTrue();
 
-        // SWT reads the menu bar colors when a menu bar is created; a switch must tell existing ones.
+        // SWT draws a colored menu bar's text white, so a light one is left to Windows; a switch
+        // must tell existing menu bars, and their items.
         manager.setTheme(LIGHT);
-        assertThat(menuColors(bar)).containsExactly(colorRef(0xF7, 0xF8, 0xFA), colorRef(0x1F, 0x23, 0x28));
+        assertThat(menuColors(bar)).as("light: Windows' own colors").containsExactly(-1, -1);
+        assertThat(drawnBySwt(bar)).as("light: Windows draws the items, with dark text").isFalse();
+
+        manager.setTheme(DARK);
+        assertThat(menuColors(bar)).containsExactly(colorRef(0x10, 0x10, 0x10), colorRef(0xEE, 0xEE, 0xEE));
+        assertThat(drawnBySwt(bar)).as("dark again").isTrue();
 
         manager.setTheme(PLAIN);
         assertThat(menuColors(bar)).as("SWT's own colors").containsExactly(-1, -1);
+        assertThat(drawnBySwt(bar)).isFalse();
+    }
+
+    /** Whether SWT draws {@code menu}'s first item itself ({@code HBMMENU_CALLBACK}), as it does on a colored menu bar. */
+    private static boolean drawnBySwt(org.eclipse.swt.widgets.Menu menu) throws ReflectiveOperationException {
+        Class<?> os = Class.forName("org.eclipse.swt.internal.win32.OS");
+        Class<?> infoClass = Class.forName("org.eclipse.swt.internal.win32.MENUITEMINFO");
+        Object info = infoClass.getConstructor().newInstance();
+        infoClass.getField("cbSize").setInt(info, infoClass.getField("sizeof").getInt(null));
+        infoClass.getField("fMask").setInt(info, os.getField("MIIM_BITMAP").getInt(null));
+        long handle = org.eclipse.swt.widgets.Menu.class.getField("handle").getLong(menu);
+        os.getMethod("GetMenuItemInfo", long.class, int.class, boolean.class, infoClass).invoke(null, handle, 0, true, info);
+        return infoClass.getField("hbmpItem").getLong(info) == os.getField("HBMMENU_CALLBACK").getLong(null);
     }
 
     /** The menu's background and foreground pixels, as SWT keeps them. */

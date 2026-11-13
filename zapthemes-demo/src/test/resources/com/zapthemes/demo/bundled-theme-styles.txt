@@ -96,6 +96,7 @@ FlatButton
   arc = 6
   background = #EBECF0FF
   borderColor = #8C8F94FF
+  disabled:background = #F7F8FAFF
   disabled:borderColor = #EBECF0FF
   disabled:foreground = #8C8F94FF
   focused:borderColor = #2D6AE6FF
@@ -198,7 +199,7 @@ Ribbon
   keyTipBorderColor = #C9CCD1FF
   keyTipForeground = #FFFFFFFF
   selectedTabBackground = #E9EBEFFF
-  selectedTabForeground = #2D6AE6FF
+  selectedTabForeground = #1F2328FF
   separatorColor = #C9CCD1FF
   tabForeground = #1F2328FF
   tabHoverBackground = #DFE1E5FF
@@ -371,7 +372,7 @@ classes.FlatButton.primary
 classes.Label.backstageTitle
   font = font [] 12 1
 classes.Label.muted
-  foreground = #8C8F94FF
+  foreground = #6A737DFF
 classes.Table.popup
   alternateRowBackground = #FFFFFFFF
 classes.Text.plain
@@ -439,9 +440,7 @@ platform.win32
   darkTextIcons = false
   darkThemePreferred = false
   disabledLabelForeground = "#8C8F94"
-  menuBarBackground = "#F7F8FA"
   menuBarBorderColor = "#EBECF0"
-  menuBarForeground = "#1F2328"
   progressBarColors = true
   tableHeaderLineColor = "#EBECF0"
 
@@ -489,7 +488,7 @@ CTabFolder
   highlight = true
   selectionBackground = #2B2D30FF
   selectionBarThickness = 2
-  selectionForeground = #316FEBFF
+  selectionForeground = #5992FEFF
 CTreeCombo
   background = #2B2D30FF
 CTreeComboItem
@@ -543,6 +542,7 @@ FlatButton
   arc = 6
   background = #393B40FF
   borderColor = #73777EFF
+  disabled:background = #1E1F22FF
   disabled:borderColor = #393B40FF
   disabled:foreground = #73777EFF
   focused:borderColor = #316FEBFF
@@ -645,7 +645,7 @@ Ribbon
   keyTipBorderColor = #4A4D52FF
   keyTipForeground = #1E1F22FF
   selectedTabBackground = #18191BFF
-  selectedTabForeground = #316FEBFF
+  selectedTabForeground = #DFE1E5FF
   separatorColor = #4A4D52FF
   tabForeground = #DFE1E5FF
   tabHoverBackground = #43454AFF
@@ -822,7 +822,7 @@ classes.FlatButton.primary
 classes.Label.backstageTitle
   font = font [] 12 1
 classes.Label.muted
-  foreground = #73777EFF
+  foreground = #92959AFF
 classes.Table.popup
   alternateRowBackground = #2B2D30FF
 classes.Text.plain

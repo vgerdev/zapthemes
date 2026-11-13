@@ -9,12 +9,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.IMessageProvider;
 import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.CellEditor;
 import org.eclipse.jface.viewers.ColorCellEditor;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.ColumnViewerToolTipSupport;
 import org.eclipse.jface.viewers.ComboBoxCellEditor;
 import org.eclipse.jface.viewers.DialogCellEditor;
 import org.eclipse.jface.viewers.EditingSupport;
@@ -51,6 +54,7 @@ import com.zapthemes.core.catalog.TypeSpec;
 import com.zapthemes.editor.EditorModel.NameInfo;
 import com.zapthemes.editor.EditorModel.Page;
 import com.zapthemes.editor.EditorModel.RuleKey;
+import com.zapthemes.editor.palette.TextContrast;
 import com.zapthemes.swt.custom.SashForm;
 import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Composite;
@@ -62,7 +66,9 @@ import com.zapthemes.swt.widgets.Text;
  * bits), the style classes on it, and its owner-draw states. Each property of the selected rule
  * shows the common name it uses (the default map's, unless the theme says otherwise) or an
  * override, a color, font or value of its own for this rule only. Clicking a control in the preview
- * selects its type.
+ * selects its type. Text that is hard to read on its background ({@link TextContrast}) is marked
+ * with a warning icon on its rule, the rule's type and library in the tree, and on the two
+ * properties of the selected rule; the page's message says what is wrong.
  */
 final class ControlsPage extends EditorPage {
 
@@ -99,6 +105,8 @@ final class ControlsPage extends EditorPage {
     private final ChipImages images = new ChipImages();
     private Object selected;
     private final Listener previewClicks = this::previewClicked;
+    /** The theme's contrast problems by the rule they are made in ({@code Table}, {@code Tree:selected}). */
+    private Map<String, List<TextContrast.Problem>> contrast = Map.of();
 
     ControlsPage(EditorModel model, PropertyCatalog catalog) {
         super("controls", "Controls", "Every control type, with the common name each property uses. Override a property "
@@ -137,7 +145,18 @@ final class ControlsPage extends EditorPage {
             public Font getFont(Object element) {
                 return element instanceof RuleNode rule && !model.hasRule(rule.key()) ? italic() : null;
             }
+
+            @Override
+            public Image getImage(Object element) {
+                return problemsOf(element).isEmpty() ? null : warning();
+            }
+
+            @Override
+            public String getToolTipText(Object element) {
+                return tip(problemsOf(element));
+            }
         });
+        ColumnViewerToolTipSupport.enableFor(types);
         types.addFilter(new ViewerFilter() {
             @Override
             public boolean select(Viewer viewer, Object parentElement, Object element) {
@@ -178,8 +197,19 @@ final class ControlsPage extends EditorPage {
             }
 
             @Override
+            public Image getImage(Object element) {
+                return problemsOf(element).isEmpty() ? null : warning();
+            }
+
+            @Override
             public String getToolTipText(Object element) {
-                return ((Row) element).spec().description();
+                Row row = (Row) element;
+                String problems = tip(problemsOf(row));
+                String description = row.spec().description();
+                if (problems == null) {
+                    return description;
+                }
+                return description == null || description.isEmpty() ? problems : problems + "\n\n" + description;
             }
         }, null);
         column("Kind", 44, new ColumnLabelProvider() {
@@ -218,7 +248,7 @@ final class ControlsPage extends EditorPage {
                 return italic();
             }
         }, new OverrideEditing());
-        org.eclipse.jface.viewers.ColumnViewerToolTipSupport.enableFor(properties);
+        ColumnViewerToolTipSupport.enableFor(properties);
         properties.addSelectionChangedListener(e -> updateButtons());
 
         Composite buttons = new Composite(right, SWT.NONE);
@@ -238,6 +268,7 @@ final class ControlsPage extends EditorPage {
 
     @Override
     protected void refresh() {
+        updateContrast();
         if (types.getInput() == null) {
             types.setInput(model);
             select(selected != null ? selected : catalog.type("Button").map(TypeNode::new).orElse(null));
@@ -311,6 +342,7 @@ final class ControlsPage extends EditorPage {
             properties.setInput(List.of());
             ruleLabel.setText("Select a type.");
             updateButtons();
+            updateMessage();
             return;
         }
         TypeSpec spec = spec().orElseThrow();
@@ -338,6 +370,79 @@ final class ControlsPage extends EditorPage {
                 + (spec.description().isEmpty() ? "" : " — " + spec.description()));
         ruleLabel.getParent().layout(new Control[] { ruleLabel });
         updateButtons();
+        updateMessage();
+    }
+
+    // ------------------------------------------------------------------ contrast
+
+    private void updateContrast() {
+        Map<String, List<TextContrast.Problem>> byRule = new LinkedHashMap<>();
+        try {
+            for (TextContrast.Problem problem : TextContrast.check(model.theme())) {
+                byRule.computeIfAbsent(problem.rule(), r -> new ArrayList<>()).add(problem);
+            }
+        } catch (RuntimeException e) {
+            // A theme that cannot be read has errors; the Save page lists them.
+        }
+        contrast = byRule;
+    }
+
+    /**
+     * The contrast problems a node or row shows: a rule's own; a type's and its variants', classes'
+     * and states'; a library's types'; a property row's, among the selected rule's.
+     */
+    List<TextContrast.Problem> problemsOf(Object element) {
+        return switch (element) {
+            case RuleNode rule -> contrast.getOrDefault(rule.key().toString(), List.of());
+            case TypeNode type -> problemsOfType(type.spec().type());
+            case LibraryNode library -> typesOf(library.group()).stream().flatMap(t -> problemsOfType(t.type()).stream()).toList();
+            case Row row -> selectedProblems().stream()
+                    .filter(p -> p.foreground().equals(row.spec().key()) || p.background().equals(row.spec().key())).toList();
+            case null, default -> List.of();
+        };
+    }
+
+    private List<TextContrast.Problem> problemsOfType(String type) {
+        List<TextContrast.Problem> problems = new ArrayList<>();
+        contrast.forEach((rule, list) -> {
+            boolean under = rule.length() > type.length() && rule.startsWith(type) && "[.:".indexOf(rule.charAt(type.length())) >= 0;
+            if (rule.equals(type) || under) {
+                problems.addAll(list);
+            }
+        });
+        return problems;
+    }
+
+    /** The selected rule's own problems. */
+    private List<TextContrast.Problem> selectedProblems() {
+        return rule().map(key -> contrast.getOrDefault(key.toString(), List.of())).orElse(List.of());
+    }
+
+    /** The page's message: what is hard to read in the selected rule, or in the rules under its type. */
+    private void updateMessage() {
+        List<TextContrast.Problem> own = selectedProblems();
+        if (!own.isEmpty()) {
+            setMessage("Hard to read: " + own.getFirst().message() + (own.size() > 1 ? " (and " + (own.size() - 1) + " more)" : ""),
+                    IMessageProvider.WARNING);
+        } else if (selected instanceof TypeNode type && !problemsOf(type).isEmpty()) {
+            setMessage("Some of " + type.spec().type() + "'s variants, classes or states have text that is hard to read; the tree marks them.",
+                    IMessageProvider.WARNING);
+        } else {
+            setMessage(null);
+        }
+    }
+
+    private static String tip(List<TextContrast.Problem> problems) {
+        if (problems.isEmpty()) {
+            return null;
+        }
+        StringBuilder tip = new StringBuilder("Hard to read:");
+        problems.forEach(p -> tip.append("\n").append(p.message()));
+        return tip.toString();
+    }
+
+    private static Image warning() {
+        return JFaceResources.getImage(Dialog.DLG_IMG_MESSAGE_WARNING);
     }
 
     private List<PropertySpec> specs(TypeSpec spec) {
