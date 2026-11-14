@@ -13,14 +13,14 @@ import org.eclipse.swt.widgets.Event;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.files.FilePath;
 import com.zapthemes.files.ui.FileIcons.Glyph;
-import com.zapthemes.swt.widgets.Text;
 
 /**
  * The browser's navigation row, drawn on one canvas: Back, Forward, Up and Refresh, then the address
  * bar. The address bar is a breadcrumb (the top's icon, then a segment per folder with a chevron
  * after each); a chevron drops down the subfolders of its folder, and the one after the icon the
- * places. Clicking empty space in the bar turns it into a text field with the path selected and a
- * clear button.
+ * places. Clicking empty space in the bar turns it into a text field ({@link AddressField}) with
+ * the path selected, a clear button and suggestions; the button at the right end drops down the
+ * recent locations.
  *
  * <p>Theme type {@code FileNavigationBar}: {@code background}, {@code foreground}, {@code font},
  * {@code hoverBackground}, {@code pressedBackground}, {@code fieldBackground},
@@ -40,9 +40,10 @@ final class NavigationBar extends Canvas {
     private static final int ICON = 16;
     private static final int CHEVRON = 18;
     private static final int CRUMB_PAD = 6;
+    private static final int HISTORY = 26;
 
     enum Kind {
-        BACK, FORWARD, UP, REFRESH, ICON, CHEVRON, CRUMB, OVERFLOW, BOX, CLEAR
+        BACK, FORWARD, UP, REFRESH, ICON, CHEVRON, CRUMB, OVERFLOW, BOX, CLEAR, HISTORY
     }
 
     /** A clickable part: a button, the icon, a chevron or a segment (index = its depth), the empty box. */
@@ -57,7 +58,7 @@ final class NavigationBar extends Canvas {
     private FolderPopup popup;
     private long popupClosedAt;
     private Integer popupClosedChevron;
-    private Text editor;
+    private AddressField field;
 
     @SuppressWarnings("this-escape")
     NavigationBar(FileBrowser browser) {
@@ -107,9 +108,12 @@ final class NavigationBar extends Canvas {
             x += button + px(BUTTON_GAP);
         }
         Rectangle box = boxBounds();
-        if (editor != null) {
+        int historyWidth = px(HISTORY);
+        Rectangle historyButton = new Rectangle(box.x + box.width - historyWidth - px(2), box.y + px(2), historyWidth, box.height - px(4));
+        if (field != null) {
             int clear = px(BUTTON - 4);
-            parts.add(new Part(Kind.CLEAR, 0, new Rectangle(box.x + box.width - clear - px(2), box.y + (box.height - clear) / 2, clear, clear)));
+            parts.add(new Part(Kind.CLEAR, 0, new Rectangle(historyButton.x - clear, box.y + (box.height - clear) / 2, clear, clear)));
+            parts.add(new Part(Kind.HISTORY, 0, historyButton));
             return parts;
         }
         int inner = box.height - px(4);
@@ -128,7 +132,8 @@ final class NavigationBar extends Canvas {
         }
         gc.dispose();
         int chevron = px(CHEVRON);
-        int available = box.x + box.width - px(4) - bx;
+        int right = historyButton.x - px(2);
+        int available = right - bx;
         int hidden = 0;
         int total = chevron;
         for (int width : widths) {
@@ -140,7 +145,6 @@ final class NavigationBar extends Canvas {
         }
         parts.add(new Part(hidden > 0 ? Kind.OVERFLOW : Kind.CHEVRON, hidden > 0 ? hidden : -1, new Rectangle(bx, top, chevron, inner)));
         bx += chevron;
-        int right = box.x + box.width - px(4);
         for (int i = hidden; i < n; i++) {
             int width = Math.min(widths[i], Math.max(0, right - chevron - bx));
             parts.add(new Part(Kind.CRUMB, i, new Rectangle(bx, top, width, inner)));
@@ -148,6 +152,7 @@ final class NavigationBar extends Canvas {
             parts.add(new Part(Kind.CHEVRON, i, new Rectangle(bx, top, chevron, inner)));
             bx += chevron;
         }
+        parts.add(new Part(Kind.HISTORY, 0, historyButton));
         return parts;
     }
 
@@ -200,11 +205,11 @@ final class NavigationBar extends Canvas {
         int arc = ThemeManager.get(getDisplay()).styleOf(this).integer("arc").map(a -> px(a)).orElse(px(6));
         boolean boxHover = hover != null && hover.kind() != Kind.BACK && hover.kind() != Kind.FORWARD && hover.kind() != Kind.UP
                 && hover.kind() != Kind.REFRESH;
-        gc.setBackground(editor != null || !boxHover ? colors.field() : colors.fieldHover());
+        gc.setBackground(field != null || !boxHover ? colors.field() : colors.fieldHover());
         gc.fillRoundRectangle(box.x, box.y, box.width - 1, box.height - 1, arc, arc);
-        gc.setForeground(editor != null ? colors.focus() : colors.border());
+        gc.setForeground(field != null ? colors.focus() : colors.border());
         gc.drawRoundRectangle(box.x, box.y, box.width - 1, box.height - 1, arc, arc);
-        if (editor != null) {
+        if (field != null) {
             gc.drawLine(box.x + arc / 2, box.y + box.height - 2, box.x + box.width - 1 - arc / 2, box.y + box.height - 2);
         }
         int inner = px(4);
@@ -214,13 +219,14 @@ final class NavigationBar extends Canvas {
         for (Part part : parts()) {
             Rectangle r = part.bounds();
             boolean open = openChevron != null
-                    && (part.kind() == Kind.CHEVRON && openChevron == part.index() || part.kind() == Kind.OVERFLOW && openChevron == -2);
+                    && (part.kind() == Kind.CHEVRON && openChevron == part.index() || part.kind() == Kind.OVERFLOW && openChevron == -2)
+                    || part.kind() == Kind.HISTORY && field != null && field.showingAll();
             switch (part.kind()) {
                 case ICON -> {
                     var image = browser.topIcon(px(ICON));
                     gc.drawImage(image, r.x + (r.width - image.getBounds().width) / 2, r.y + (r.height - image.getBounds().height) / 2);
                 }
-                case CRUMB, CHEVRON, OVERFLOW, CLEAR -> {
+                case CRUMB, CHEVRON, OVERFLOW, CLEAR, HISTORY -> {
                     if (open || same(part, hover)) {
                         gc.setBackground(open || same(part, pressed) ? colors.pressed() : colors.hover());
                         gc.fillRoundRectangle(r.x, r.y, r.width, r.height, inner, inner);
@@ -234,8 +240,8 @@ final class NavigationBar extends Canvas {
                         gc.setClipping(box.x + 1, box.y + 1, box.width - 2, box.height - 2);
                     } else {
                         Glyph g = part.kind() == Kind.CLEAR ? Glyph.CLOSE : part.kind() == Kind.OVERFLOW ? Glyph.OVERFLOW
-                                : open ? Glyph.CHEVRON_DOWN : Glyph.CHEVRON_RIGHT;
-                        int size = part.kind() == Kind.CHEVRON ? px(12) : glyph * 3 / 4;
+                                : open || part.kind() == Kind.HISTORY ? Glyph.CHEVRON_DOWN : Glyph.CHEVRON_RIGHT;
+                        int size = part.kind() == Kind.CHEVRON || part.kind() == Kind.HISTORY ? px(12) : glyph * 3 / 4;
                         FileIcons.draw(gc, g, r.x + (r.width - size) / 2, r.y + (r.height - size) / 2, size, colors.foreground());
                     }
                 }
@@ -281,6 +287,7 @@ final class NavigationBar extends Canvas {
             case UP -> "Up to \"" + browser.parentLabel() + "\" (Alt+Up Arrow)";
             case REFRESH -> "Refresh (F5)";
             case CLEAR -> "Clear";
+            case HISTORY -> "Recent locations (F4)";
             case OVERFLOW -> "Show earlier folders";
             default -> null;
         });
@@ -292,6 +299,14 @@ final class NavigationBar extends Canvas {
             return;
         }
         Part part = partAt(event.x, event.y);
+        if (field != null && part != null && (part.kind() == Kind.CLEAR || part.kind() == Kind.HISTORY)) {
+            // At once, and back to the field before it notices the focus left.
+            activate(part);
+            if (field != null && !field.text.isDisposed()) {
+                field.text.setFocus();
+            }
+            return;
+        }
         if (part != null && (part.kind() == Kind.CHEVRON || part.kind() == Kind.OVERFLOW)) {
             // A click on the chevron of the drop-down that just closed (it closed on this click) only closes it.
             int index = part.kind() == Kind.OVERFLOW ? -2 : part.index();
@@ -329,10 +344,16 @@ final class NavigationBar extends Canvas {
             case OVERFLOW -> openOverflow(part.index());
             case BOX -> startEditing();
             case CLEAR -> {
-                if (editor != null) {
-                    editor.setText("");
-                    editor.setFocus();
+                if (field != null) {
+                    field.text.setText("");
+                    field.text.setFocus();
                 }
+            }
+            case HISTORY -> {
+                if (field == null) {
+                    startEditing();
+                }
+                field.toggleAll();
             }
         }
     }
@@ -411,77 +432,54 @@ final class NavigationBar extends Canvas {
     /** Turns the address bar into a text field holding the full path, selected. */
     void startEditing() {
         closePopup();
-        if (editor == null) {
-            editor = new Text(this, SWT.SINGLE);
-            editor.addListener(SWT.DefaultSelection, e -> commitEditing());
-            editor.addListener(SWT.Traverse, e -> {
-                if (e.detail == SWT.TRAVERSE_ESCAPE) {
-                    e.doit = false;
-                    stopEditing();
-                } else if (e.detail == SWT.TRAVERSE_RETURN) {
-                    e.doit = false;
-                    commitEditing();
-                }
-            });
-            editor.addListener(SWT.FocusOut, e -> getDisplay().asyncExec(() -> {
-                if (editor != null && !editor.isDisposed() && !editor.isFocusControl()) {
-                    stopEditing();
-                }
-            }));
+        if (field == null) {
+            field = new AddressField(this, browser);
         }
-        editor.setText(browser.formattedPath());
-        editor.setBackground(BarColors.of(this).field());
+        field.text.setBackground(BarColors.of(this).field());
         layoutEditor();
-        editor.setVisible(true);
-        editor.selectAll();
-        editor.setFocus();
+        field.text.setVisible(true);
+        field.start(browser.formattedPath());
         redraw();
     }
 
     private void layoutEditor() {
-        if (editor == null) {
+        if (field == null) {
             return;
         }
         Rectangle box = boxBounds();
-        int height = editor.computeSize(SWT.DEFAULT, SWT.DEFAULT).y;
-        int clear = px(BUTTON - 4) + px(4);
-        editor.setBounds(box.x + px(8), box.y + (box.height - height) / 2, Math.max(0, box.width - px(8) - clear - px(4)), height);
-    }
-
-    private void commitEditing() {
-        if (editor == null) {
-            return;
-        }
-        String text = editor.getText();
-        if (browser.navigateText(text)) {
-            stopEditing();
-        } else {
-            editor.selectAll();
-        }
+        int height = field.text.computeSize(SWT.DEFAULT, SWT.DEFAULT).y;
+        int buttons = px(BUTTON - 4) + px(HISTORY) + px(6);
+        field.text.setBounds(box.x + px(8), box.y + (box.height - height) / 2, Math.max(0, box.width - px(8) - buttons - px(4)), height);
     }
 
     void stopEditing() {
-        if (editor != null && !editor.isDisposed()) {
-            Text field = editor;
-            editor = null;
-            field.dispose();
+        if (field != null) {
+            AddressField old = field;
+            field = null;
+            if (!old.text.isDisposed()) {
+                old.text.dispose();
+            }
         }
-        editor = null;
         if (!isDisposed()) {
             redraw();
         }
     }
 
     /** The path field while editing, else null. */
-    Text editor() {
-        return editor;
+    org.eclipse.swt.widgets.Text editor() {
+        return field == null ? null : field.text;
+    }
+
+    /** The address field while editing, else null. */
+    AddressField addressField() {
+        return field;
     }
 
     /** Repaints after the browser's state changed. */
     void update(boolean pathChanged) {
         if (pathChanged) {
             closePopup();
-            if (editor != null) {
+            if (field != null) {
                 stopEditing();
             }
         }

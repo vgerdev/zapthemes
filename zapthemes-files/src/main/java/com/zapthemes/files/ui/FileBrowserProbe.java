@@ -147,4 +147,41 @@ public final class FileBrowserProbe {
             browser.actions().commitRename(browser.getSelectedEntries().getFirst(), name);
         }
     }
+
+    /** Whether the address field stops editing when it loses the focus (on by default; off without a window manager). */
+    public static void setAddressStopsOnFocusOut(boolean stop) {
+        AddressField.stopOnFocusOut = stop;
+    }
+
+    /** Edits the path and types {@code text} into it, as the keyboard would. */
+    public static void typeAddress(FileBrowser browser, String text) {
+        if (browser.navigationBar().addressField() == null) {
+            browser.editPath();
+        }
+        browser.navigationBar().addressField().text.setText(text);
+    }
+
+    /** The labels of the address field's drop-down (suggestions or recent locations), or an empty list. */
+    public static List<String> suggestions(FileBrowser browser) {
+        AddressField field = browser.navigationBar().addressField();
+        return field == null || field.suggestions() == null ? List.of() : field.suggestions().labels();
+    }
+
+    /** The shell of the address field's drop-down, or null. */
+    public static Shell suggestionsShell(FileBrowser browser) {
+        AddressField field = browser.navigationBar().addressField();
+        return field == null || field.suggestions() == null ? null : field.suggestions().shell;
+    }
+
+    /** Picks row {@code index} of the address field's drop-down. */
+    public static void pickSuggestion(FileBrowser browser, int index) {
+        AddressField field = browser.navigationBar().addressField();
+        if (field != null && field.suggestions() != null) {
+            field.suggestions().pick(index);
+        }
+    }
+
+    public static void stopEditing(FileBrowser browser) {
+        browser.navigationBar().stopEditing();
+    }
 }

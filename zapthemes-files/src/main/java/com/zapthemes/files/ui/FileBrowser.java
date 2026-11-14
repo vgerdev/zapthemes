@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -34,6 +35,8 @@ import com.zapthemes.files.FileSystem;
 import com.zapthemes.files.FileTransferHandler;
 import com.zapthemes.files.FileTypes;
 import com.zapthemes.files.LocalFileSystem;
+import com.zapthemes.files.Location;
+import com.zapthemes.files.LocationHistory;
 import com.zapthemes.files.Place;
 import com.zapthemes.files.RootedFileSystem;
 import com.zapthemes.files.ui.FileIcons.Icon;
@@ -57,8 +60,12 @@ import com.zapthemes.widgets.command.CommandEvent;
  * wanted, and reports failures to its {@link ErrorHandler} (by default, in the status bar).
  *
  * <p>Keys: Alt+Left and Alt+Right (or Backspace in the file view) go back and forward, Alt+Up goes
- * up, F5 refreshes, Enter opens, Alt+D, Ctrl+L and F4 edit the path; Ctrl+X, C and V cut, copy
- * and paste, Del deletes, F2 renames, Ctrl+Shift+N makes a folder, Ctrl+A selects all.
+ * up, F5 refreshes, Enter opens, Alt+D and Ctrl+L edit the path, F4 drops down the recent
+ * locations; Ctrl+X, C and V cut, copy and paste, Del deletes, F2 renames, Ctrl+Shift+N makes a
+ * folder, Ctrl+A selects all.
+ *
+ * <p>The address bar's recent locations ({@link #setLocationHistory}) can name folders of any
+ * filesystem; Back and Forward follow the browser across them.
  *
  * <p>Theme types: {@code FileBrowser} (the frame), {@code FileNavigationBar}, {@code FileCommandBar}, {@code FileStatusBar};
  * the panes are a {@code Tree} and a {@code Table}.
@@ -92,8 +99,9 @@ public class FileBrowser extends Composite {
     private final List<Consumer<FilePath>> navigationListeners = new ArrayList<>();
     private final List<Consumer<FileEntry>> openListeners = new ArrayList<>();
     private final List<Consumer<List<FileEntry>>> selectionListeners = new ArrayList<>();
-    private final Deque<FilePath> backStack = new ArrayDeque<>();
-    private final Deque<FilePath> forwardStack = new ArrayDeque<>();
+    // Locations, so Back and Forward cross filesystems too.
+    private final Deque<Location> backStack = new ArrayDeque<>();
+    private final Deque<Location> forwardStack = new ArrayDeque<>();
     private final ZoomListener zoomListener = (previous, current) -> zoomChanged();
     private final AtomicInteger generation = new AtomicInteger();
 
@@ -115,6 +123,8 @@ public class FileBrowser extends Composite {
     private String activity;
     private boolean shiftRightClick;
     private boolean shiftKeyDown;
+    private LocationHistory history = new LocationHistory();
+    private Predicate<Location> locationHandler;
 
     /** A browser with nothing to show yet; give it a filesystem with {@link #setFileSystem}. */
     @SuppressWarnings("this-escape")
@@ -178,12 +188,18 @@ public class FileBrowser extends Composite {
     public void setFileSystem(FileSystem fs, FilePath path) {
         checkWidget();
         Objects.requireNonNull(fs, "fs");
+        backStack.clear();
+        forwardStack.clear();
+        switchTo(fs);
+        navigate(path, null, Move.NEW);
+    }
+
+    /** Shows {@code fs}, with nothing listed yet; the history stays. */
+    private void switchTo(FileSystem fs) {
         fileSystem = fs;
         current = null;
         labels = List.of();
         entries = List.of();
-        backStack.clear();
-        forwardStack.clear();
         defaultPlaces = List.of();
         fileTable.setColumns(fs.capabilities());
         fileTable.setRows(List.of(), List.of());
@@ -199,7 +215,7 @@ public class FileBrowser extends Composite {
                 }
             });
         }
-        navigate(path, null, Move.NEW);
+        navigationBar.update(true);
     }
 
     public FileSystem getFileSystem() {
@@ -235,6 +251,49 @@ public class FileBrowser extends Composite {
     }
 
     /**
+     * Opens {@code location}, of this filesystem or another. For another, the location handler
+     * decides first ({@link #setLocationHandler}); without one, or if it declines, the browser
+     * switches to that filesystem, and Back returns.
+     */
+    public void navigate(Location location) {
+        checkWidget();
+        Objects.requireNonNull(location, "location");
+        if (location.fileSystem() != fileSystem && locationHandler != null && locationHandler.test(location)) {
+            return;
+        }
+        go(location, null, Move.NEW, null);
+    }
+
+    /** The folder shown, with its filesystem, or null before the first one is listed. */
+    public Location getCurrentLocation() {
+        return fileSystem == null || current == null ? null : Location.of(fileSystem, current);
+    }
+
+    /**
+     * The recent locations of the address bar's drop-down. Each browser has its own unless given
+     * one; browsers that share one (two panes, the tabs of a window) list each other's.
+     * {@code null} gives this browser a new, empty one.
+     */
+    public void setLocationHistory(LocationHistory history) {
+        checkWidget();
+        this.history = history != null ? history : new LocationHistory();
+    }
+
+    public LocationHistory getLocationHistory() {
+        return history;
+    }
+
+    /**
+     * Decides where a location of another filesystem opens (picked from the drop-down of a shared
+     * history, or given to {@link #navigate(Location)}): {@code handler} returns true when it
+     * opened it itself (in the pane of that filesystem, say), false to let this browser switch to
+     * it. {@code null} (the default) always switches.
+     */
+    public void setLocationHandler(Predicate<Location> handler) {
+        this.locationHandler = handler;
+    }
+
+    /**
      * Opens what a user typed: a folder, or a file (its folder opens with it selected).
      *
      * @return false if it isn't a path of the filesystem (the error handler is told)
@@ -243,6 +302,12 @@ public class FileBrowser extends Composite {
         checkWidget();
         if (fileSystem == null) {
             return false;
+        }
+        // A recent location's label ("Projects") goes there.
+        Optional<Location> named = history.labeled(text);
+        if (named.isPresent()) {
+            openLocation(named.get());
+            return true;
         }
         FilePath path;
         try {
@@ -256,11 +321,9 @@ public class FileBrowser extends Composite {
             if (fs != fileSystem) {
                 return;
             }
-            if (stat != null && stat.isPresent() && !stat.get().isContainer() && path.parent() != null) {
-                navigate(path.parent(), path.name());
-            } else {
-                navigate(path);
-            }
+            boolean file = stat != null && stat.isPresent() && !stat.get().isContainer() && path.parent() != null;
+            FilePath folder = file ? path.parent() : path;
+            go(Location.of(fs, folder), file ? path.name() : null, Move.NEW, () -> history.add(Location.of(fs, folder)));
         });
         return true;
     }
@@ -297,14 +360,14 @@ public class FileBrowser extends Composite {
     public void back() {
         checkWidget();
         if (canGoBack()) {
-            navigate(backStack.peek(), current != null ? current.name() : null, Move.BACK);
+            go(backStack.peek(), current != null ? current.name() : null, Move.BACK, null);
         }
     }
 
     public void forward() {
         checkWidget();
         if (canGoForward()) {
-            navigate(forwardStack.peek(), null, Move.FORWARD);
+            go(forwardStack.peek(), null, Move.FORWARD, null);
         }
     }
 
@@ -375,6 +438,16 @@ public class FileBrowser extends Composite {
     public void editPath() {
         checkWidget();
         navigationBar.startEditing();
+    }
+
+    /** Edits the path with the drop-down of recent locations open (F4, or the bar's drop-down button). */
+    public void showRecentLocations() {
+        checkWidget();
+        navigationBar.startEditing();
+        AddressField field = navigationBar.addressField();
+        if (field != null && !field.showingAll()) {
+            field.toggleAll();
+        }
     }
 
     /** Replaces where failures go; {@code null} shows them in the status bar (the default). */
@@ -570,6 +643,41 @@ public class FileBrowser extends Composite {
         if (fileSystem == null) {
             throw new IllegalStateException("Set a filesystem first");
         }
+        go(Location.of(fileSystem, path), selectName, move, null);
+    }
+
+    /** Lists {@code target}, switching filesystems if it is another's; {@code done} runs once it shows. */
+    private void go(Location target, String selectName, Move move, Runnable done) {
+        checkWidget();
+        FilePath path = target.path();
+        boolean switched = target.fileSystem() != fileSystem;
+        if (switched) {
+            // The history moves now: nothing of the old filesystem stays shown to come back to.
+            Location previous = getCurrentLocation();
+            switch (move) {
+                case NEW -> {
+                    if (previous != null) {
+                        backStack.push(previous);
+                        forwardStack.clear();
+                    }
+                }
+                case BACK -> {
+                    backStack.poll();
+                    if (previous != null) {
+                        forwardStack.push(previous);
+                    }
+                }
+                case FORWARD -> {
+                    forwardStack.poll();
+                    if (previous != null) {
+                        backStack.push(previous);
+                    }
+                }
+                case REFRESH -> {
+                }
+            }
+            switchTo(target.fileSystem());
+        }
         int gen = generation.incrementAndGet();
         if (pending != null) {
             pending.interrupt();
@@ -601,23 +709,23 @@ public class FileBrowser extends Composite {
                 return;
             }
             FilePath previous = current;
-            switch (move) {
+            switch (switched ? Move.REFRESH : move) {
                 case NEW -> {
                     if (previous != null && !previous.equals(path)) {
-                        backStack.push(previous);
+                        backStack.push(Location.of(fs, previous));
                         forwardStack.clear();
                     }
                 }
                 case BACK -> {
                     backStack.poll();
                     if (previous != null) {
-                        forwardStack.push(previous);
+                        forwardStack.push(Location.of(fs, previous));
                     }
                 }
                 case FORWARD -> {
                     forwardStack.poll();
                     if (previous != null) {
-                        backStack.push(previous);
+                        backStack.push(Location.of(fs, previous));
                     }
                 }
                 case REFRESH -> {
@@ -633,6 +741,9 @@ public class FileBrowser extends Composite {
             }
             actions.update();
             navigationListeners.forEach(listener -> listener.accept(current));
+            if (done != null) {
+                done.run();
+            }
             if (then != null) {
                 then.run();
             }
@@ -764,6 +875,23 @@ public class FileBrowser extends Composite {
             }
             done.accept(items);
         });
+    }
+
+    /** Goes to {@code location} picked from the recent ones, putting it back at the top. */
+    void openLocation(Location location) {
+        history.add(location);
+        navigate(location);
+    }
+
+    /** A recent location's icon: its place's, a folder's, or a server's for the top of another filesystem. */
+    Image locationIcon(Location location) {
+        if (location.kind() != null && !location.kind().equals("folder")) {
+            return icons.place(location.kind(), iconSize());
+        }
+        if (location.fileSystem() != fileSystem) {
+            return icons.get(location.fileSystem() instanceof LocalFileSystem ? Icon.COMPUTER : Icon.NETWORK, iconSize());
+        }
+        return folderIcon(location.path());
     }
 
     /** The drop-down items of the chevron after the top's icon: the places, then the top. */
@@ -1021,8 +1149,10 @@ public class FileBrowser extends Composite {
             up();
         } else if (none && event.keyCode == SWT.F5) {
             refresh();
-        } else if (alt && event.keyCode == 'd' || ctrl && event.keyCode == 'l' || none && event.keyCode == SWT.F4) {
+        } else if (alt && event.keyCode == 'd' || ctrl && event.keyCode == 'l') {
             editPath();
+        } else if (none && event.keyCode == SWT.F4) {
+            showRecentLocations();
         } else if (!runShortcut(event)) {
             return;
         }
