@@ -95,6 +95,7 @@ public class FileBrowser extends Composite {
     private final FileTable fileTable;
     private final StatusBar statusBar;
     private final FileActions actions;
+    private final FileDragAndDrop dragAndDrop;
     private final CommandBar commandBar;
     private final List<Consumer<FilePath>> navigationListeners = new ArrayList<>();
     private final List<Consumer<FileEntry>> openListeners = new ArrayList<>();
@@ -166,6 +167,7 @@ public class FileBrowser extends Composite {
             control.addListener(SWT.KeyUp, e -> shiftKeyDown = false);
         }
         navigationTree.tree.addListener(SWT.MenuDetect, this::treeMenu);
+        dragAndDrop = new FileDragAndDrop(this);
         ThemeManager.get(getDisplay()).addZoomListener(zoomListener);
         ThemeManager.get(getDisplay()).addThemeChangeListener(this, (previous, next) -> fileTable.restripe());
         addListener(SWT.Dispose, e -> {
@@ -936,6 +938,10 @@ public class FileBrowser extends Composite {
 
     FileLoader loader() {
         return loader;
+    }
+
+    FileDragAndDrop dragAndDrop() {
+        return dragAndDrop;
     }
 
     /** What the commands act on: the navigation pane's folder while it has the focus, else the file view's selection. */

@@ -117,6 +117,11 @@ final class FileTable {
     }
 
     private int slowClickGeneration;
+
+    /** Forgets a pending slow second click (a drag started from it: no rename after the drop). */
+    void cancelSlowClick() {
+        slowClickGeneration++;
+    }
     private InlineEditor editor;
 
     /** Opens a field over {@code entry}'s name; false if it isn't shown. */

@@ -467,7 +467,7 @@ final class FileActions {
         // to read, the items copied here are pasted.
         boolean unreadable = text == null && (files == null || files.length == 0);
         if (h != null && (unreadable || Objects.equals(text, h.text()))) {
-            transfer(new TransferRequest(h.fs(), h.entries(), fs, target, h.cut()), h.cut());
+            transfer(new TransferRequest(h.fs(), h.entries(), fs, target, h.cut()), h.cut(), "Can't paste", null);
             return;
         }
         if (files == null || files.length == 0) {
@@ -484,12 +484,22 @@ final class FileActions {
             if (failure != null) {
                 browser.reportFailure("Can't paste", failure);
             } else if (!entries.isEmpty() && fs == browser.getFileSystem()) {
-                transfer(new TransferRequest(local, entries, fs, target, false), false);
+                transfer(new TransferRequest(local, entries, fs, target, false), false, "Can't paste", null);
             }
         });
     }
 
-    private void transfer(TransferRequest request, boolean cut) {
+    /** Whether a rename field is open, in the file view or the navigation pane. */
+    boolean renaming() {
+        return browser.fileTable().editor() != null || browser.navigationTree().editor() != null;
+    }
+
+    /**
+     * Hands {@code request} to the transfer handler (a paste, a drop), shows it in the status bar,
+     * then lists the folder again; a failure is reported as "{@code failureTitle}: reason", and
+     * {@code done} runs after a success.
+     */
+    void transfer(TransferRequest request, boolean cut, String failureTitle, Runnable done) {
         FileSystem fs = request.target();
         browser.showActivity((request.move() ? "Moving " : "Copying ") + request.sources().size()
                 + (request.sources().size() == 1 ? " item…" : " items…"));
@@ -499,11 +509,16 @@ final class FileActions {
             }
             browser.showActivity(null);
             if (failure != null) {
-                browser.reportFailure("Can't paste", failure instanceof java.util.concurrent.CompletionException c && c.getCause() != null
+                browser.reportFailure(failureTitle, failure instanceof java.util.concurrent.CompletionException c && c.getCause() != null
                         ? c.getCause() : failure);
-            } else if (cut) {
-                held = null;
-                checkClipboard();
+            } else {
+                if (cut) {
+                    held = null;
+                    checkClipboard();
+                }
+                if (done != null) {
+                    done.run();
+                }
             }
             if (fs == browser.getFileSystem() && request.targetFolder().equals(browser.getCurrentPath())) {
                 browser.refresh(created == null || created.isEmpty() ? null : created.getFirst());

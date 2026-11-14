@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
@@ -454,6 +455,54 @@ public final class FileBrowserDemo {
         local.navigate(samplePath);
         idle(local);
 
+        // Step 4: drag and drop (the browser's side of it). Ctrl copies onto a folder; a folder
+        // isn't dropped on itself; a drop moves within the disk, even between the rooted tab and
+        // the whole disk; a drop on the server copies (an upload).
+        select(rooted);
+        rooted.navigate(FilePath.TOP);
+        idle(rooted);
+        int copied = FileBrowserProbe.drop(rooted, List.of("notes.txt"), rooted, "reports", DND.DROP_COPY);
+        expect(problems, copied == DND.DROP_COPY, "rooted: a drop with Ctrl did " + copied);
+        waitFor(() -> Files.exists(sample.resolve("reports").resolve("notes.txt")));
+        idle(rooted);
+        expect(problems, Files.exists(sample.resolve("notes.txt")), "rooted: the original of a copy stays");
+        expect(problems, FileBrowserProbe.drop(rooted, List.of("reports"), rooted, "reports", DND.DROP_DEFAULT) == DND.DROP_NONE,
+                "rooted: a folder dropped on itself");
+        int moved = FileBrowserProbe.drop(rooted, List.of("install.sh"), rooted, "uptime-kuma-helm", DND.DROP_DEFAULT);
+        expect(problems, moved == DND.DROP_MOVE, "rooted: a drop on a folder did " + moved);
+        waitFor(() -> !names(rooted).contains("install.sh"));
+        idle(rooted);
+        expect(problems, Files.exists(sample.resolve("uptime-kuma-helm").resolve("install.sh")), "rooted: moved on disk");
+        rooted.navigate(FilePath.of("uptime-kuma-helm"));
+        idle(rooted);
+        select(local);
+        int back = FileBrowserProbe.drop(rooted, List.of("install.sh"), local, null, DND.DROP_DEFAULT);
+        expect(problems, back == DND.DROP_MOVE, "local: a drop from the rooted tab did " + back);
+        // The local tab still lists install.sh from before the first move: wait for the disk.
+        waitFor(() -> Files.exists(sample.resolve("install.sh")) && !FileBrowserProbe.status(local).contains("Moving"));
+        idle(local);
+        expect(problems, Files.exists(sample.resolve("install.sh")) && !Files.exists(sample.resolve("uptime-kuma-helm").resolve("install.sh")),
+                "local: moved back on disk");
+        rooted.navigate(FilePath.TOP);
+        idle(rooted);
+        select(remote);
+        int uploaded = FileBrowserProbe.drop(rooted, List.of("cluster-diagram.png"), remote, null, DND.DROP_DEFAULT);
+        expect(problems, uploaded == DND.DROP_COPY, "remote: a drop from the disk did " + uploaded);
+        waitFor(() -> names(remote).contains("cluster-diagram.png"));
+        idle(remote);
+        try {
+            Files.delete(sample.resolve("reports").resolve("notes.txt"));
+            // The folders' dates as they were, so the screenshots repeat.
+            for (Path dir : List.of(sample.resolve("reports"), sample.resolve("uptime-kuma-helm"), sample)) {
+                Files.setLastModifiedTime(dir, time("2024-04-08T13:45"));
+            }
+            rooted.refresh();
+            local.refresh();
+        } catch (IOException e) {
+            problems.add("rooted: can't clean up the copy: " + e);
+        }
+        select(local);
+
         // Every theme: each part is themed; zoom grows the bars, not the window.
         for (Theme theme : available) {
             themes.setTheme(theme);
@@ -528,6 +577,14 @@ public final class FileBrowserDemo {
             DemoSupport.screenshot((Control) suggestions, dir, "filebrowser-address-suggestions");
         }
         FileBrowserProbe.stopEditing(local);
+        DemoSupport.settle(display);
+
+        // A drop on a folder: the folder under the mouse is highlighted.
+        select(local);
+        FileBrowserProbe.highlightDrop(local, "reports");
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-drop");
+        FileBrowserProbe.highlightDrop(local, null);
         DemoSupport.settle(display);
 
         // A chevron's drop-down, with the window behind it.
