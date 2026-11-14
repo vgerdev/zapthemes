@@ -400,6 +400,54 @@ class ThemeWizardTest {
     }
 
     @Test
+    void theCommonNamesAreSortedAndAPickAppliesAtOnce() {
+        dialog.showPage(wizard.controlsPage());
+        settle();
+        ControlsPage page = wizard.controlsPage();
+        page.select("Button");
+        settle();
+        var table = page.properties().getTable();
+        int row = rowIndex(table, "background");
+        org.eclipse.swt.graphics.Image before = table.getItem(row).getImage(2);
+        page.properties().editElement(page.properties().getElementAt(row), 2);
+        org.eclipse.swt.custom.CCombo combo = find(table, org.eclipse.swt.custom.CCombo.class, c -> c.isVisible());
+
+        // The default map's name first, then the others in alphabetical order, ignoring case.
+        List<String> items = List.of(combo.getItems());
+        assertThat(items.getFirst()).endsWith(" (default)");
+        assertThat(items.subList(1, items.size())).isSortedAccordingTo(String.CASE_INSENSITIVE_ORDER).contains("foreground");
+
+        // An arrow key moves the selection without applying it.
+        int current = combo.getSelectionIndex();
+        int foreground = items.indexOf("foreground");
+        combo.notifyListeners(SWT.KeyDown, new Event());
+        combo.select(foreground);
+        combo.notifyListeners(SWT.Selection, new Event());
+        settle();
+        assertThat(model.ruleValue(EditorModel.RuleKey.of("Button"), "background")).isEmpty();
+        assertThat(page.properties().isCellEditorActive()).isTrue();
+        combo.select(current);
+
+        // A pick from the list applies at once: no Enter, no focus change.
+        combo.select(foreground);
+        combo.notifyListeners(SWT.Selection, new Event());
+        settle();
+        assertThat(model.ruleValue(EditorModel.RuleKey.of("Button"), "background")).contains(new com.google.gson.JsonPrimitive("$foreground"));
+        assertThat(page.properties().isCellEditorActive()).isFalse();
+        row = rowIndex(table, "background");
+        assertThat(table.getItem(row).getText(0)).isEqualTo("• background");
+        assertThat(table.getItem(row).getText(2)).isEqualTo("foreground");
+        assertThat(table.getItem(row).getImage(2)).isNotSameAs(before);
+        assertThat(model.history(Page.CONTROLS).undoLabel()).isPresent();
+        assertThat(page.preview().shown()).isSameAs(model.theme());
+
+        // One edit, so one undo takes it back.
+        assertThat(model.undo(Page.CONTROLS)).isTrue();
+        assertThat(model.isEdited(EditorModel.RuleKey.of("Button"), "background")).isFalse();
+        assertThat(model.history(Page.CONTROLS).canUndo()).isFalse();
+    }
+
+    @Test
     void theControlsPageMarksTextThatIsHardToRead() {
         dialog.showPage(wizard.controlsPage());
         settle();
