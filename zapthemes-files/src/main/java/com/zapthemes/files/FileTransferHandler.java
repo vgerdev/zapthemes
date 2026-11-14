@@ -5,7 +5,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Carries out copies and moves for a file browser (paste, and later drops). An application with a
+ * Carries out copies and moves for a file browser (pastes and drops). An application with a
  * transfer queue of its own (progress, conflicts, resume) implements it; {@link #direct()} copies
  * through the {@link FileSystem} API in the background, renaming on clashes.
  */
