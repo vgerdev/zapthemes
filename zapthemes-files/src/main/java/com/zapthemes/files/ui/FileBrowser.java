@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Image;
@@ -30,12 +31,15 @@ import com.zapthemes.files.FileEntry;
 import com.zapthemes.files.FileOrder;
 import com.zapthemes.files.FilePath;
 import com.zapthemes.files.FileSystem;
+import com.zapthemes.files.FileTransferHandler;
 import com.zapthemes.files.FileTypes;
 import com.zapthemes.files.LocalFileSystem;
 import com.zapthemes.files.Place;
 import com.zapthemes.files.RootedFileSystem;
 import com.zapthemes.files.ui.FileIcons.Icon;
 import com.zapthemes.swt.custom.SashForm;
+import com.zapthemes.widgets.command.Command;
+import com.zapthemes.widgets.command.CommandEvent;
 
 /**
  * A file browser modeled on the Windows 11 File Explorer, over any {@link FileSystem}: the local
@@ -43,17 +47,20 @@ import com.zapthemes.swt.custom.SashForm;
  *
  * <p>From the top: the navigation row (Back, Forward, Up, Refresh and the breadcrumb address bar,
  * whose chevrons drop down the subfolders of each level and which turns into a text field when its
- * empty space is clicked), then the navigation pane (places and the folder tree) beside the Details
- * view, and the status bar.
+ * empty space is clicked), the command bar (New, Cut, Copy, Paste, Rename, Share, Delete, Sort,
+ * View, ...), then the navigation pane (places and the folder tree) beside the Details view, and
+ * the status bar. Items are renamed in place (F2, Rename, or a slow second click); pastes go to a
+ * {@link FileTransferHandler}.
  *
  * <p>Every filesystem call runs in the background; the browser stays responsive while a slow one
  * lists ({@link Capability#SLOW} shows "Loading…" meanwhile), drops results that are no longer
  * wanted, and reports failures to its {@link ErrorHandler} (by default, in the status bar).
  *
  * <p>Keys: Alt+Left and Alt+Right (or Backspace in the file view) go back and forward, Alt+Up goes
- * up, F5 refreshes, Enter opens, Alt+D, Ctrl+L and F4 edit the path.
+ * up, F5 refreshes, Enter opens, Alt+D, Ctrl+L and F4 edit the path; Ctrl+X, C and V cut, copy
+ * and paste, Del deletes, F2 renames, Ctrl+Shift+N makes a folder, Ctrl+A selects all.
  *
- * <p>Theme types: {@code FileBrowser} (the frame), {@code FileNavigationBar}, {@code FileStatusBar};
+ * <p>Theme types: {@code FileBrowser} (the frame), {@code FileNavigationBar}, {@code FileCommandBar}, {@code FileStatusBar};
  * the panes are a {@code Tree} and a {@code Table}.
  */
 public class FileBrowser extends Composite {
@@ -80,6 +87,8 @@ public class FileBrowser extends Composite {
     private final NavigationTree navigationTree;
     private final FileTable fileTable;
     private final StatusBar statusBar;
+    private final FileActions actions;
+    private final CommandBar commandBar;
     private final List<Consumer<FilePath>> navigationListeners = new ArrayList<>();
     private final List<Consumer<FileEntry>> openListeners = new ArrayList<>();
     private final List<Consumer<List<FileEntry>>> selectionListeners = new ArrayList<>();
@@ -100,6 +109,12 @@ public class FileBrowser extends Composite {
     private Thread pending;
     private String error;
     private ErrorHandler errorHandler;
+    private boolean showExtensions = true;
+    private boolean treeFocused;
+    private Runnable afterLoad;
+    private String activity;
+    private boolean shiftRightClick;
+    private boolean shiftKeyDown;
 
     /** A browser with nothing to show yet; give it a filesystem with {@link #setFileSystem}. */
     @SuppressWarnings("this-escape")
@@ -113,8 +128,11 @@ public class FileBrowser extends Composite {
         layout.marginHeight = 0;
         layout.verticalSpacing = 0;
         setLayout(layout);
+        actions = new FileActions(this);
         navigationBar = new NavigationBar(this);
         navigationBar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        commandBar = new CommandBar(this, actions);
+        commandBar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
         sash = new SashForm(this, SWT.HORIZONTAL | SWT.SMOOTH);
         sash.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         navigationTree = new NavigationTree(this, sash);
@@ -125,9 +143,19 @@ public class FileBrowser extends Composite {
 
         fileTable.table.addListener(SWT.Selection, e -> selectionChanged());
         fileTable.table.addListener(SWT.DefaultSelection, e -> openSelection());
-        for (Control control : new Control[] { navigationBar, navigationTree.tree, fileTable.table, statusBar }) {
+        for (Control control : new Control[] { navigationBar, commandBar, navigationTree.tree, fileTable.table, statusBar }) {
             control.addListener(SWT.KeyDown, this::keyDown);
         }
+        fileTable.table.addListener(SWT.FocusIn, e -> focused(false));
+        navigationTree.tree.addListener(SWT.FocusIn, e -> focused(true));
+        navigationTree.tree.addListener(SWT.Selection, e -> actions.update());
+        fileTable.table.addListener(SWT.MenuDetect, this::tableMenu);
+        for (Control control : new Control[] { fileTable.table, navigationTree.tree }) {
+            control.addListener(SWT.MouseDown, e -> shiftRightClick = e.button == 3 && (e.stateMask & SWT.SHIFT) != 0);
+            control.addListener(SWT.KeyDown, e -> shiftKeyDown = (e.stateMask & SWT.SHIFT) != 0 || e.keyCode == SWT.SHIFT);
+            control.addListener(SWT.KeyUp, e -> shiftKeyDown = false);
+        }
+        navigationTree.tree.addListener(SWT.MenuDetect, this::treeMenu);
         ThemeManager.get(getDisplay()).addZoomListener(zoomListener);
         ThemeManager.get(getDisplay()).addThemeChangeListener(this, (previous, next) -> fileTable.restripe());
         addListener(SWT.Dispose, e -> {
@@ -381,6 +409,159 @@ public class FileBrowser extends Composite {
         selectionListeners.remove(listener);
     }
 
+    // ------------------------------------------------------------------ commands and operations
+
+    /** Command ids, for {@link #getCommand}: bind them to a ribbon, a menu or a toolbar of the application. */
+    public static final String COMMAND_NEW_FOLDER = FileActions.NEW_FOLDER;
+    public static final String COMMAND_NEW_TEXT_DOCUMENT = FileActions.NEW_TEXT;
+    public static final String COMMAND_CUT = FileActions.CUT;
+    public static final String COMMAND_COPY = FileActions.COPY;
+    public static final String COMMAND_PASTE = FileActions.PASTE;
+    public static final String COMMAND_RENAME = FileActions.RENAME;
+    public static final String COMMAND_SHARE = FileActions.SHARE;
+    public static final String COMMAND_DELETE = FileActions.DELETE;
+    public static final String COMMAND_COPY_PATH = FileActions.COPY_PATH;
+    public static final String COMMAND_COPY_NAME = FileActions.COPY_NAME;
+    public static final String COMMAND_SELECT_ALL = FileActions.SELECT_ALL;
+    public static final String COMMAND_PROPERTIES = FileActions.PROPERTIES;
+    public static final String COMMAND_REFRESH = FileActions.REFRESH;
+    public static final String COMMAND_SHOW_HIDDEN = FileActions.SHOW_HIDDEN;
+
+    /** Which menu a {@link MenuContributor} adds to. */
+    public enum MenuKind {
+        /** The menu of the selected items. */
+        ITEMS,
+        /** The menu of the folder shown (a click on empty space). */
+        BACKGROUND,
+        /** The New menu (command bar and context menu). */
+        NEW
+    }
+
+    /** Adds the application's items to the browser's menus. */
+    @FunctionalInterface
+    public interface MenuContributor {
+        /** Adds items to {@code menu} (after the browser's, separated); {@code selection} is empty for the background and New menus. */
+        void contribute(org.eclipse.swt.widgets.Menu menu, MenuKind kind, List<FileEntry> selection);
+    }
+
+    /** The browser's command {@code id} ({@code COMMAND_...}), whose enabled state follows the selection. */
+    public Command getCommand(String id) {
+        return actions.command(id);
+    }
+
+    /** All of the browser's commands. */
+    public List<Command> getCommands() {
+        return actions.commands();
+    }
+
+    /** Adds an application's command to the command bar, before "…". */
+    public void addCommand(Command command) {
+        checkWidget();
+        commandBar.add(command);
+    }
+
+    public void removeCommand(Command command) {
+        checkWidget();
+        commandBar.remove(command);
+    }
+
+    /** What carries out pastes; by default {@link FileTransferHandler#direct()}. An application with a transfer queue sets its own. */
+    public void setTransferHandler(FileTransferHandler handler) {
+        actions.setTransferHandler(handler);
+    }
+
+    /**
+     * Asks whether to delete; by default a message box ("Permanently delete ...?"). Return false to
+     * keep the items.
+     */
+    public void setDeleteConfirmation(Predicate<List<FileEntry>> confirmation) {
+        actions.setDeleteConfirmation(confirmation);
+    }
+
+    /** Turns Share on: called with the selected items. Off (disabled) without one. */
+    public void setShareHandler(Consumer<List<FileEntry>> handler) {
+        actions.setShareHandler(handler);
+    }
+
+    /** Turns Properties (Alt+Enter) on: called with the selected items, or the folder shown. Off without one. */
+    public void setPropertiesHandler(Consumer<List<FileEntry>> handler) {
+        actions.setPropertiesHandler(handler);
+    }
+
+    public void addMenuContributor(MenuContributor contributor) {
+        actions.addMenuContributor(contributor);
+    }
+
+    public void removeMenuContributor(MenuContributor contributor) {
+        actions.removeMenuContributor(contributor);
+    }
+
+    /** Renames the selected item in place (F2). */
+    public void rename() {
+        checkWidget();
+        actions.rename();
+    }
+
+    /** Creates "New folder" in the folder shown and opens its name for editing (Ctrl+Shift+N). */
+    public void newFolder() {
+        checkWidget();
+        actions.newFolder();
+    }
+
+    /** Deletes the selected items after the confirmation (Del). */
+    public void delete() {
+        checkWidget();
+        actions.delete();
+    }
+
+    /** Puts the selected items on the clipboard, to be moved by a paste (Ctrl+X). */
+    public void cut() {
+        checkWidget();
+        Command command = getCommand(COMMAND_CUT);
+        actions.update();
+        command.run(new CommandEvent(command, this));
+    }
+
+    /** Puts the selected items on the clipboard (Ctrl+C). */
+    public void copy() {
+        checkWidget();
+        Command command = getCommand(COMMAND_COPY);
+        actions.update();
+        command.run(new CommandEvent(command, this));
+    }
+
+    /** Pastes into the folder shown (Ctrl+V). */
+    public void paste() {
+        checkWidget();
+        actions.checkClipboard();
+        actions.paste(null);
+    }
+
+    /** Whether file name extensions are shown; on by default. */
+    public void setShowExtensions(boolean show) {
+        checkWidget();
+        if (show != showExtensions) {
+            showExtensions = show;
+            fileTable.restripe();
+            actions.update();
+        }
+    }
+
+    public boolean isShowExtensions() {
+        return showExtensions;
+    }
+
+    /** Shows or hides the navigation pane. */
+    public void setNavigationPaneVisible(boolean visible) {
+        checkWidget();
+        sash.setMaximizedControl(visible ? null : fileTable.table);
+        actions.update();
+    }
+
+    public boolean isNavigationPaneVisible() {
+        return sash.getMaximizedControl() == null;
+    }
+
     // ------------------------------------------------------------------ navigation
 
     private void navigate(FilePath path, String selectName, Move move) {
@@ -413,6 +594,8 @@ public class FileBrowser extends Composite {
             }
             loading = false;
             pending = null;
+            Runnable then = afterLoad;
+            afterLoad = null;
             if (failure != null) {
                 failed(path, failure);
                 return;
@@ -448,7 +631,11 @@ public class FileBrowser extends Composite {
             if (!Objects.equals(previous, current)) {
                 navigationTree.reveal(current);
             }
+            actions.update();
             navigationListeners.forEach(listener -> listener.accept(current));
+            if (then != null) {
+                then.run();
+            }
         });
     }
 
@@ -611,6 +798,174 @@ public class FileBrowser extends Composite {
         return statusBar;
     }
 
+    FileActions actions() {
+        return actions;
+    }
+
+    CommandBar commandBar() {
+        return commandBar;
+    }
+
+    FileLoader loader() {
+        return loader;
+    }
+
+    /** What the commands act on: the navigation pane's folder while it has the focus, else the file view's selection. */
+    List<FileEntry> targets() {
+        if (treeFocused) {
+            FileEntry entry = navigationTree.selectedEntry();
+            return entry == null ? List.of() : List.of(entry);
+        }
+        return fileTable.selection();
+    }
+
+    boolean navigationTreeHasFocus() {
+        return treeFocused;
+    }
+
+    /** The folder shown, as an entry. */
+    FileEntry currentEntry() {
+        return current == null ? null
+                : FileEntry.builder(current, com.zapthemes.files.EntryKind.DIRECTORY).label(crumbLabels().getLast()).build();
+    }
+
+    boolean isCut(FileEntry entry) {
+        return actions.isCut(entry);
+    }
+
+    /** Reports {@code failure} as "{@code what}: reason". */
+    void reportFailure(String what, Throwable failure) {
+        reportError(what + ": " + describe(failure), failure);
+    }
+
+    /** Lists the folder again, selects {@code name}, then runs {@code then}. */
+    void refreshThen(String name, Runnable then) {
+        if (current != null) {
+            navigate(current, name, Move.REFRESH);
+            afterLoad = then;
+        }
+    }
+
+    /** Shows an operation in progress in the status bar ("Copying 3 items…"), or nothing. */
+    void showActivity(String text) {
+        activity = text;
+        updateStatus();
+    }
+
+    void selectionChangedByCommand() {
+        selectionChanged();
+    }
+
+    /** Which pane the commands act on (tests set it without a real focus). */
+    void focused(boolean tree) {
+        treeFocused = tree;
+        actions.checkClipboard();
+    }
+
+    /** Runs the command whose shortcut {@code event} is; false if none is. */
+    private boolean runShortcut(Event event) {
+        if (event.widget != navigationTree.tree && event.widget != fileTable.table) {
+            return false;
+        }
+        int key = event.keyCode == SWT.KEYPAD_CR ? SWT.CR : event.keyCode;
+        if (key >= 'A' && key <= 'Z') {
+            key = Character.toLowerCase(key);
+        }
+        int accelerator = (event.stateMask & SWT.MODIFIER_MASK) | key;
+        if (accelerator == SWT.CR) {
+            return false; // Enter opens through DefaultSelection.
+        }
+        actions.checkClipboard();
+        for (Command command : actions.commands()) {
+            int shortcut = command.shortcut();
+            int expected = (shortcut & SWT.MODIFIER_MASK) | Character.toLowerCase(shortcut & SWT.KEY_MASK);
+            if (shortcut != 0 && expected == accelerator) {
+                command.run(new CommandEvent(command, event.widget, event, false, null));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void tableMenu(Event event) {
+        org.eclipse.swt.widgets.Table table = fileTable.table;
+        treeFocused = false;
+        boolean onItems;
+        if (event.detail == SWT.MENU_MOUSE) {
+            org.eclipse.swt.widgets.TableItem item = table.getItem(table.toControl(event.x, event.y));
+            if (item == null) {
+                table.deselectAll();
+                selectionChanged();
+                onItems = false;
+            } else {
+                if (!table.isSelected(table.indexOf(item))) {
+                    table.setSelection(item);
+                    selectionChanged();
+                }
+                onItems = true;
+            }
+        } else {
+            onItems = table.getSelectionCount() > 0;
+        }
+        showMenu(table, event, onItems);
+    }
+
+    private void treeMenu(Event event) {
+        org.eclipse.swt.widgets.Tree tree = navigationTree.tree;
+        treeFocused = true;
+        if (event.detail == SWT.MENU_MOUSE) {
+            org.eclipse.swt.widgets.TreeItem item = tree.getItem(tree.toControl(event.x, event.y));
+            if (item == null) {
+                event.doit = false;
+                return;
+            }
+            // Selected without opening it, as Explorer does.
+            navigationTree.selectQuietly(item);
+        }
+        showMenu(tree, event, navigationTree.selectedEntry() != null);
+    }
+
+    private void showMenu(Control control, Event event, boolean onItems) {
+        // Shift with a right click (or Shift+F10) opens the classic menu at once, as in Explorer.
+        boolean classic = event.detail == SWT.MENU_MOUSE ? shiftRightClick : shiftKeyDown;
+        showMenu(control, event.x, event.y, onItems, classic);
+        event.doit = false;
+    }
+
+    private void showMenu(Control control, int x, int y, boolean onItems, boolean classic) {
+        org.eclipse.swt.widgets.Menu menu = classic ? createClassicMenu(control, onItems)
+                : createContextMenu(control, onItems, () -> getDisplay().asyncExec(() -> {
+                    if (!control.isDisposed()) {
+                        showMenu(control, x, y, onItems, true);
+                    }
+                }));
+        menu.setLocation(x, y);
+        menu.addListener(SWT.Hide, e -> getDisplay().asyncExec(() -> {
+            if (!menu.isDisposed()) {
+                menu.dispose();
+            }
+        }));
+        menu.setVisible(true);
+    }
+
+    /** A filled condensed context menu for {@code control}, not shown (tests show nothing). */
+    org.eclipse.swt.widgets.Menu createContextMenu(Control control, boolean onItems) {
+        return createContextMenu(control, onItems, null);
+    }
+
+    private org.eclipse.swt.widgets.Menu createContextMenu(Control control, boolean onItems, Runnable showMore) {
+        org.eclipse.swt.widgets.Menu menu = new com.zapthemes.swt.widgets.Menu(control);
+        actions.fillContextMenu(menu, onItems, showMore);
+        return menu;
+    }
+
+    /** A filled classic context menu for {@code control}, not shown. */
+    org.eclipse.swt.widgets.Menu createClassicMenu(Control control, boolean onItems) {
+        org.eclipse.swt.widgets.Menu menu = new com.zapthemes.swt.widgets.Menu(control);
+        actions.fillClassicMenu(menu, onItems);
+        return menu;
+    }
+
     /** Calls not yet delivered (tests). */
     int pendingCalls() {
         return loader.pending();
@@ -620,8 +975,21 @@ public class FileBrowser extends Composite {
 
     private void selectionChanged() {
         updateStatus();
+        actions.update();
         List<FileEntry> selected = fileTable.selection();
         selectionListeners.forEach(listener -> listener.accept(selected));
+    }
+
+    /** Opens the selected items: a folder in the browser, files through the open listeners. */
+    void openSelected() {
+        if (treeFocused) {
+            FileEntry entry = navigationTree.selectedEntry();
+            if (entry != null) {
+                navigate(entry.path());
+            }
+            return;
+        }
+        openSelection();
     }
 
     private void openSelection() {
@@ -655,7 +1023,7 @@ public class FileBrowser extends Composite {
             refresh();
         } else if (alt && event.keyCode == 'd' || ctrl && event.keyCode == 'l' || none && event.keyCode == SWT.F4) {
             editPath();
-        } else {
+        } else if (!runShortcut(event)) {
             return;
         }
         event.doit = false;
@@ -688,7 +1056,9 @@ public class FileBrowser extends Composite {
                 selection += "  " + FileTypes.shortSize(bytes);
             }
         }
-        if (error != null) {
+        if (activity != null) {
+            statusBar.setStatus(activity, selection, false);
+        } else if (error != null) {
             statusBar.setStatus(error, "", true);
         } else {
             statusBar.setStatus(text, selection, false);
@@ -702,6 +1072,7 @@ public class FileBrowser extends Composite {
         navigationTree.refreshImages();
         fileTable.refreshRows();
         navigationBar.redraw();
+        commandBar.redraw();
         old.dispose();
         layout(true, true);
     }

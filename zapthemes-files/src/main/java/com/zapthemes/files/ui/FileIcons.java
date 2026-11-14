@@ -37,7 +37,8 @@ public final class FileIcons {
 
     /** One-color glyphs, drawn in the foreground color. */
     public enum Glyph {
-        BACK, FORWARD, UP, REFRESH, CHEVRON_RIGHT, CHEVRON_DOWN, OVERFLOW, CLOSE, PIN, DETAILS_VIEW, LARGE_ICONS_VIEW
+        BACK, FORWARD, UP, REFRESH, CHEVRON_RIGHT, CHEVRON_DOWN, OVERFLOW, CLOSE, PIN, DETAILS_VIEW, LARGE_ICONS_VIEW, NEW, CUT, COPY, PASTE,
+        RENAME, SHARE, DELETE, SORT, MORE, DETAILS_PANE
     }
 
     private final Display display;
@@ -55,8 +56,13 @@ public final class FileIcons {
 
     /** The icon of a file browser entry; faded for a hidden one, as Explorer dims hidden and temporary files. */
     public Image get(FileEntry entry, int size) {
+        return get(entry, size, false);
+    }
+
+    /** The icon of an entry, faded if it is hidden or {@code faded} (cut, waiting for a paste). */
+    public Image get(FileEntry entry, int size, boolean faded) {
         Icon icon = iconOf(FileTypes.category(entry));
-        if (!entry.hidden()) {
+        if (!entry.hidden() && !faded) {
             return get(icon, size);
         }
         return images.computeIfAbsent(icon + "@" + size + "/faded", key -> new Image(display, (ImageDataProvider) zoom -> {
@@ -150,6 +156,25 @@ public final class FileIcons {
             case PIN -> d.closed(6, 2.5f, 10, 2.5f, 9.5f, 6.5f, 11.5f, 9, 4.5f, 9, 6.5f, 6.5f).line(8, 9, 8, 13.5f);
             case DETAILS_VIEW -> d.line(2.5f, 4, 13.5f, 4).line(2.5f, 8, 13.5f, 8).line(2.5f, 12, 13.5f, 12);
             case LARGE_ICONS_VIEW -> d.closed(2.5f, 2.5f, 13.5f, 2.5f, 13.5f, 10, 2.5f, 10).line(2.5f, 13, 13.5f, 13);
+            case NEW -> {
+                d.ring(2, 2, 12, 12);
+                d.line(8, 5, 8, 11).line(5, 8, 11, 8);
+            }
+            case CUT -> {
+                d.ring(2.5f, 10, 3.5f, 3.5f);
+                d.ring(10, 10, 3.5f, 3.5f);
+                d.line(5.4f, 10.4f, 11, 2.5f).line(10.6f, 10.4f, 5, 2.5f);
+            }
+            case COPY -> d.line(5, 4.5f, 5, 2.5f, 13.5f, 2.5f, 13.5f, 11, 11.5f, 11).closed(2.5f, 5, 11, 5, 11, 13.5f, 2.5f, 13.5f);
+            case PASTE -> d.closed(3, 3.5f, 13, 3.5f, 13, 14.5f, 3, 14.5f).closed(6, 2, 10, 2, 10, 5, 6, 5);
+            case RENAME -> d.line(7.5f, 5, 1.5f, 5, 1.5f, 11, 7.5f, 11).line(12.5f, 5, 14.5f, 5, 14.5f, 11, 12.5f, 11).line(10, 3, 10, 13)
+                    .line(8.5f, 3, 11.5f, 3).line(8.5f, 13, 11.5f, 13);
+            case SHARE -> d.line(5, 6, 2.5f, 6, 2.5f, 14, 13.5f, 14, 13.5f, 6, 11, 6).line(8, 1.5f, 8, 10).line(5, 4.5f, 8, 1.5f, 11, 4.5f);
+            case DELETE -> d.line(2, 4, 14, 4).line(6, 4, 6, 2, 10, 2, 10, 4).line(3.5f, 4, 4.5f, 14.5f, 11.5f, 14.5f, 12.5f, 4)
+                    .line(6.5f, 7, 6.5f, 12).line(9.5f, 7, 9.5f, 12);
+            case SORT -> d.line(5, 2, 5, 14).line(2.5f, 11.5f, 5, 14, 7.5f, 11.5f).line(11, 14, 11, 2).line(8.5f, 4.5f, 11, 2, 13.5f, 4.5f);
+            case MORE -> d.dot(3.5f, 8, 1.2f).dot(8, 8, 1.2f).dot(12.5f, 8, 1.2f);
+            case DETAILS_PANE -> d.closed(1.5f, 2.5f, 14.5f, 2.5f, 14.5f, 13.5f, 1.5f, 13.5f).line(10, 2.5f, 10, 13.5f);
         }
         gc.setTransform(saved);
         transform.dispose();
@@ -166,6 +191,22 @@ public final class FileIcons {
                 path.lineTo(points[i], points[i + 1]);
             }
             gc.drawPath(path);
+            path.dispose();
+            return this;
+        }
+
+        Strokes ring(float x, float y, float w, float h) {
+            Path path = new Path(gc.getDevice());
+            path.addArc(x, y, w, h, 0, 360);
+            gc.drawPath(path);
+            path.dispose();
+            return this;
+        }
+
+        Strokes dot(float cx, float cy, float r) {
+            Path path = new Path(gc.getDevice());
+            path.addArc(cx - r, cy - r, 2 * r, 2 * r, 0, 360);
+            gc.fillPath(path);
             path.dispose();
             return this;
         }

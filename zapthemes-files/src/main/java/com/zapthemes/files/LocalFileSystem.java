@@ -73,8 +73,8 @@ public final class LocalFileSystem implements FileSystem {
 
     @Override
     public Set<Capability> capabilities() {
-        Set<Capability> set = EnumSet.of(Capability.CREATE_DIRECTORY, Capability.RENAME, Capability.DELETE, Capability.READ,
-                Capability.WRITE);
+        Set<Capability> set = EnumSet.of(Capability.CREATE_DIRECTORY, Capability.RENAME, Capability.MOVE, Capability.DELETE,
+                Capability.READ, Capability.WRITE);
         if (posix) {
             set.add(Capability.PERMISSIONS);
             set.add(Capability.OWNERS);
@@ -103,6 +103,20 @@ public final class LocalFileSystem implements FileSystem {
             return Path.of(segments.getFirst(), segments.subList(1, segments.size()).toArray(String[]::new));
         }
         return Path.of("/", segments.toArray(String[]::new));
+    }
+
+    /**
+     * The local disk path of {@code path} of {@code fs}, if {@code fs} is the local filesystem or
+     * a folder of it ({@link RootedFileSystem}, at any depth); else empty.
+     */
+    public static Optional<Path> diskPath(FileSystem fs, FilePath path) {
+        if (fs instanceof LocalFileSystem local && !(local.windows && path.isTop())) {
+            return Optional.of(local.toPath(path));
+        }
+        if (fs instanceof RootedFileSystem rooted) {
+            return diskPath(rooted.base(), rooted.toBase(path));
+        }
+        return Optional.empty();
     }
 
     /** The {@link FilePath} of an NIO path, made absolute and normalized. */
@@ -164,7 +178,9 @@ public final class LocalFileSystem implements FileSystem {
     private FileEntry entry(FilePath path, Path file) throws IOException {
         BasicFileAttributes own;
         try {
-            own = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            // On Windows the DOS view gives the basic attributes and the hidden flag in one read.
+            own = windows ? Files.readAttributes(file, DosFileAttributes.class, LinkOption.NOFOLLOW_LINKS)
+                    : Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         } catch (NoSuchFileException e) {
             return null;
         }
@@ -192,12 +208,8 @@ public final class LocalFileSystem implements FileSystem {
             builder.size(times.size());
         }
         String name = path.name();
-        if (windows) {
-            try {
-                builder.hidden(Files.readAttributes(file, DosFileAttributes.class, LinkOption.NOFOLLOW_LINKS).isHidden());
-            } catch (IOException | UnsupportedOperationException e) {
-                builder.hidden(name.startsWith("."));
-            }
+        if (own instanceof DosFileAttributes dos) {
+            builder.hidden(dos.isHidden());
         } else {
             builder.hidden(name.startsWith("."));
         }
@@ -296,6 +308,13 @@ public final class LocalFileSystem implements FileSystem {
             throw new FileAlreadyExistsException(to.toString());
         }
         Files.move(from, to);
+        return target;
+    }
+
+    @Override
+    public FilePath move(FilePath path, FilePath targetFolder) throws IOException {
+        FilePath target = targetFolder.resolve(path.name());
+        Files.move(toPath(path), toPath(target));
         return target;
     }
 

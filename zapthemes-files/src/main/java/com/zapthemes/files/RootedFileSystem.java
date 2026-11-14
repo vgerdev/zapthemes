@@ -166,6 +166,15 @@ public final class RootedFileSystem implements FileSystem {
     }
 
     @Override
+    public FilePath move(FilePath path, FilePath targetFolder) throws IOException {
+        if (path.isTop()) {
+            throw new IllegalArgumentException("The top of " + topName() + " can't be moved");
+        }
+        base.move(toBase(path), toBase(targetFolder));
+        return targetFolder.resolve(path.name());
+    }
+
+    @Override
     public void delete(FilePath path, boolean recursive) throws IOException {
         if (path.isTop()) {
             throw new IllegalArgumentException("The top of " + topName() + " can't be deleted");

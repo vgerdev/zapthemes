@@ -121,6 +121,8 @@ val smokeFileBrowser = tasks.register<JavaExec>("smokeTestFileBrowser") {
     mainClass = "com.zapthemes.demo.FileBrowserDemo"
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
+    // Both copy and paste through the system clipboard: not at the same time.
+    mustRunAfter(":zapthemes-files:test")
 }
 val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar,
     smokePreview, smokeFileBrowser)

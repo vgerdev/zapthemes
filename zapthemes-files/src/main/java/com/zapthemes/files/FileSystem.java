@@ -99,6 +99,16 @@ public interface FileSystem extends Closeable {
         throw new UnsupportedOperationException(displayName() + " cannot rename");
     }
 
+    /**
+     * Moves {@code path} into the folder {@code targetFolder}, keeping its name.
+     *
+     * @return the new path
+     * @throws java.nio.file.FileAlreadyExistsException if the folder has something of that name
+     */
+    default FilePath move(FilePath path, FilePath targetFolder) throws IOException {
+        throw new UnsupportedOperationException(displayName() + " cannot move");
+    }
+
     /** Deletes {@code path}; a folder only if empty, unless {@code recursive}. Links are deleted, not followed. */
     default void delete(FilePath path, boolean recursive) throws IOException {
         throw new UnsupportedOperationException(displayName() + " cannot delete");

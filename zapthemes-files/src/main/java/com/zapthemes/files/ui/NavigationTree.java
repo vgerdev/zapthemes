@@ -216,6 +216,11 @@ final class NavigationTree {
         });
     }
 
+    /** Selects {@code item} without opening its folder (a right click). */
+    void selectQuietly(org.eclipse.swt.widgets.TreeItem item) {
+        select(item);
+    }
+
     private void select(org.eclipse.swt.widgets.TreeItem item) {
         selecting = true;
         try {
@@ -224,6 +229,92 @@ final class NavigationTree {
         } finally {
             selecting = false;
         }
+    }
+
+    /** The selected item as an entry (a place or the top as a folder), or null. */
+    FileEntry selectedEntry() {
+        org.eclipse.swt.widgets.TreeItem[] selection = tree.getSelection();
+        if (selection.length != 1 || !(selection[0].getData() instanceof Node node)) {
+            return null;
+        }
+        if (node.entry != null) {
+            return node.entry;
+        }
+        return FileEntry.builder(node.path, com.zapthemes.files.EntryKind.DIRECTORY)
+                .label(node.place != null ? node.place.label() : selection[0].getText()).build();
+    }
+
+    private InlineEditor editor;
+
+    /** Opens a field over the selected folder's name; false for places, the top, or nothing selected. */
+    boolean startRename(FileEntry entry, java.util.function.Consumer<String> commit) {
+        org.eclipse.swt.widgets.TreeItem[] selection = tree.getSelection();
+        if (selection.length != 1 || !(selection[0].getData() instanceof Node node) || node.place != null || node.path.isTop()
+                || !node.path.equals(entry.path())) {
+            return false;
+        }
+        org.eclipse.swt.widgets.TreeItem item = selection[0];
+        Rectangle bounds = item.getBounds();
+        int offset = px(2 + 6) + browser.iconSize();
+        int width = Math.max(px(80), tree.getClientArea().width - bounds.x - offset - px(4));
+        editor = InlineEditor.open(tree, new Rectangle(bounds.x + offset, bounds.y, width, bounds.height), entry.name(), true, commit,
+                () -> tree.setFocus());
+        return true;
+    }
+
+    /** The open rename field, or null (tests). */
+    InlineEditor editor() {
+        return editor != null && editor.isOpen() ? editor : null;
+    }
+
+    /** Follows a rename: the item of {@code from} (if listed) shows {@code to}; its subtree is listed again when expanded. */
+    void renamed(FilePath from, FilePath to) {
+        org.eclipse.swt.widgets.TreeItem item = find(from);
+        if (item == null) {
+            return;
+        }
+        Node old = (Node) item.getData();
+        Node node = new Node(to, old.place);
+        node.entry = old.entry != null ? old.entry.withPath(to) : null;
+        item.setData(node);
+        item.setText(to.name());
+        for (org.eclipse.swt.widgets.TreeItem child : item.getItems()) {
+            child.dispose();
+        }
+        item.setExpanded(false);
+        new TreeItem(item, SWT.NONE).setText("Loading…");
+    }
+
+    /** Follows a delete: the items of {@code entries} go. */
+    void deleted(List<FileEntry> entries) {
+        for (FileEntry entry : entries) {
+            org.eclipse.swt.widgets.TreeItem item = find(entry.path());
+            if (item != null && item != topItem) {
+                item.dispose();
+            }
+        }
+    }
+
+    /** The listed item of {@code path} under the top, or null. */
+    private org.eclipse.swt.widgets.TreeItem find(FilePath path) {
+        if (topItem == null || topItem.isDisposed()) {
+            return null;
+        }
+        org.eclipse.swt.widgets.TreeItem item = topItem;
+        for (String segment : path.segments()) {
+            org.eclipse.swt.widgets.TreeItem next = null;
+            for (org.eclipse.swt.widgets.TreeItem child : item.getItems()) {
+                if (child.getData() instanceof Node c && c.path.name().equals(segment)) {
+                    next = child;
+                    break;
+                }
+            }
+            if (next == null) {
+                return null;
+            }
+            item = next;
+        }
+        return item;
     }
 
     /** The selected item's path, or null (tests). */

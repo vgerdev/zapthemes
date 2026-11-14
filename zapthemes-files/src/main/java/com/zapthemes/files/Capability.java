@@ -6,6 +6,8 @@ public enum Capability {
     CREATE_DIRECTORY,
     /** {@link FileSystem#rename} works. */
     RENAME,
+    /** {@link FileSystem#move} works (else a move copies, then deletes). */
+    MOVE,
     /** {@link FileSystem#delete} works. */
     DELETE,
     /** {@link FileSystem#openRead} works. */

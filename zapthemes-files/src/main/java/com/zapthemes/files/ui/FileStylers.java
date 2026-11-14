@@ -33,6 +33,7 @@ public final class FileStylers implements StylerProvider, CatalogProvider {
         registry.register("FileBrowser", new DefaultStyler());
         registry.register("FileNavigationBar", repaint);
         registry.register("FileStatusBar", repaint);
+        registry.register("FileCommandBar", repaint);
     }
 
     @Override
@@ -54,6 +55,13 @@ public final class FileStylers implements StylerProvider, CatalogProvider {
                         PropertySpec.size("arc", 6, "The address bar's corner radius, in pixels"))
                 .withStates("hover", "pressed", "disabled", "focused")
                 .described("The file browser's navigation row: Back, Forward, Up, Refresh and the breadcrumb address bar"));
+        catalog.type(TypeSpec.of("FileCommandBar", GROUP, TypeSpec.Base.COMPOSITE)
+                .with(hover, pressed, disabled,
+                        PropertySpec.color("borderColor", "border", "The separators between groups of commands; derived when not set"),
+                        PropertySpec.color("mutedForeground", "muted", "Secondary text; derived when not set"),
+                        PropertySpec.color("errorForeground", "error", "Read with the bar's other colors; derived when not set"))
+                .withStates("hover", "pressed", "checked", "disabled")
+                .described("The file browser's command bar: New, Cut, Copy, Paste, Rename, Share, Delete, Sort, View, ... and the Details toggle"));
         catalog.type(TypeSpec.of("FileStatusBar", GROUP, TypeSpec.Base.COMPOSITE)
                 .with(hover, pressed, disabled, PropertySpec.color("borderColor", "border", "The line between the item count and the selection; derived when not set"),
                         PropertySpec.color("mutedForeground", "muted", "Secondary text; derived when not set"),
