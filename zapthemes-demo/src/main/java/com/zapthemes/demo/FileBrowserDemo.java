@@ -475,9 +475,14 @@ public final class FileBrowserDemo {
         expect(problems, Files.exists(sample.resolve("uptime-kuma-helm").resolve("install.sh")), "rooted: moved on disk");
         rooted.navigate(FilePath.of("uptime-kuma-helm"));
         idle(rooted);
+        // The listing can come back before the move's own refresh settles: wait for the file.
+        waitFor(() -> names(rooted).contains("install.sh"));
+        idle(rooted);
         select(local);
+        idle(local);
         int back = FileBrowserProbe.drop(rooted, List.of("install.sh"), local, null, DND.DROP_DEFAULT);
-        expect(problems, back == DND.DROP_MOVE, "local: a drop from the rooted tab did " + back);
+        expect(problems, back == DND.DROP_MOVE, "local: a drop from the rooted tab did " + back + " (rooted at "
+                + rooted.getCurrentPath() + " lists " + names(rooted) + "; local at " + local.getCurrentPath() + ")");
         // The local tab still lists install.sh from before the first move: wait for the disk.
         waitFor(() -> Files.exists(sample.resolve("install.sh")) && !FileBrowserProbe.status(local).contains("Moving"));
         idle(local);
