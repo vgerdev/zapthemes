@@ -417,23 +417,54 @@ class ThemeWizardTest {
         assertThat(items.getFirst()).endsWith(" (default)");
         assertThat(items.subList(1, items.size())).isSortedAccordingTo(String.CASE_INSENSITIVE_ORDER).contains("foreground");
 
-        // An arrow key moves the selection without applying it.
-        int current = combo.getSelectionIndex();
+        // An arrow key moves the selection without applying it; a pick from the list applies at
+        // once: no Enter, no focus change. An X server with no window manager (Xvfb on CI) can
+        // take activation from the dialog at any moment, which ends the edit as focus loss does;
+        // such a try says nothing about the combo, so it is undone and taken again.
         int foreground = items.indexOf("foreground");
-        combo.notifyListeners(SWT.KeyDown, new Event());
-        combo.select(foreground);
-        combo.notifyListeners(SWT.Selection, new Event());
-        settle();
-        assertThat(model.ruleValue(EditorModel.RuleKey.of("Button"), "background")).isEmpty();
-        assertThat(page.properties().isCellEditorActive()).isTrue();
-        combo.select(current);
+        Shell shell = dialog.getShell();
+        boolean[] deactivated = new boolean[1];
+        org.eclipse.swt.widgets.Listener mark = e -> deactivated[0] = true;
+        java.util.Optional<com.google.gson.JsonElement> afterArrow;
+        java.util.Optional<com.google.gson.JsonElement> afterPick;
+        boolean activeAfterArrow;
+        boolean activeAfterPick;
+        int tries = 0;
+        do {
+            if (tries++ > 0) {
+                page.properties().cancelEditing();
+                while (model.undo(Page.CONTROLS)) {
+                    // Take back what the lost activation applied.
+                }
+                settle();
+                page.properties().editElement(page.properties().getElementAt(rowIndex(table, "background")), 2);
+                combo = find(table, org.eclipse.swt.custom.CCombo.class, c -> c.isVisible());
+            }
+            deactivated[0] = false;
+            shell.addListener(SWT.Deactivate, mark);
+            try {
+                int current = combo.getSelectionIndex();
+                combo.notifyListeners(SWT.KeyDown, new Event());
+                combo.select(foreground);
+                combo.notifyListeners(SWT.Selection, new Event());
+                settle();
+                afterArrow = model.ruleValue(EditorModel.RuleKey.of("Button"), "background");
+                activeAfterArrow = page.properties().isCellEditorActive();
+                combo.select(current);
 
-        // A pick from the list applies at once: no Enter, no focus change.
-        combo.select(foreground);
-        combo.notifyListeners(SWT.Selection, new Event());
-        settle();
-        assertThat(model.ruleValue(EditorModel.RuleKey.of("Button"), "background")).contains(new com.google.gson.JsonPrimitive("$foreground"));
-        assertThat(page.properties().isCellEditorActive()).isFalse();
+                combo.select(foreground);
+                combo.notifyListeners(SWT.Selection, new Event());
+                settle();
+                afterPick = model.ruleValue(EditorModel.RuleKey.of("Button"), "background");
+                activeAfterPick = page.properties().isCellEditorActive();
+            } finally {
+                shell.removeListener(SWT.Deactivate, mark);
+            }
+        } while (deactivated[0] && tries < 10);
+        assertThat(afterArrow).isEmpty();
+        assertThat(activeAfterArrow).isTrue();
+        assertThat(afterPick).contains(new com.google.gson.JsonPrimitive("$foreground"));
+        assertThat(activeAfterPick).isFalse();
         row = rowIndex(table, "background");
         assertThat(table.getItem(row).getText(0)).isEqualTo("• background");
         assertThat(table.getItem(row).getText(2)).isEqualTo("foreground");
