@@ -5,6 +5,7 @@ import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.widgets.Link;
+import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
@@ -23,6 +24,8 @@ import org.eclipse.swt.widgets.Widget;
  *   <tr><td>CTabFolder</td><td>{@code selectionBackground}, {@code selectionForeground},
  *       {@code selectionBarThickness}, {@code highlight}, {@code tabHeight}</td></tr>
  *   <tr><td>StyledText</td><td>{@code selectionBackground}, {@code selectionForeground}, {@code marginColor}</td></tr>
+ *   <tr><td>List</td><td>{@code selectionBackground}, {@code selectionForeground}: selected items,
+ *       painted over the native ones on Windows (see {@link ListPainter})</td></tr>
  *   <tr><td>Link</td><td>{@code linkForeground}</td></tr>
  * </table>
  *
@@ -49,6 +52,10 @@ final class BuiltinStylers implements StylerProvider {
             tree.setHeaderForeground(context.color(style, "headerForeground"));
             ItemPainter.install(tree);
             ItemPainter.updateLines(tree, style);
+        }));
+        registry.register("List", extend((List list, ResolvedStyle style, ThemeContext context) -> {
+            ListPainter.install(list);
+            list.redraw();
         }));
         registry.register("CTabFolder", extend((CTabFolder folder, ResolvedStyle style, ThemeContext context) -> {
             folder.setSelectionBackground(context.color(style, "selectionBackground"));
