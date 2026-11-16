@@ -285,6 +285,38 @@ final class NavigationTree {
         new TreeItem(item, SWT.NONE).setText("Loading…");
     }
 
+    /** The folder {@code item} stands for (a place, the top, a folder), or null (the separator, "Loading…"). */
+    FilePath folderOf(org.eclipse.swt.widgets.TreeItem item) {
+        return item.getData() instanceof Node node ? node.path : null;
+    }
+
+    /** The folder of {@code item} as an entry, when it is one that can be dragged: not a place or the top. */
+    FileEntry folderEntry(org.eclipse.swt.widgets.TreeItem item) {
+        return item.getData() instanceof Node node && node.place == null ? node.entry : null;
+    }
+
+    /** The listed item of {@code path}, or null (tests). */
+    org.eclipse.swt.widgets.TreeItem itemOf(FilePath path) {
+        return find(path);
+    }
+
+    /** Lists {@code folder}'s subfolders again (something was put into it): now if it is expanded, else when it is. */
+    void relist(FilePath folder) {
+        org.eclipse.swt.widgets.TreeItem item = find(folder);
+        if (item == null || !(item.getData() instanceof Node node) || !node.loaded) {
+            return;
+        }
+        node.loaded = false;
+        if (item.getExpanded()) {
+            load(item, node, null);
+        } else {
+            for (org.eclipse.swt.widgets.TreeItem child : item.getItems()) {
+                child.dispose();
+            }
+            new TreeItem(item, SWT.NONE).setText("Loading…");
+        }
+    }
+
     /** Follows a delete: the items of {@code entries} go. */
     void deleted(List<FileEntry> entries) {
         for (FileEntry entry : entries) {

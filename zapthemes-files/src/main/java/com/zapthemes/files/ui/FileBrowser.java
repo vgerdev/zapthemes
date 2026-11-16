@@ -95,6 +95,7 @@ public class FileBrowser extends Composite {
     private final FileTable fileTable;
     private final StatusBar statusBar;
     private final FileActions actions;
+    private final FileDragAndDrop dragAndDrop;
     private final CommandBar commandBar;
     private final List<Consumer<FilePath>> navigationListeners = new ArrayList<>();
     private final List<Consumer<FileEntry>> openListeners = new ArrayList<>();
@@ -120,6 +121,8 @@ public class FileBrowser extends Composite {
     private boolean showExtensions = true;
     private boolean treeFocused;
     private Runnable afterLoad;
+    /** While a listing loads: starts it again, so a refresh meanwhile doesn't go back to the old folder. */
+    private Runnable reload;
     private String activity;
     private boolean shiftRightClick;
     private boolean shiftKeyDown;
@@ -166,6 +169,7 @@ public class FileBrowser extends Composite {
             control.addListener(SWT.KeyUp, e -> shiftKeyDown = false);
         }
         navigationTree.tree.addListener(SWT.MenuDetect, this::treeMenu);
+        dragAndDrop = new FileDragAndDrop(this);
         ThemeManager.get(getDisplay()).addZoomListener(zoomListener);
         ThemeManager.get(getDisplay()).addThemeChangeListener(this, (previous, next) -> fileTable.restripe());
         addListener(SWT.Dispose, e -> {
@@ -331,7 +335,9 @@ public class FileBrowser extends Composite {
     /** Lists the current folder again, keeping the selection. */
     public void refresh() {
         checkWidget();
-        if (current != null) {
+        if (reload != null) {
+            reload.run();
+        } else if (current != null) {
             List<FileEntry> selected = fileTable.selection();
             navigate(current, selected.isEmpty() ? null : selected.getFirst().name(), Move.REFRESH);
         }
@@ -340,7 +346,9 @@ public class FileBrowser extends Composite {
     /** Lists the current folder again and selects {@code selectName}. */
     public void refresh(String selectName) {
         checkWidget();
-        if (current != null) {
+        if (reload != null) {
+            reload.run();
+        } else if (current != null) {
             navigate(current, selectName, Move.REFRESH);
         }
     }
@@ -684,6 +692,9 @@ public class FileBrowser extends Composite {
         }
         loading = true;
         error = null;
+        // The history of a switch has moved already: started again, it must not move twice.
+        Move again = switched ? Move.REFRESH : move;
+        reload = () -> go(target, selectName, again, done);
         FileSystem fs = fileSystem;
         if (fs.has(Capability.SLOW) && move != Move.REFRESH) {
             fileTable.showMessage("Loading…");
@@ -702,6 +713,7 @@ public class FileBrowser extends Composite {
             }
             loading = false;
             pending = null;
+            reload = null;
             Runnable then = afterLoad;
             afterLoad = null;
             if (failure != null) {
@@ -936,6 +948,10 @@ public class FileBrowser extends Composite {
 
     FileLoader loader() {
         return loader;
+    }
+
+    FileDragAndDrop dragAndDrop() {
+        return dragAndDrop;
     }
 
     /** What the commands act on: the navigation pane's folder while it has the focus, else the file view's selection. */

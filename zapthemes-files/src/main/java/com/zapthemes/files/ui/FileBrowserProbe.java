@@ -184,4 +184,38 @@ public final class FileBrowserProbe {
     public static void stopEditing(FileBrowser browser) {
         browser.navigationBar().stopEditing();
     }
+    /**
+     * Drops the items named {@code names} of {@code source}'s folder on {@code target}: on its row
+     * {@code onto}, or into the folder shown when null; {@code operation} is a {@code DND} constant
+     * ({@code DROP_DEFAULT} for no key held). Returns the operation the drop did, {@code DROP_NONE}
+     * if refused. The browser's side of a drag, without the platform's.
+     */
+    public static int drop(FileBrowser source, List<String> names, FileBrowser target, String onto, int operation) {
+        List<FileEntry> entries = source.fileTable().rows().stream().filter(e -> names.contains(e.name())).toList();
+        FileDragAndDrop dnd = target.dragAndDrop();
+        FilePath into = dnd.folderAt(onto == null ? null : rowItem(target, onto));
+        FileEntryTransfer.Dragged dragged = new FileEntryTransfer.Dragged(source.getFileSystem(), entries);
+        int done = dnd.operation(dragged, into, operation);
+        FileDragAndDrop.setDragFrom(source);
+        try {
+            return dnd.drop(dragged, into, done) ? done : org.eclipse.swt.dnd.DND.DROP_NONE;
+        } finally {
+            FileDragAndDrop.setDragFrom(null);
+        }
+    }
+
+    /** Highlights the row named {@code name} as where a drop goes (null: none), as while dragging over it. */
+    public static void highlightDrop(FileBrowser browser, String name) {
+        browser.dragAndDrop().highlight(name == null ? null : rowItem(browser, name));
+    }
+
+    private static org.eclipse.swt.widgets.TableItem rowItem(FileBrowser browser, String name) {
+        List<FileEntry> rows = browser.fileTable().rows();
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i).name().equals(name)) {
+                return browser.fileTable().table.getItem(i);
+            }
+        }
+        return null;
+    }
 }

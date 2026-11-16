@@ -171,6 +171,27 @@ class FileBrowserTest {
     }
 
     @Test
+    void aRefreshWhileAFolderLoadsKeepsGoingThere() {
+        browser.setFileSystem(server(Duration.ofMillis(200)));
+        idle();
+
+        // As when a finished transfer refreshes the browser while it opens another folder.
+        browser.navigate(ME.resolve("projects"));
+        browser.refresh();
+        idle();
+        assertThat(browser.getCurrentPath()).isEqualTo(ME.resolve("projects"));
+        assertThat(names()).containsExactly("zap");
+        assertThat(browser.canGoBack()).isTrue();
+
+        browser.back();
+        browser.refresh();
+        idle();
+        assertThat(browser.getCurrentPath()).isEqualTo(ME);
+        assertThat(browser.canGoBack()).isFalse();
+        assertThat(browser.canGoForward()).isTrue();
+    }
+
+    @Test
     void breadcrumbChevronsDropDownSubfolders() {
         browser.setFileSystem(server());
         idle();
