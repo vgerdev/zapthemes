@@ -30,6 +30,7 @@ import com.zapthemes.core.ThemeManager;
 import com.zapthemes.swt.widgets.Menu;
 import com.zapthemes.swt.widgets.MenuItem;
 import com.zapthemes.widgets.command.Command;
+import com.zapthemes.widgets.command.CommandKeyBindings;
 import com.zapthemes.widgets.command.CommandListener;
 import com.zapthemes.widgets.command.CommandRegistry;
 import com.zapthemes.widgets.command.CustomizationStore;
@@ -106,6 +107,8 @@ public class Ribbon extends RibbonSurface {
     public Ribbon(Composite parent, int style, CommandRegistry commands) {
         super(parent, style, THEME_TYPE);
         this.commands = Objects.requireNonNull(commands, "commands");
+        // The ribbon stands in for the menu bar, whose items' accelerators would run the commands.
+        CommandKeyBindings.install(getShell(), commands);
         Display display = getDisplay();
         for (int type : new int[] { SWT.KeyDown, SWT.KeyUp, SWT.MouseDown, SWT.FocusIn }) {
             display.addFilter(type, filter);

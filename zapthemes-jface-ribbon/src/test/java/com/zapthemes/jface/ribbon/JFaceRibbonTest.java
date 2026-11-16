@@ -116,6 +116,52 @@ class JFaceRibbonTest {
     }
 
     @Test
+    void actionsWithoutAnIdTakeTheFallbackIdOnce() {
+        shell = new com.zapthemes.swt.widgets.Shell(display);
+        CommandRegistry registry = CommandRegistry.of(shell);
+        Action rename = new Action("&Rename...@F2") {
+        };
+        Command command = ActionCommands.register(registry, rename, shell, "edit.rename");
+        assertThat(command.id()).isEqualTo("edit.rename");
+        assertThat(rename.getId()).isNull();
+        assertThat(ActionCommands.register(registry, rename, shell, "toolbar.rename")).isSameAs(command);
+        assertThat(ActionCommands.idOf(rename)).isEqualTo("edit.rename");
+        assertThat(ActionCommands.register(registry, rename, shell)).isSameAs(command);
+    }
+
+    @Test
+    void acceleratorsWrittenWithAnAtSignAreLeftOutOfTheLabelAndRunTheAction() {
+        shell = new com.zapthemes.swt.widgets.Shell(display);
+        org.eclipse.swt.widgets.Text text = new com.zapthemes.swt.widgets.Text(shell, SWT.BORDER);
+        CommandRegistry registry = CommandRegistry.of(shell);
+        List<String> runs = new ArrayList<>();
+        Action save = new Action("&Save@Ctrl+S") {
+            @Override
+            public void run() {
+                runs.add("save");
+            }
+        };
+        save.setId("file.save");
+        Command command = ActionCommands.register(registry, save, shell);
+        assertThat(command.label()).isEqualTo("&Save");
+        assertThat(command.shortcut()).isEqualTo(SWT.CTRL | 'S');
+
+        save.setText("Save &All@Ctrl+Shift+S");
+        assertThat(command.label()).isEqualTo("Save &All");
+        assertThat(command.shortcut()).isEqualTo(SWT.CTRL | SWT.SHIFT | 'S');
+
+        com.zapthemes.widgets.command.CommandKeyBindings bindings = com.zapthemes.widgets.command.CommandKeyBindings.install(shell);
+        org.eclipse.swt.widgets.Event key = new org.eclipse.swt.widgets.Event();
+        key.type = SWT.KeyDown;
+        key.widget = text;
+        key.keyCode = 's';
+        key.character = (char) 0x13;
+        key.stateMask = SWT.CTRL | SWT.SHIFT;
+        assertThat(bindings.handle(key)).isTrue();
+        assertThat(runs).containsExactly("save");
+    }
+
+    @Test
     void dropDownActionsAreSplitButtons() {
         shell = new com.zapthemes.swt.widgets.Shell(display);
         Action paste = new Action("Paste", IAction.AS_DROP_DOWN_MENU) {

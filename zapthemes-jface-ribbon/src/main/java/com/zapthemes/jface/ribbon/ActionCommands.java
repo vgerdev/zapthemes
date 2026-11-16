@@ -5,6 +5,7 @@ import java.util.WeakHashMap;
 
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuCreator;
+import org.eclipse.jface.action.LegacyActionTools;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.resource.LocalResourceManager;
@@ -23,8 +24,10 @@ import com.zapthemes.widgets.command.Images;
  * action, and the action the command:
  *
  * <ul>
- *   <li>its id is the action's id, else its definition id (one is required: customizations store it);</li>
- *   <li>text (without the accelerator part after a tab), tooltip (as the description), enabled,
+ *   <li>its id is the action's id, else its definition id, else a fallback id the caller gives
+ *       (one is required: customizations store it);</li>
+ *   <li>text (without the accelerator part, after a tab or JFace's {@code @}), the accelerator
+ *       (run by {@link com.zapthemes.widgets.command.CommandKeyBindings}), tooltip (as the description), enabled,
  *       checked, image (16 px) and the large image ({@link #setLargeImage}, 32 px) follow the action;</li>
  *   <li>{@code AS_CHECK_BOX} and {@code AS_RADIO_BUTTON} are toggles; {@code AS_DROP_DOWN_MENU}
  *       with an {@link IMenuCreator} is a split button whose arrow opens the creator's menu;</li>
@@ -50,7 +53,20 @@ public final class ActionCommands {
      * (usually the ribbon or the shell).
      */
     public static Command register(CommandRegistry registry, IAction action, Control owner) {
-        String id = idOf(action);
+        return register(registry, action, owner, null);
+    }
+
+    /**
+     * As {@link #register(CommandRegistry, IAction, Control)}, with {@code fallbackId} as the command
+     * id when the action has neither an id nor a definition id. The action is not changed. An action
+     * keeps the first fallback id it was registered with, so the same action in a menu and on a
+     * tool bar is one command.
+     */
+    public static Command register(CommandRegistry registry, IAction action, Control owner, String fallbackId) {
+        String id = idOf(action, fallbackId);
+        if (action.getId() == null && action.getActionDefinitionId() == null) {
+            FALLBACK_IDS.putIfAbsent(action, id);
+        }
         Command existing = registry.find(id).orElse(null);
         if (existing != null && SYNCED.containsKey(existing)) {
             return existing;
@@ -62,20 +78,35 @@ public final class ActionCommands {
     }
 
     private static final Map<Command, Boolean> SYNCED = new WeakHashMap<>();
+    private static final Map<IAction, String> FALLBACK_IDS = new WeakHashMap<>();
 
     /** The command id of {@code action}: its id, else its definition id. */
     public static String idOf(IAction action) {
+        return idOf(action, null);
+    }
+
+    /**
+     * The command id of {@code action}: its id, else its definition id, else the fallback id it was
+     * first registered with, else {@code fallbackId}.
+     */
+    public static String idOf(IAction action, String fallbackId) {
         String id = action.getId() != null ? action.getId() : action.getActionDefinitionId();
+        if (id == null || id.isBlank()) {
+            id = FALLBACK_IDS.getOrDefault(action, fallbackId);
+        }
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("A ribbon action needs an id (setId): " + action.getText());
         }
         return id;
     }
 
+    /**
+     * The action's text without its accelerator, as JFace's menus show it: {@code "&Save\tCtrl+S"}
+     * and {@code "&Save@Ctrl+S"} are {@code "&Save"}.
+     */
     static String text(IAction action) {
         String text = action.getText() == null ? "" : action.getText();
-        int tab = text.indexOf('\t');
-        return tab >= 0 ? text.substring(0, tab) : text;
+        return LegacyActionTools.removeAcceleratorText(text);
     }
 
     private static void sync(Command command, IAction action, Control owner) {
@@ -103,7 +134,11 @@ public final class ActionCommands {
             updating[0] = true;
             try {
                 switch (event.getProperty()) {
-                    case IAction.TEXT -> command.label(text(action));
+                    case IAction.TEXT -> {
+                        // Action.setText also sets the accelerator from "\tCtrl+S" or "@Ctrl+S".
+                        command.label(text(action));
+                        command.shortcut(action.getAccelerator());
+                    }
                     case IAction.ENABLED -> command.setEnabled(action.isEnabled());
                     case IAction.CHECKED -> command.setChecked(action.isChecked());
                     case IAction.IMAGE -> command.images(images(action, resources));
