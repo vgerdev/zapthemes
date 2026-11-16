@@ -88,6 +88,23 @@ class SelectionContrastTest {
     }
 
     @Test
+    void aPairTheRulesOwnTextCheckReportsIsKnownByIt() {
+        // Table sets the pair, so TextContrast reports it there; Tree has it only through inherit.
+        Theme theme = theme("""
+                "Table": { "selectionBackground": "$light", "selectionForeground": "$selectionForeground" },
+                "Tree": { "inherit": "Table" }""");
+        List<TextContrast.Problem> text = TextContrast.check(theme);
+        SelectionContrast.Pair table = only(SelectionContrast.check(theme), "Table", "selected rows");
+        SelectionContrast.Pair tree = only(SelectionContrast.check(theme), "Tree", "selected rows");
+        assertThat(table.ok()).isFalse();
+        assertThat(tree.ok()).isFalse();
+        assertThat(text).anyMatch(table::reportedBy);
+        assertThat(text).noneMatch(tree::reportedBy);
+        assertThat(table.asProblem().message()).isEqualTo(String.format(java.util.Locale.ROOT,
+                "Table: selectionForeground #FFFFFF on selectionBackground #CFDEFC is %.1f:1, below 4.5:1", table.ratio()));
+    }
+
+    @Test
     void withoutASelectionForegroundTheTextKeepsItsForeground() {
         Theme theme = theme("""
                 "List": { "selectionBackground": "#FFFFFF" }""");

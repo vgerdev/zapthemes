@@ -511,7 +511,10 @@ class EditorModelTest {
         assertThat(list.against()).isEqualTo("foreground");
         assertThat(list.ok()).isFalse();
         assertThat(model.contrastOf("foreground")).contains(list);
-        assertThat(model.problems()).anyMatch(p -> p.startsWith("Warning: List: selected items: selectionForeground on foreground is "));
+        // The rule's own text check reports it, so the problems say it once.
+        assertThat(model.problems()).filteredOn(p -> p.contains("List")).singleElement()
+                .satisfies(p -> assertThat(p).startsWith("Warning: List: selectionForeground #"));
+        assertThat(model.selectionProblems()).isEmpty();
 
         // Two controls painting the same pair share one row.
         model.setRuleValue(RuleKey.of("Tree"), "selectionBackground", new JsonPrimitive("$foreground"));

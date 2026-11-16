@@ -75,6 +75,21 @@ public final class SelectionContrast {
                     hex(back), ratio, minimum());
         }
 
+        /**
+         * Whether {@link TextContrast} reports this pair as {@code problem}: the same rule (the
+         * hover state's for the row under the mouse), keys and colors.
+         */
+        public boolean reportedBy(TextContrast.Problem problem) {
+            return problem.equals(asProblem());
+        }
+
+        /** As {@link TextContrast} would report it: in the type's rule, or its hover state's. */
+        public TextContrast.Problem asProblem() {
+            boolean hover = backKey.startsWith("states.hover.");
+            return new TextContrast.Problem(hover ? type + ":hover" : type, textKey,
+                    hover ? backKey.substring("states.hover.".length()) : backKey, front, back, ratio, minimum());
+        }
+
         /** As a pair of the colors page. */
         public ContrastCheck.Pair asNamePair() {
             return new ContrastCheck.Pair(text, on, ratio, minimum(), where());

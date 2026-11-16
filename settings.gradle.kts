@@ -19,6 +19,7 @@ include(
     "zapthemes-core",
     "zapthemes-swt",
     "zapthemes-widgets",
+    "zapthemes-files",
     "zapthemes-jface",
     "zapthemes-jface-notifications",
     "zapthemes-jface-ribbon",

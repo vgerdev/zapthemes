@@ -74,7 +74,8 @@ public final class ZapNotes {
     final Model model = Model.sample();
     final Display display;
     final ThemeManager themes;
-    final PreferenceStore preferences = new PreferenceStore();
+    final PreferenceStore preferences;
+    private final Path preferencesFile;
     private final ThemeRegistry registry = new ThemeRegistry();
     private final List<NotesWindow> windows = new ArrayList<>();
     private final List<IAction> themeActions = new ArrayList<>();
@@ -84,6 +85,8 @@ public final class ZapNotes {
 
     private ZapNotes(Display display, boolean smoke) {
         this.display = display;
+        preferencesFile = preferencesFile(smoke);
+        preferences = preferenceStore(preferencesFile, smoke);
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
         if (!smoke) {
             loadUserThemes();
@@ -166,6 +169,38 @@ public final class ZapNotes {
         themes.setTheme(registry.resolve(id));
         String chosen = preferences.getString(THEME);
         themeActions.forEach(a -> a.setChecked(chosen.equals(a.getId())));
+    }
+
+    /**
+     * The preferences, kept in {@code ~/.zapthemes/zapnotes.properties} (or
+     * {@code -Dzapnotes.preferences}); the smoke test keeps them in a temporary file. A store needs a
+     * file: the preference dialog saves it on OK.
+     */
+    private static Path preferencesFile(boolean smoke) {
+        Path file;
+        try {
+            String chosen = System.getProperty("zapnotes.preferences");
+            file = smoke ? Files.createTempDirectory("zapnotes").resolve("zapnotes.properties")
+                    : chosen != null ? Path.of(chosen) : Path.of(System.getProperty("user.home"), ".zapthemes", "zapnotes.properties");
+            if (file.getParent() != null) {
+                Files.createDirectories(file.getParent());
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return file;
+    }
+
+    private static PreferenceStore preferenceStore(Path file, boolean smoke) {
+        PreferenceStore store = new PreferenceStore(file.toString());
+        if (!smoke && Files.isRegularFile(file)) {
+            try {
+                store.load();
+            } catch (java.io.IOException e) {
+                System.err.println("ZapNotes: could not read the preferences in " + file + ": " + e.getMessage());
+            }
+        }
+        return store;
     }
 
     /** Where the user's themes are: {@code ~/.zapthemes/themes}, where the theme editor saves them, or {@code -Dzapnotes.themes}. */
@@ -569,6 +604,7 @@ public final class ZapNotes {
             }
         }
         preferences.setValue(THEME, AUTO);
+        checked += preferencesSaveOnOk(first.getShell(), problems);
         if (problems.isEmpty()) {
             System.out.println("SMOKE OK: " + checked + " controls in 2 windows, the field assists and " + dialogs.size()
                     + " dialogs tagged and themed, in " + BundledThemes.IDS.size() + " themes");
@@ -576,6 +612,70 @@ public final class ZapNotes {
         }
         problems.forEach(p -> System.out.println("SMOKE FAIL: " + p));
         return 1;
+    }
+
+    /**
+     * OK in the preferences saves them: the store has a file. A store without one made OK report
+     * "File name not specified" for every page, in a modal error dialog; one that opens now is
+     * closed and reported, so the smoke test cannot hang on it.
+     */
+    private int preferencesSaveOnOk(Shell parent, List<String> problems) {
+        PreferenceDialog dialog = preferences(parent);
+        dialog.setBlockOnOpen(false);
+        dialog.open();
+        settle();
+        Set<Shell> before = Set.of(display.getShells());
+        boolean[] errorShown = { false };
+        Runnable closeErrors = new Runnable() {
+            @Override
+            public void run() {
+                for (Shell shell : display.getShells()) {
+                    if (!before.contains(shell) && shell.isVisible()) {
+                        errorShown[0] = true;
+                        shell.close();
+                    }
+                }
+                if (dialog.getShell() != null && !dialog.getShell().isDisposed()) {
+                    display.timerExec(500, this);
+                }
+            }
+        };
+        display.timerExec(500, closeErrors);
+        Button ok = findButton(dialog.getShell(), IDialogConstants.OK_LABEL, "Apply and Close");
+        if (ok == null) {
+            problems.add("preferences: no OK button");
+            dialog.close();
+            return 0;
+        }
+        ok.notifyListeners(SWT.Selection, new org.eclipse.swt.widgets.Event());
+        settle();
+        display.timerExec(-1, closeErrors);
+        if (errorShown[0]) {
+            problems.add("preferences: OK reported an error instead of saving");
+        }
+        if (dialog.getShell() != null && !dialog.getShell().isDisposed()) {
+            problems.add("preferences: OK did not close the dialog");
+            dialog.close();
+        }
+        if (!Files.isRegularFile(preferencesFile)) {
+            problems.add("preferences: OK did not save " + preferencesFile);
+        }
+        return 1;
+    }
+
+    private static Button findButton(Control control, String... texts) {
+        if (control instanceof Button button && List.of(texts).contains(button.getText().replace("&", ""))) {
+            return button;
+        }
+        if (control instanceof Composite composite) {
+            for (Control child : composite.getChildren()) {
+                Button found = findButton(child, texts);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private Shell newestShell(Set<Shell> except) {

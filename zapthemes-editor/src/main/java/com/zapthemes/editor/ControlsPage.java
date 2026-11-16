@@ -1,6 +1,7 @@
 package com.zapthemes.editor;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,6 +18,7 @@ import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.CellEditor;
 import org.eclipse.jface.viewers.ColorCellEditor;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.ColumnViewerToolTipSupport;
 import org.eclipse.jface.viewers.ComboBoxCellEditor;
 import org.eclipse.jface.viewers.DialogCellEditor;
 import org.eclipse.jface.viewers.EditingSupport;
@@ -54,6 +56,7 @@ import com.zapthemes.editor.EditorModel.NameInfo;
 import com.zapthemes.editor.EditorModel.Page;
 import com.zapthemes.editor.EditorModel.RuleKey;
 import com.zapthemes.editor.palette.SelectionContrast;
+import com.zapthemes.editor.palette.TextContrast;
 import com.zapthemes.swt.custom.SashForm;
 import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Composite;
@@ -65,10 +68,12 @@ import com.zapthemes.swt.widgets.Text;
  * bits), the style classes on it, and its owner-draw states. Each property of the selected rule
  * shows the common name it uses (the default map's, unless the theme says otherwise) or an
  * override, a color, font or value of its own for this rule only. Clicking a control in the preview
- * selects its type. When the text on selected or highlighted items of a list, table or tree is hard
- * to read ({@link SelectionContrast}), the two properties of the pair are marked with a warning
- * icon in that type's rule (the hover state's rule for the row under the mouse) and the page's
- * message says what is wrong; the colors page lists the same pairs.
+ * selects its type. Text that is hard to read on its background ({@link TextContrast}) is marked
+ * with a warning icon on its rule, the rule's type and library in the tree, and on the two
+ * properties of the selected rule; the page's message says what is wrong. So is the text on the
+ * selected and highlighted items of lists, tables and trees, as they paint it ({@link SelectionContrast}),
+ * where TextContrast does not report it: on the type's rule, or its hover state's for the row under
+ * the mouse.
  */
 final class ControlsPage extends EditorPage {
 
@@ -105,8 +110,8 @@ final class ControlsPage extends EditorPage {
     private final ChipImages images = new ChipImages();
     private Object selected;
     private final Listener previewClicks = this::previewClicked;
-    /** The selection pairs below their minimum, as of the last refresh. */
-    private List<SelectionContrast.Pair> selectionProblems = List.of();
+    /** The theme's contrast problems by the rule they are made in ({@code Table}, {@code Tree:selected}). */
+    private Map<String, List<TextContrast.Problem>> contrast = Map.of();
 
     ControlsPage(EditorModel model, PropertyCatalog catalog) {
         super("controls", "Controls", "Every control type, with the common name each property uses. Override a property "
@@ -145,7 +150,18 @@ final class ControlsPage extends EditorPage {
             public Font getFont(Object element) {
                 return element instanceof RuleNode rule && !model.hasRule(rule.key()) ? italic() : null;
             }
+
+            @Override
+            public Image getImage(Object element) {
+                return problemsOf(element).isEmpty() ? null : warning();
+            }
+
+            @Override
+            public String getToolTipText(Object element) {
+                return tip(problemsOf(element));
+            }
         });
+        ColumnViewerToolTipSupport.enableFor(types);
         types.addFilter(new ViewerFilter() {
             @Override
             public boolean select(Viewer viewer, Object parentElement, Object element) {
@@ -187,20 +203,18 @@ final class ControlsPage extends EditorPage {
 
             @Override
             public Image getImage(Object element) {
-                return problemsOf((Row) element).isEmpty() ? null : JFaceResources.getImage(Dialog.DLG_IMG_MESSAGE_WARNING);
+                return problemsOf(element).isEmpty() ? null : warning();
             }
 
             @Override
             public String getToolTipText(Object element) {
                 Row row = (Row) element;
+                String problems = tip(problemsOf(row));
                 String description = row.spec().description();
-                List<SelectionContrast.Pair> problems = problemsOf(row);
-                if (problems.isEmpty()) {
+                if (problems == null) {
                     return description;
                 }
-                StringBuilder tip = new StringBuilder("Hard to read:");
-                problems.forEach(p -> tip.append("\n").append(p.message()));
-                return description == null || description.isEmpty() ? tip.toString() : tip + "\n\n" + description;
+                return description == null || description.isEmpty() ? problems : problems + "\n\n" + description;
             }
         }, null);
         column("Kind", 44, new ColumnLabelProvider() {
@@ -239,7 +253,7 @@ final class ControlsPage extends EditorPage {
                 return italic();
             }
         }, new OverrideEditing());
-        org.eclipse.jface.viewers.ColumnViewerToolTipSupport.enableFor(properties);
+        ColumnViewerToolTipSupport.enableFor(properties);
         properties.addSelectionChangedListener(e -> updateButtons());
 
         Composite buttons = new Composite(right, SWT.NONE);
@@ -259,7 +273,7 @@ final class ControlsPage extends EditorPage {
 
     @Override
     protected void refresh() {
-        selectionProblems = model.selectionContrast().stream().filter(p -> !p.ok()).toList();
+        updateContrast();
         if (types.getInput() == null) {
             types.setInput(model);
             select(selected != null ? selected : catalog.type("Button").map(TypeNode::new).orElse(null));
@@ -364,47 +378,80 @@ final class ControlsPage extends EditorPage {
         updateMessage();
     }
 
-    // ------------------------------------------------------------------ selection contrast
+    // ------------------------------------------------------------------ contrast
 
-    /** The selection pairs below their minimum that the selected rule's {@code row} is part of. */
-    List<SelectionContrast.Pair> problemsOf(Row row) {
-        return ruleProblems().stream().filter(p -> keyOf(p, true).equals(row.spec().key()) || keyOf(p, false).equals(row.spec().key()))
-                .toList();
+    private void updateContrast() {
+        Map<String, List<TextContrast.Problem>> byRule = new LinkedHashMap<>();
+        try {
+            for (TextContrast.Problem problem : TextContrast.check(model.theme())) {
+                byRule.computeIfAbsent(problem.rule(), r -> new ArrayList<>()).add(problem);
+            }
+        } catch (RuntimeException e) {
+            // A theme that cannot be read has errors; the Save page lists them.
+        }
+        for (SelectionContrast.Pair pair : model.selectionProblems()) {
+            TextContrast.Problem problem = pair.asProblem();
+            byRule.computeIfAbsent(problem.rule(), r -> new ArrayList<>()).add(problem);
+        }
+        contrast = byRule;
     }
 
     /**
-     * The failing pairs of the selected rule: a type's plain rule has its pairs; its hover state's
-     * rule has the row under the mouse.
+     * The contrast problems a node or row shows: a rule's own; a type's and its variants', classes'
+     * and states'; a library's types'; a property row's, among the selected rule's.
      */
-    private List<SelectionContrast.Pair> ruleProblems() {
-        Optional<RuleKey> key = rule();
-        if (key.isEmpty() || key.get().variant() != null || key.get().styleClass() != null) {
-            return List.of();
-        }
-        RuleKey rule = key.get();
-        return selectionProblems.stream().filter(p -> p.type().equals(rule.type()))
-                .filter(p -> rule.state() == null || rule.state().equals("hover") && p.backKey().startsWith("states.hover.")).toList();
+    List<TextContrast.Problem> problemsOf(Object element) {
+        return switch (element) {
+            case RuleNode rule -> contrast.getOrDefault(rule.key().toString(), List.of());
+            case TypeNode type -> problemsOfType(type.spec().type());
+            case LibraryNode library -> typesOf(library.group()).stream().flatMap(t -> problemsOfType(t.type()).stream()).toList();
+            case Row row -> selectedProblems().stream()
+                    .filter(p -> p.foreground().equals(row.spec().key()) || p.background().equals(row.spec().key())).toList();
+            case null, default -> List.of();
+        };
     }
 
-    /** The key a property row of the selected rule has for the pair's text or highlight. */
-    private String keyOf(SelectionContrast.Pair pair, boolean text) {
-        String key = text ? pair.textKey() : pair.backKey();
-        boolean inState = rule().map(RuleKey::state).isPresent();
-        if (key.startsWith("states.hover.")) {
-            return inState ? key.substring("states.hover.".length()) : "";
-        }
-        return inState ? "" : key;
+    private List<TextContrast.Problem> problemsOfType(String type) {
+        List<TextContrast.Problem> problems = new ArrayList<>();
+        contrast.forEach((rule, list) -> {
+            boolean under = rule.length() > type.length() && rule.startsWith(type) && "[.:".indexOf(rule.charAt(type.length())) >= 0;
+            if (rule.equals(type) || under) {
+                problems.addAll(list);
+            }
+        });
+        return problems;
     }
 
-    /** The page's message: what is hard to read on the selected rule's selected or highlighted items. */
+    /** The selected rule's own problems. */
+    private List<TextContrast.Problem> selectedProblems() {
+        return rule().map(key -> contrast.getOrDefault(key.toString(), List.of())).orElse(List.of());
+    }
+
+    /** The page's message: what is hard to read in the selected rule, or in the rules under its type. */
     private void updateMessage() {
-        List<SelectionContrast.Pair> problems = ruleProblems();
-        if (problems.isEmpty()) {
-            setMessage(null);
+        List<TextContrast.Problem> own = selectedProblems();
+        if (!own.isEmpty()) {
+            setMessage("Hard to read: " + own.getFirst().message() + (own.size() > 1 ? " (and " + (own.size() - 1) + " more)" : ""),
+                    IMessageProvider.WARNING);
+        } else if (selected instanceof TypeNode type && !problemsOf(type).isEmpty()) {
+            setMessage("Some of " + type.spec().type() + "'s variants, classes or states have text that is hard to read; the tree marks them.",
+                    IMessageProvider.WARNING);
         } else {
-            setMessage("Hard to read: " + problems.getFirst().message()
-                    + (problems.size() > 1 ? " (and " + (problems.size() - 1) + " more)" : ""), IMessageProvider.WARNING);
+            setMessage(null);
         }
+    }
+
+    private static String tip(List<TextContrast.Problem> problems) {
+        if (problems.isEmpty()) {
+            return null;
+        }
+        StringBuilder tip = new StringBuilder("Hard to read:");
+        problems.forEach(p -> tip.append("\n").append(p.message()));
+        return tip.toString();
+    }
+
+    private static Image warning() {
+        return JFaceResources.getImage(Dialog.DLG_IMG_MESSAGE_WARNING);
     }
 
     private List<PropertySpec> specs(TypeSpec spec) {
@@ -559,10 +606,11 @@ final class ControlsPage extends EditorPage {
         return new RGB(value >> 16 & 0xFF, value >> 8 & 0xFF, value & 0xFF);
     }
 
-    /** The names a property can take: those with its part. */
+    /** The names a property can take: those with its part, in alphabetical order (ignoring case). */
     private List<String> compatibleNames(Row row) {
         boolean font = row.spec().kind() == PropertyKind.FONT;
-        return model.names().stream().filter(n -> font ? n.hasFont() : n.hasColor()).map(NameInfo::name).toList();
+        return model.names().stream().filter(n -> font ? n.hasFont() : n.hasColor()).map(NameInfo::name)
+                .sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder())).toList();
     }
 
     private Font italic;
@@ -667,7 +715,10 @@ final class ControlsPage extends EditorPage {
 
     // ------------------------------------------------------------------ editing in place
 
-    /** The common name of a color or font property, chosen in place; "(default)" is the default map's. */
+    /**
+     * The common name of a color or font property, chosen in place; "(default)" is the default map's,
+     * first, and the other names follow in alphabetical order.
+     */
     private final class NameEditing extends EditingSupport {
         private List<String> choices = List.of();
 
@@ -696,7 +747,7 @@ final class ControlsPage extends EditorPage {
                     labels.add(name);
                 }
             }
-            return new ComboBoxCellEditor(properties.getTable(), labels.toArray(String[]::new), SWT.READ_ONLY);
+            return new PickCellEditor(properties.getTable(), labels.toArray(String[]::new));
         }
 
         @Override
@@ -733,8 +784,8 @@ final class ControlsPage extends EditorPage {
             return switch (spec.kind()) {
                 case COLOR -> new ColorCellEditor(properties.getTable());
                 case FONT -> new FontCellEditor(properties.getTable());
-                case BOOLEAN -> new ComboBoxCellEditor(properties.getTable(), new String[] { "true", "false" }, SWT.READ_ONLY);
-                case CHOICE -> new ComboBoxCellEditor(properties.getTable(), spec.choices().toArray(String[]::new), SWT.READ_ONLY);
+                case BOOLEAN -> new PickCellEditor(properties.getTable(), new String[] { "true", "false" });
+                case CHOICE -> new PickCellEditor(properties.getTable(), spec.choices().toArray(String[]::new));
                 default -> new TextCellEditor(properties.getTable());
             };
         }
@@ -777,6 +828,40 @@ final class ControlsPage extends EditorPage {
                 setErrorMessage("A whole number, please.");
                 return null;
             }
+        }
+    }
+
+    /**
+     * A read-only combo that applies an item picked from its list at once, as if editing ended, so
+     * the row, the undo history and the preview show it without focus leaving the combo. A selection
+     * the arrow keys make waits for Enter or focus loss, like a plain {@link ComboBoxCellEditor}.
+     */
+    static final class PickCellEditor extends ComboBoxCellEditor {
+        private boolean keyed;
+
+        PickCellEditor(org.eclipse.swt.widgets.Composite parent, String[] items) {
+            super(parent, items, SWT.READ_ONLY);
+        }
+
+        @Override
+        protected Control createControl(org.eclipse.swt.widgets.Composite parent) {
+            Control combo = super.createControl(parent);
+            // The combo sends KeyDown to its listeners before an arrow key moves the selection.
+            combo.addListener(SWT.KeyDown, e -> {
+                keyed = true;
+                combo.getDisplay().asyncExec(() -> keyed = false);
+            });
+            combo.addListener(SWT.Selection, e -> {
+                if (!keyed) {
+                    // After the combo's own handling, so it is not deactivated inside its list's event.
+                    combo.getDisplay().asyncExec(() -> {
+                        if (!combo.isDisposed() && isActivated()) {
+                            focusLost();
+                        }
+                    });
+                }
+            });
+            return combo;
         }
     }
 
