@@ -846,13 +846,16 @@ final class ControlsPage extends EditorPage {
         @Override
         protected Control createControl(org.eclipse.swt.widgets.Composite parent) {
             Control combo = super.createControl(parent);
-            // The combo sends KeyDown to its listeners before an arrow key moves the selection.
-            combo.addListener(SWT.KeyDown, e -> {
-                keyed = true;
-                combo.getDisplay().asyncExec(() -> keyed = false);
-            });
+            // The combo sends KeyDown to its listeners before an arrow key moves the selection, so the
+            // Selection that follows a KeyDown is the key's. The mark is taken by that Selection, or
+            // by the key's release when the key selected nothing; it never waits for the event loop,
+            // which may or may not run in between.
+            combo.addListener(SWT.KeyDown, e -> keyed = true);
+            combo.addListener(SWT.KeyUp, e -> keyed = false);
             combo.addListener(SWT.Selection, e -> {
-                if (!keyed) {
+                boolean byKey = keyed;
+                keyed = false;
+                if (!byKey) {
                     // After the combo's own handling, so it is not deactivated inside its list's event.
                     combo.getDisplay().asyncExec(() -> {
                         if (!combo.isDisposed() && isActivated()) {
