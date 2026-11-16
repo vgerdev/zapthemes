@@ -43,7 +43,9 @@ import com.zapthemes.swt.widgets.Text;
  * Page 3: a color and a font for each name. A color is a swatch (written as a reference, so it
  * follows the palette), one of a swatch's tints and shades, or a custom color; a font is a list of
  * families (the first one installed wins), a size and a style, optionally starting from another
- * name's font. Every contrast pair the name is part of shows its WCAG ratio and level.
+ * name's font. Every contrast pair the name is part of shows its WCAG ratio and level: the pairs
+ * the base names declare, and the text on selected and highlighted items of lists (also a
+ * combo's drop-down list), tables and trees as those controls paint it.
  */
 final class ColorsPage extends EditorPage {
 
@@ -72,7 +74,7 @@ final class ColorsPage extends EditorPage {
 
     ColorsPage(EditorModel model) {
         super("values", "Colors and fonts", "A color and a font for each name. Text should reach 4.5:1 on the colors it "
-                + "is drawn on (3:1 for disabled text).", model, Page.VALUES);
+                + "is drawn on (3:1 for disabled text), selected items included.", model, Page.VALUES);
     }
 
     @Override
@@ -193,10 +195,19 @@ final class ColorsPage extends EditorPage {
         contrast.setHeaderVisible(true);
         contrast.setLinesVisible(true);
         contrast.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-        for (String title : new String[] { "Text", "On", "Ratio", "Level" }) {
+        for (String title : new String[] { "Text", "On", "Ratio", "Level", "Painted" }) {
             TableColumn column = new TableColumn(contrast, SWT.NONE);
             column.setText(title);
-            column.setWidth(title.equals("Ratio") ? 50 : title.equals("Level") ? 62 : 86);
+            column.setWidth(switch (title) {
+                case "Ratio" -> 50;
+                case "Level" -> 62;
+                case "Painted" -> 160;
+                default -> 86;
+            });
+            if (title.equals("Painted")) {
+                column.setToolTipText("Where controls paint the pair: selected and highlighted items of lists, tables and trees. "
+                        + "Empty for the pairs the names declare");
+            }
         }
     }
 
@@ -357,13 +368,13 @@ final class ColorsPage extends EditorPage {
         for (ContrastCheck.Pair pair : model.contrastOf(info.name())) {
             TableItem item = new TableItem(contrast, SWT.NONE);
             item.setText(new String[] { pair.name(), pair.against(), String.format("%.1f:1", pair.ratio()),
-                    (pair.ok() ? "" : "⚠ ") + level(pair) });
+                    (pair.ok() ? "" : "⚠ ") + level(pair), pair.where() == null ? "" : pair.where() });
             model.color(pair.name()).ifPresent(rgb -> item.setImage(0, images.of(rgb)));
             model.color(pair.against()).ifPresent(rgb -> item.setImage(1, images.of(rgb)));
         }
         if (contrast.getItemCount() == 0) {
             TableItem item = new TableItem(contrast, SWT.NONE);
-            item.setText(new String[] { "No pairs", "", "", "" });
+            item.setText(new String[] { "No pairs", "", "", "", "" });
         }
     }
 

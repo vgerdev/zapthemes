@@ -138,7 +138,7 @@ the zoom without resizing windows.
 | 1 ✅ | **Abstraction and first control** | `zapthemes-files`; `FilePath`, `FileEntry`, `FileSystem`, local, rooted and memory filesystems; `FileLoader`; `FileBrowser` with the navigation row and breadcrumb (chevron drop-downs), navigation tree, Details view, status bar; tests; `FileBrowserDemo` with `--smoke` and screenshots, local and rooted and a slow memory "remote" pane side by side. |
 | 2 ✅ | **Commands and operations** | Command bar, View/Sort menus, context menus; rename in place, new folder, delete (to trash where the platform has it); cut/copy/paste through the clipboard and a `FileTransferHandler`. |
 | 3 ✅ | **Address editing** | The editable path field, clear button, completion of folder names, and the drop-down of recent and typed locations. A history entry is a *location* (a filesystem, a path and a label), not a string, so it can name places of any filesystem: plain paths (`C:\opt`), named places ("OneDrive", "Recycle Bin" style entries an application adds), remote folders. |
-| 4 | **Drag and drop** | Drag out (`FileTransfer` for local files, an in-process `FileEntryTransfer` for virtual ones), drop in from the OS and between browsers, handed to the `FileTransferHandler`; drop highlighting on folders. |
+| 4 ✅ | **Drag and drop** | Drag out (`FileTransfer` for local files, an in-process `FileEntryTransfer` for virtual ones), drop in from the OS and between browsers, handed to the `FileTransferHandler`; drop highlighting on folders. |
 | 5 | **More views and panes** | Icon sizes, List, Tiles, Content; Group by; details pane; preview pane (images, text). |
 | 6 | **zapscp fit** | Permissions, Owner, Group columns; show hidden and mask filter; bookmarks into the tree; the adapter written and tested against zapscp's providers once it is merged. |
 | 7 | **Platform icons and watching** | Platform icons and type names (if wanted); `watch` for local folders. |
@@ -304,3 +304,43 @@ Known limits, for later steps:
 - `FileSystem.parse` runs on the UI thread for each suggestion; it should not block (a zapscp
   adapter parses locally rather than asking the server).
 - Drives are not suggested from an empty name on Windows ("C" doesn't suggest "C:\").
+
+## Step 4 in detail
+
+- **Dragging out** (`FileDragAndDrop`): the selected items of the file view, or the folder dragged
+  in the navigation pane (not a place, the top or a drive). They go as a `FileEntryTransfer`
+  (public, so an application's own controls, a transfer queue say, can take them), an in-process
+  transfer whose data is a `Dragged` (a filesystem and its entries) that never leaves the
+  process; and, when every item is on the local disk, as a `FileTransfer` too, so Explorer, the
+  desktop or an editor take the files. When another application took them, the folder is listed
+  again (it may have moved them).
+- **Dropping in**, on the file view or the navigation pane: onto a folder row or tree item, into
+  that folder, highlighted as the theme paints a row under the mouse; onto a file or empty space,
+  into the folder shown. The tree expands a folder held over, and both scroll at their edges.
+  Nothing can go onto "This PC" on Windows, a folder can't go into itself or below it, and a move
+  into the folder the items are in does nothing.
+- **Move or copy**, as in Explorer: within one volume a drop moves (the same filesystem, or on the
+  disk the same drive, also between a rooted view and the whole disk); between drives or
+  filesystems it copies; Ctrl copies, Shift moves. A move needs `MOVE` or `DELETE` of the source,
+  else it copies. Files of another application are copied, or moved with Shift, the browser doing
+  the move and reporting a copy, so the other application never deletes them itself.
+- **Transfers:** a drop becomes a `TransferRequest` for the browser's `FileTransferHandler`, as a
+  paste does ("Can't move: …" or "Can't copy: …" when it fails). Between two views of the disk the
+  request is made on the local filesystem itself, so a move is a rename on disk. Afterwards both
+  browsers list their folders again, the items of moved folders leave the source's navigation
+  pane, and the target folder's subfolders there are listed again.
+- **Tests:** `DragAndDropTest` (where a drop goes, from rows and tree items; move, copy, Ctrl and
+  Shift, within one filesystem and between two; folders into themselves; the handler gets the
+  request; a moved folder leaves the tree and the other browser; a copy to another filesystem
+  keeps the original; the highlight; what can be dragged; two views of the disk move on disk).
+  The demo's smoke test copies onto a folder with Ctrl, is refused a folder onto itself, moves a
+  file into a folder of the rooted tab and back into the local tab, and uploads a file by dropping
+  it on the server's tab; the `filebrowser-drop` screenshot shows the highlight.
+
+Known limits, for later steps:
+
+- The tests and the smoke test drive the browser's side of a drop; the native drag itself (the
+  platform's drag loop, with the mouse) isn't automated, since it would take over the mouse.
+- Virtual entries can't be dropped on other applications (they would need a download first,
+  through the application's transfer handler).
+- No drops on the breadcrumb's segments yet, nor spring-loaded folders in the file view.

@@ -13,11 +13,19 @@ import com.zapthemes.core.catalog.NameSpec;
  * The contrast badges of the colors page: every pair a base name declares
  * ({@link NameSpec#contrastWith()}, such as {@code foreground} on {@code background}), with its
  * WCAG ratio and level. Text needs 4.5:1; {@code disabled} text, which WCAG exempts, 3:1.
+ * {@link SelectionContrast} adds the pairs that controls paint for selected and highlighted items.
  */
 public final class ContrastCheck {
 
-    /** One declared pair: {@code name}'s color in front of {@code against}'s. */
-    public record Pair(String name, String against, double ratio, double minimum) {
+    /**
+     * One pair: {@code name}'s color in front of {@code against}'s. {@code where} is null for a pair
+     * the base names declare, else the controls that paint it ("Table: selected rows").
+     */
+    public record Pair(String name, String against, double ratio, double minimum, String where) {
+
+        public Pair(String name, String against, double ratio, double minimum) {
+            this(name, against, ratio, minimum, null);
+        }
 
         public Contrast.Level level() {
             return Contrast.Level.of(ratio);

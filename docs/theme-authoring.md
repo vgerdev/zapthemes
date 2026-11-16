@@ -403,6 +403,7 @@ For one widget, properties merge in this order, later steps winning:
 | Table, Tree | `headerBackground`, `headerForeground`. Owner-drawn: `selectionBackground`, `selectionForeground`, `alternateRowBackground` (Table), `gridLineColor`, `states.hover.background`, and `focusCellBackground` / `focusCellForeground` for the focus cell of JFace's `FocusCellOwnerDrawHighlighter` |
 | CTabFolder | `selectionBackground`, `selectionForeground`, `selectionBarThickness`, `highlight`, `tabHeight` |
 | StyledText | `selectionBackground`, `selectionForeground`, `marginColor` |
+| List (also a CCombo's drop-down list) | `selectionBackground`, `selectionForeground`: painted over the selected items on Windows, where the native list box paints its own highlight (white text on white in the explorer dark mode) |
 | Link | `linkForeground` |
 | FlatButton, FlatGroup, FlatProgressBar | `borderColor`, `accentColor`, `arc`, `boxBackground`, `titleForeground`, `titleFont`, `barColor`, `errorColor`, `pausedColor`, and every state |
 | TitleBar | `background`, `foreground` (default names `titleBar`, `titleBarForeground`), `inactiveBackground`, `inactiveForeground` (`titleBarInactive`, `titleBarInactiveForeground`), `titleFont`, `hoverBackground`, `pressedBackground`, `closeHoverBackground`, `closeHoverForeground`, `closePressedBackground`, `searchBackground`, `searchForeground`, `searchBorderColor`, `avatarBackground`, `avatarForeground`, `focusColor`, and `useAccent` (whether an app's `TitleBar.setAccent` colors the bar in this theme: true for light themes, false to keep a dark or high-contrast bar). Unset hover, pressed and search colors are derived from the background and foreground. The profile pop-up is a `popup` shell; its name label has the class `strong` and its email `muted`. See [the title bar plan](titlebar-plan.md). |
@@ -417,7 +418,7 @@ per-state setters.
 | Block | Key | Effect |
 |---|---|---|
 | `*` | `darkThemePreferred` | Dark title bars and native dialogs (`Shell.setDarkThemePreferred`) |
-| `win32` | `darkScrollbars`, `darkCombos`, `darkTextIcons`, `progressBarColors` | SWT's Windows dark-mode switches (booleans) |
+| `win32` | `darkScrollbars`, `darkCombos`, `darkTextIcons`, `progressBarColors` | SWT's Windows dark-mode switches (booleans). Under `darkCombos` a native Combo's drop-down list is dark with a dark scroll bar, but its selected item is the Windows highlight, white on blue, not the theme's selection colors: Windows' dark list box paints it white on white, so the list box is kept out of the dark mode. |
 | `win32` | `menuBarBackground`, `menuBarForeground` | Menu bar colors. SWT draws a colored menu bar's text itself, always white (gray in an inactive window), whatever `menuBarForeground` says. So they are used only on a background that white text reaches 4.5:1 on; on a lighter one the menu bar is left to Windows, light with dark text. zap-dark sets them; zap-light leaves them out. |
 | `win32` | `menuBarBorderColor`, `tableHeaderLineColor`, `disabledLabelForeground` | Colors Windows draws itself |
 | `gtk` | `menuBarBackground`, `menuBarForeground`, `menuBackground`, `menuForeground`, `menuSelectionBackground`, `menuSelectionForeground` | Menu bar and menu colors, as GTK CSS. GTK 3 keeps a light menu bar under `darkThemePreferred`, so a dark theme needs these. |

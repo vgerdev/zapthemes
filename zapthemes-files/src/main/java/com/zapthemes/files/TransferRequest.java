@@ -5,7 +5,7 @@ import java.util.Objects;
 
 /**
  * Copy or move {@code sources} of {@code source} into the folder {@code targetFolder} of
- * {@code target}: what a paste or (later) a drop asks a {@link FileTransferHandler} to do. The two
+ * {@code target}: what a paste or a drop asks a {@link FileTransferHandler} to do. The two
  * filesystems may differ (local to remote is an upload).
  */
 public record TransferRequest(FileSystem source, List<FileEntry> sources, FileSystem target, FilePath targetFolder, boolean move) {

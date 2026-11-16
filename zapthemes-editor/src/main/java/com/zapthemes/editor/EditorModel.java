@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +38,8 @@ import com.zapthemes.editor.palette.Harmony;
 import com.zapthemes.editor.palette.NameFill;
 import com.zapthemes.editor.palette.Palette;
 import com.zapthemes.editor.palette.PaletteGenerator;
+import com.zapthemes.editor.palette.SelectionContrast;
+import com.zapthemes.editor.palette.TextContrast;
 import com.zapthemes.editor.palette.Swatch;
 
 /**
@@ -207,9 +210,67 @@ public final class EditorModel {
         return userFonts.containsKey(name) ? Source.SET : Source.AUTO;
     }
 
-    /** Every contrast pair the base names declare, with the current colors. */
+    /**
+     * Every contrast pair the base names declare, with the current colors, then the pairs controls
+     * paint for selected and highlighted items ({@link SelectionContrast}) that are not one of
+     * those: a per-control override, or a fallback such as {@code foreground} on the hover row.
+     * Controls that paint the same two names share one pair, whose {@code where} lists them.
+     */
     public List<ContrastCheck.Pair> contrast() {
-        return ContrastCheck.check(colors);
+        List<ContrastCheck.Pair> pairs = new ArrayList<>(ContrastCheck.check(colors));
+        pairs.addAll(painted(pairs, selectionContrast()));
+        return pairs;
+    }
+
+    /**
+     * {@code selection} as pairs of the colors page, leaving out the ones {@code declared} has;
+     * pairs of the same two names are merged, with their {@code where}s joined.
+     */
+    private static List<ContrastCheck.Pair> painted(List<ContrastCheck.Pair> declaredPairs, List<SelectionContrast.Pair> selection) {
+        Set<List<String>> declared = new HashSet<>();
+        declaredPairs.forEach(p -> declared.add(List.of(p.name(), p.against())));
+        Map<List<String>, ContrastCheck.Pair> painted = new LinkedHashMap<>();
+        for (SelectionContrast.Pair pair : selection) {
+            ContrastCheck.Pair named = pair.asNamePair();
+            List<String> key = List.of(named.name(), named.against());
+            if (!declared.contains(key)) {
+                painted.merge(key, named, (a, b) -> new ContrastCheck.Pair(a.name(), a.against(), Math.min(a.ratio(), b.ratio()),
+                        a.minimum(), a.where() + "; " + b.where()));
+            }
+        }
+        return new ArrayList<>(painted.values());
+    }
+
+    /**
+     * The selection pairs below their minimum that {@link TextContrast} does not already report:
+     * a fallback, a color that comes through {@code inherit}, or one the rule sets only in part.
+     */
+    public List<SelectionContrast.Pair> selectionProblems() {
+        List<SelectionContrast.Pair> failures = selectionContrast().stream().filter(p -> !p.ok()).toList();
+        if (failures.isEmpty()) {
+            return failures;
+        }
+        List<TextContrast.Problem> text = textContrast();
+        return failures.stream().filter(p -> text.stream().noneMatch(p::reportedBy)).toList();
+    }
+
+    /** {@link TextContrast}'s problems, none for a theme that cannot be read (problems() has its errors). */
+    public List<TextContrast.Problem> textContrast() {
+        try {
+            return TextContrast.check(theme);
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    /** The text on selected and highlighted items of lists, tables and trees, as they are painted. */
+    public List<SelectionContrast.Pair> selectionContrast() {
+        try {
+            return SelectionContrast.check(theme);
+        } catch (RuntimeException e) {
+            // A theme that cannot be resolved has errors; problems() lists them.
+            return List.of();
+        }
     }
 
     /** The pairs {@code name} is part of, as the text or the background. */
@@ -642,25 +703,34 @@ public final class EditorModel {
 
     /**
      * What is wrong with the theme: errors, which keep it from loading (unknown names, cycles, bad
-     * values), then warnings: contrast pairs of the names below their minimum, then text colors of
-     * the rules on their backgrounds ({@link com.zapthemes.editor.palette.TextContrast}). Errors
-     * start with "Error: ".
+     * values), then warnings: contrast pairs of the names below their minimum, text colors of the
+     * rules on their backgrounds ({@link TextContrast}), then the text on selected and highlighted
+     * items that TextContrast does not report ({@link #selectionProblems()}). Errors start with
+     * "Error: ".
      */
     public List<String> problems() {
         List<String> problems = new ArrayList<>();
         for (String error : com.zapthemes.core.style.ThemeValidator.validate(theme)) {
             problems.add("Error: " + error);
         }
-        for (ContrastCheck.Pair pair : contrast()) {
-            if (!pair.ok()) {
-                problems.add(String.format(java.util.Locale.ROOT, "Warning: %s on %s is %.1f:1, below %.1f:1", pair.name(),
-                        pair.against(), pair.ratio(), pair.minimum()));
+        List<ContrastCheck.Pair> names = ContrastCheck.check(colors);
+        List<ContrastCheck.Pair> pairs = new ArrayList<>(names);
+        pairs.addAll(painted(names, selectionProblems()));
+        for (ContrastCheck.Pair pair : pairs) {
+            if (!pair.ok() && pair.where() == null) {
+                problems.add(warning(pair));
             }
         }
-        for (com.zapthemes.editor.palette.TextContrast.Problem problem : com.zapthemes.editor.palette.TextContrast.check(theme)) {
+        for (TextContrast.Problem problem : TextContrast.check(theme)) {
             problems.add("Warning: " + problem.message());
         }
+        pairs.stream().filter(p -> !p.ok() && p.where() != null).map(EditorModel::warning).forEach(problems::add);
         return problems;
+    }
+
+    private static String warning(ContrastCheck.Pair pair) {
+        return String.format(java.util.Locale.ROOT, "Warning: %s%s on %s is %.1f:1, below %.1f:1",
+                pair.where() == null ? "" : pair.where() + ": ", pair.name(), pair.against(), pair.ratio(), pair.minimum());
     }
 
     /** Writes {@link #theme()} to {@code path}: a full theme that needs no other, with no {@code extends}. */

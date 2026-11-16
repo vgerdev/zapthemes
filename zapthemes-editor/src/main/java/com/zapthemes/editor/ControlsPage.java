@@ -55,6 +55,7 @@ import com.zapthemes.core.catalog.TypeSpec;
 import com.zapthemes.editor.EditorModel.NameInfo;
 import com.zapthemes.editor.EditorModel.Page;
 import com.zapthemes.editor.EditorModel.RuleKey;
+import com.zapthemes.editor.palette.SelectionContrast;
 import com.zapthemes.editor.palette.TextContrast;
 import com.zapthemes.swt.custom.SashForm;
 import com.zapthemes.swt.widgets.Button;
@@ -69,7 +70,10 @@ import com.zapthemes.swt.widgets.Text;
  * override, a color, font or value of its own for this rule only. Clicking a control in the preview
  * selects its type. Text that is hard to read on its background ({@link TextContrast}) is marked
  * with a warning icon on its rule, the rule's type and library in the tree, and on the two
- * properties of the selected rule; the page's message says what is wrong.
+ * properties of the selected rule; the page's message says what is wrong. So is the text on the
+ * selected and highlighted items of lists, tables and trees, as they paint it ({@link SelectionContrast}),
+ * where TextContrast does not report it: on the type's rule, or its hover state's for the row under
+ * the mouse.
  */
 final class ControlsPage extends EditorPage {
 
@@ -384,6 +388,10 @@ final class ControlsPage extends EditorPage {
             }
         } catch (RuntimeException e) {
             // A theme that cannot be read has errors; the Save page lists them.
+        }
+        for (SelectionContrast.Pair pair : model.selectionProblems()) {
+            TextContrast.Problem problem = pair.asProblem();
+            byRule.computeIfAbsent(problem.rule(), r -> new ArrayList<>()).add(problem);
         }
         contrast = byRule;
     }
