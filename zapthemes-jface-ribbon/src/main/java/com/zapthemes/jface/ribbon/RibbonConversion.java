@@ -212,6 +212,7 @@ public class RibbonConversion {
             RibbonButton button = target.add(command);
             if (item instanceof ActionContributionItem actionItem) {
                 IAction action = actionItem.getAction();
+                ActionCommands.joinRadioGroup(target, action);
                 boolean hasImage = action.getImageDescriptor() != null || ActionCommands.hasLargeImage(action);
                 if (ActionCommands.hasLargeImage(action) || large && hasImage) {
                     button.large();

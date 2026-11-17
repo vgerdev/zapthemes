@@ -1,5 +1,6 @@
 package com.zapthemes.jface.ribbon;
 
+import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -33,6 +34,10 @@ import com.zapthemes.widgets.command.Images;
  *       with an {@link IMenuCreator} is a split button whose arrow opens the creator's menu;</li>
  *   <li>running the command runs the action ({@code runWithEvent}); a toggle's new checked state
  *       is set on the action first, as JFace's own items do.</li>
+ *   <li>{@code AS_RADIO_BUTTON} actions behave as in a JFace menu: clicking a checked one keeps it
+ *       checked (and runs it), and checking one unchecks the others of its {@link #setRadioGroup
+ *       radio group}, which {@link RibbonContributions} makes of the radio actions it adds to one
+ *       ribbon group (a menu's adjacent radio items are a group the same way).</li>
  * </ul>
  */
 public final class ActionCommands {
@@ -79,6 +84,39 @@ public final class ActionCommands {
 
     private static final Map<Command, Boolean> SYNCED = new WeakHashMap<>();
     private static final Map<IAction, String> FALLBACK_IDS = new WeakHashMap<>();
+    private static final Map<IAction, Object> RADIO_GROUPS = new WeakHashMap<>();
+
+    /**
+     * Puts radio actions in one group: checking one through the ribbon unchecks the others, as
+     * adjacent radio items of a JFace menu do. Actions added to one ribbon group through
+     * {@link RibbonContributions} are a group already; call this for radio actions placed otherwise.
+     */
+    public static void setRadioGroup(IAction... actions) {
+        joinRadioGroup(new Object(), actions);
+    }
+
+    /** Puts the radio actions among {@code actions} in the group named by {@code key}. */
+    static void joinRadioGroup(Object key, IAction... actions) {
+        for (IAction action : actions) {
+            if (action.getStyle() == IAction.AS_RADIO_BUTTON) {
+                RADIO_GROUPS.put(action, key);
+            }
+        }
+    }
+
+    /** Unchecks the other actions of {@code action}'s radio group. */
+    private static void uncheckOthers(IAction action) {
+        Object key = RADIO_GROUPS.get(action);
+        if (key == null) {
+            return;
+        }
+        for (Map.Entry<IAction, Object> entry : List.copyOf(RADIO_GROUPS.entrySet())) {
+            IAction other = entry.getKey();
+            if (other != action && entry.getValue() == key && other.isChecked()) {
+                other.setChecked(false);
+            }
+        }
+    }
 
     /** The id {@code action} has or was registered with, or {@code null} when it has none yet. */
     static String knownId(IAction action) {
@@ -164,6 +202,15 @@ public final class ActionCommands {
         };
         action.addPropertyChangeListener(listener);
         owner.addListener(org.eclipse.swt.SWT.Dispose, e -> action.removePropertyChangeListener(listener));
+        if (action.getStyle() == IAction.AS_RADIO_BUTTON) {
+            IPropertyChangeListener radio = event -> {
+                if (IAction.CHECKED.equals(event.getProperty()) && action.isChecked()) {
+                    uncheckOthers(action);
+                }
+            };
+            action.addPropertyChangeListener(radio);
+            owner.addListener(org.eclipse.swt.SWT.Dispose, e -> action.removePropertyChangeListener(radio));
+        }
         command.addListener((c, property) -> {
             if (updating[0] || !Command.CHECKED.equals(property)) {
                 return;
@@ -176,6 +223,10 @@ public final class ActionCommands {
             }
         });
         command.onRun(e -> {
+            if (action.getStyle() == IAction.AS_RADIO_BUTTON && !command.isChecked()) {
+                // The toggle unchecked a checked radio: a radio item stays checked when clicked.
+                command.setChecked(true);
+            }
             Event event = e.event() != null ? e.event() : new Event();
             if (event.widget == null) {
                 event.widget = e.widget();

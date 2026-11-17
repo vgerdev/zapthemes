@@ -155,6 +155,50 @@ class JFaceRibbonTest {
     }
 
     @Test
+    void radioActionsInOneGroupAreExclusiveAndStayCheckedWhenClickedAgain() {
+        shell = new com.zapthemes.swt.widgets.Shell(display);
+        Ribbon ribbon = new Ribbon(shell, SWT.NONE);
+        RibbonGroup group = ribbon.addTab("view", "View").addGroup("view.theme", "Theme");
+        List<String> runs = new ArrayList<>();
+        Action light = radio("theme.light", "Light", runs);
+        Action dark = radio("theme.dark", "Dark", runs);
+        light.setChecked(true);
+        RibbonContributions.add(group, light);
+        RibbonContributions.add(group, dark);
+        Command lightCommand = ribbon.commands().get("theme.light");
+        Command darkCommand = ribbon.commands().get("theme.dark");
+
+        darkCommand.run(new CommandEvent(darkCommand, ribbon));
+        assertThat(dark.isChecked()).isTrue();
+        assertThat(light.isChecked()).as("the other radio in the group goes off").isFalse();
+        assertThat(lightCommand.isChecked()).isFalse();
+
+        darkCommand.run(new CommandEvent(darkCommand, ribbon));
+        assertThat(dark.isChecked()).as("clicking the checked radio keeps it checked").isTrue();
+        assertThat(runs).containsExactly("Dark", "Dark");
+
+        Action elsewhere = radio("other.radio", "Elsewhere", runs);
+        elsewhere.setChecked(true);
+        RibbonContributions.add(ribbon.addTab("other", "Other").addGroup("other.group", "Other"), elsewhere);
+        lightCommand.run(new CommandEvent(lightCommand, ribbon));
+        assertThat(dark.isChecked()).isFalse();
+        assertThat(elsewhere.isChecked()).as("radios in another group are not touched").isTrue();
+    }
+
+    private static Action radio(String id, String text, List<String> runs) {
+        Action action = new Action(text, IAction.AS_RADIO_BUTTON) {
+            @Override
+            public void run() {
+                if (isChecked()) {
+                    runs.add(text);
+                }
+            }
+        };
+        action.setId(id);
+        return action;
+    }
+
+    @Test
     void dropDownActionsAreSplitButtons() {
         shell = new com.zapthemes.swt.widgets.Shell(display);
         Action paste = new Action("Paste", IAction.AS_DROP_DOWN_MENU) {
