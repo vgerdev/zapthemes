@@ -4,7 +4,7 @@ plugins {
     id("zapthemes.raw-widget-audit")
 }
 
-description = "JFace support for the ZapThemes ribbon: actions as commands, contribution items, a ribbon ApplicationWindow."
+description = "JFace support for the ZapThemes ribbon: actions as commands, contribution items, ZapAppWindow (an ApplicationWindow with a title bar, a ribbon and the status line)."
 
 dependencies {
     api(project(":zapthemes-jface"))

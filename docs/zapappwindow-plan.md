@@ -215,7 +215,7 @@ Without a menu bar, SWT stops running accelerators (they belong to menu items), 
 | # | Step | What |
 |---|---|---|
 | 1 ✅ | **Shortcuts** | `CommandKeyBindings`, the `@` label fix and the fallback id in `ActionCommands`, with their tests. Every `Ribbon` installs the bindings of its shell, so plain SWT ribbon apps get them too; a shortcut that the shell's own menu bar also has is left to the menu bar |
-| 2 | **ZapAppWindow** | The class over `TitleBarWindow`, the managers intercepted, the ribbon in the layout, the status line and `run(…)`; `RibbonApplicationWindow` removed and its test moved |
+| 2 ✅ | **ZapAppWindow** | The class over `TitleBarWindow`, the managers intercepted, the ribbon in the layout, the status line and `run(…)`; `RibbonApplicationWindow` removed and its test moved. As built: the ribbon is created in `createToolBarControl`, so JFace's own layout code places it; `Ribbon.setBackstageHeader(Control...)` (new) keeps the title bar above the open backstage; `getRibbonPreferences()` is one `CustomizationStore` for both bars unless `getTitleBarPreferences()` names a different file (the title bar's own file is a Properties file, so the two can't share one path otherwise). `run(…)` turns the shortcuts off; the title bar stays enabled, for its caption buttons. The status line's hover messages move to step 3, which needs a hover listener on the ribbon |
 | 3 | **Conversion** | `RibbonConversion`: backstage, tabs, groups, Home, KeyTips, ids, `refreshRibbon()`; the demo and its screenshots |
 | 4 | **Docs** | The docs above |
 

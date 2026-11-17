@@ -344,7 +344,8 @@ New module `zapthemes-jface-ribbon` (depends on `zapthemes-jface` and `zapthemes
   and any other item is wrapped as a command when it has an id.
 - `RibbonApplicationWindow extends ApplicationWindow`: `addRibbon()` in the constructor instead
   of `addMenuBar()` / `addCoolBar()`; `createRibbon(Ribbon)` to fill it; the ribbon goes where the
-  tool bar would, the backstage covers the window, the status line stays.
+  tool bar would, the backstage covers the window, the status line stays. Since replaced by
+  `ZapAppWindow` ([zapappwindow-plan.md](zapappwindow-plan.md)).
 - Sizes and images through `ImageDescriptor`s are created per zoom and disposed with the ribbon
   (a `LocalResourceManager`).
 

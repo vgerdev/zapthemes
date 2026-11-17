@@ -14,7 +14,6 @@ import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.PaletteData;
-import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -24,7 +23,6 @@ import org.junit.jupiter.api.Test;
 
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.ThemeRegistry;
-import com.zapthemes.swt.widgets.Label;
 import com.zapthemes.themes.BundledThemes;
 import com.zapthemes.widgets.command.Command;
 import com.zapthemes.widgets.command.CommandEvent;
@@ -33,13 +31,11 @@ import com.zapthemes.widgets.command.CommandRegistry;
 import com.zapthemes.widgets.ribbon.Ribbon;
 import com.zapthemes.widgets.ribbon.RibbonGroup;
 import com.zapthemes.widgets.ribbon.RibbonItem;
-import com.zapthemes.widgets.ribbon.RibbonTab;
 
 class JFaceRibbonTest {
 
     private static Display display;
     private Shell shell;
-    private Window window;
 
     @BeforeAll
     static void theme() {
@@ -51,9 +47,6 @@ class JFaceRibbonTest {
 
     @AfterEach
     void tearDown() {
-        if (window != null) {
-            window.close();
-        }
         if (shell != null && !shell.isDisposed()) {
             shell.dispose();
         }
@@ -211,64 +204,5 @@ class JFaceRibbonTest {
         };
         action.setId(id);
         return action;
-    }
-
-    /** A ribbon window as an app writes one. */
-    static final class Window extends RibbonApplicationWindow {
-        final Action save = action("file.save", "&Save");
-        Control content;
-
-        Window() {
-            super(null);
-            addRibbon();
-            addStatusLine();
-        }
-
-        @Override
-        protected void createRibbon(Ribbon ribbon) {
-            RibbonTab home = ribbon.addTab("home", "Home");
-            RibbonContributions.add(home.addGroup("home.file", "File"), save).large();
-            ribbon.setFileTab("File", backstage -> backstage.addCommand("file.save"));
-        }
-
-        @Override
-        protected Control createContents(Composite parent) {
-            Label label = new Label(parent, SWT.NONE);
-            label.setText("Content");
-            content = label;
-            return label;
-        }
-    }
-
-    @Test
-    void ribbonWindowPutsTheRibbonInTheToolBarsPlace() {
-        window = new Window();
-        window.setBlockOnOpen(false);
-        window.open();
-        while (display.readAndDispatch()) {
-            // Settle.
-        }
-        Shell windowShell = window.getShell();
-        Ribbon ribbon = window.getRibbon();
-        assertThat(ribbon).isNotNull();
-        assertThat(windowShell.getMenuBar()).isNull();
-        assertThat(ribbon.getBounds().y).isZero();
-        assertThat(ribbon.getBounds().width).isEqualTo(windowShell.getClientArea().width);
-        Control content = window.content;
-        assertThat(content.getBounds().y).isGreaterThanOrEqualTo(ribbon.getBounds().height);
-        assertThat(ribbon.commands().get("file.save")).isNotNull();
-
-        ribbon.openBackstage();
-        while (display.readAndDispatch()) {
-            // Settle.
-        }
-        assertThat(ribbon.getBackstage().getBounds()).isEqualTo(windowShell.getClientArea());
-        assertThat(content.isVisible()).isFalse();
-        ribbon.getBackstage().close();
-        while (display.readAndDispatch()) {
-            // Settle.
-        }
-        assertThat(content.isVisible()).isTrue();
-        assertThat(content.getBounds().y).isGreaterThanOrEqualTo(ribbon.getBounds().height);
     }
 }

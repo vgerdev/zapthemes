@@ -75,6 +75,7 @@ public class Ribbon extends RibbonSurface {
     private final Set<Command> emphasized = new HashSet<>();
     private String fileTabLabel;
     private Consumer<Backstage> backstageSetup;
+    private List<Control> backstageHeader = List.of();
     private Backstage backstage;
     private boolean collapsed;
     private RGB accent;
@@ -297,9 +298,23 @@ public class Ribbon extends RibbonSurface {
         checkWidget();
         if (backstage == null && backstageSetup != null) {
             backstage = new Backstage(this, fileTabLabel);
+            backstage.setHeader(backstageHeader);
             backstageSetup.accept(backstage);
         }
         return backstage;
+    }
+
+    /**
+     * Siblings of the ribbon, in order from the top, that stay visible above the backstage while it
+     * is open, such as a window's title bar with its caption buttons. The backstage gets the rest of
+     * the client area. None by default: the backstage covers the whole client area.
+     */
+    public void setBackstageHeader(Control... controls) {
+        checkWidget();
+        backstageHeader = List.of(controls);
+        if (backstage != null) {
+            backstage.setHeader(backstageHeader);
+        }
     }
 
     /** Opens the backstage, as clicking the File tab does. */

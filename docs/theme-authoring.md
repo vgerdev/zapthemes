@@ -22,7 +22,7 @@ runnable program:
 | `zapthemes-themes` | The bundled themes: `zap-light`, `zap-dark`, `zap-high-contrast` |
 | `zapthemes-widgets` | Opt-in canvas replacements: `FlatButton`, `FlatGroup`, `FlatProgressBar`; the Office-style `Ribbon` and the shared command model (`com.zapthemes.widgets.command`) |
 | `zapthemes-files` | An Explorer-style `FileBrowser` over local, rooted and virtual filesystems (see [the file browser plan](file-browser-plan.md)); theme types `FileBrowser`, `FileNavigationBar`, `FileCommandBar`, `FileStatusBar` |
-| `zapthemes-jface-ribbon` | JFace support for the ribbon: actions as commands, contribution items, `RibbonApplicationWindow` |
+| `zapthemes-jface-ribbon` | JFace support for the ribbon: actions as commands, contribution items, `ZapAppWindow` (an `ApplicationWindow` with a title bar, a ribbon and the status line) |
 | `zapthemes-jface` | JFace 3.40 fork: a drop-in `org.eclipse.jface` whose widgets are proxies |
 | `zapthemes-jface-notifications` | JFace notifications 0.8.100 fork: a drop-in `org.eclipse.jface.notifications` (`NotificationPopup`) on the forked JFace |
 | `zapthemes-jface-text` | JFace Text 3.31.100 fork: a drop-in `org.eclipse.jface.text` (`SourceViewer`, rulers, hovers, content assist), with `zapthemes-text`, `org.eclipse.text` 3.14.800 built from source |
@@ -513,8 +513,9 @@ accent keys unless the theme sets `useAppAccent: false`, as zap-high-contrast do
 
 Commands are shared with other bars (the title bar's quick access toolbar) through
 `com.zapthemes.widgets.command`: one `CommandRegistry` per shell, and one `CustomizationStore`
-file with a section per bar. JFace apps add `zapthemes-jface-ribbon` for actions as commands and a
-`RibbonApplicationWindow`.
+file with a section per bar. JFace apps add `zapthemes-jface-ribbon` for actions as commands and
+`ZapAppWindow`, an `ApplicationWindow` whose ribbon replaces the menu bar and tool bar (see
+[zapappwindow-plan.md](zapappwindow-plan.md)).
 
 ## 8. The theme editor
 
