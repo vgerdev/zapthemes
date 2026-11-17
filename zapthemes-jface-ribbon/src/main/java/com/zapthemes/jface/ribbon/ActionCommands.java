@@ -80,6 +80,17 @@ public final class ActionCommands {
     private static final Map<Command, Boolean> SYNCED = new WeakHashMap<>();
     private static final Map<IAction, String> FALLBACK_IDS = new WeakHashMap<>();
 
+    /** The id {@code action} has or was registered with, or {@code null} when it has none yet. */
+    static String knownId(IAction action) {
+        String id = action.getId() != null ? action.getId() : action.getActionDefinitionId();
+        return id != null && !id.isBlank() ? id : FALLBACK_IDS.get(action);
+    }
+
+    /** Whether {@link #setLargeImage} gave {@code action} a large image. */
+    static boolean hasLargeImage(IAction action) {
+        return LARGE.get(action) != null;
+    }
+
     /** The command id of {@code action}: its id, else its definition id. */
     public static String idOf(IAction action) {
         return idOf(action, null);

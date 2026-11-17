@@ -579,6 +579,7 @@ abstract class RibbonSurface extends Canvas {
             hoverArrow = arrow;
             redraw();
             toolTip().schedule(hot);
+            ribbon().hoverChanged(hot == null ? null : commandOf(hot));
         }
     }
 
@@ -588,6 +589,7 @@ abstract class RibbonSurface extends Canvas {
 
     private void mouseExit() {
         hover = null;
+        ribbon().hoverChanged(null);
         redraw();
         toolTip().hide();
     }

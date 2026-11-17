@@ -24,6 +24,7 @@ scripts/fetch-upstream.sh       # pristine JFace/Nebula/SWT-example sources into
 ./gradlew :zapthemes-demo:runNebula       # Nebula released + incubation widgets demo
 ./gradlew :zapthemes-demo:runRibbon       # Office-style ribbon: galleries, KeyTips, backstage, customization
 ./gradlew :zapthemes-demo:runTitleBar     # Office-style title bars: Word-like and Excel-like windows
+./gradlew :zapthemes-demo:runZapAppWindow # a plain ApplicationWindow on ZapAppWindow: its menus and tool bar become the ribbon
 ./gradlew :zapthemes-demo:runPreview      # one pane previewing another theme beside the window's theme
 ./gradlew :zapthemes-editor:run           # the theme editor: palette, names, colors and fonts, controls, save
 ./gradlew :zapthemes-demo:runFileBrowser  # Explorer-style file browser: local disks, a rooted folder, a slow virtual server

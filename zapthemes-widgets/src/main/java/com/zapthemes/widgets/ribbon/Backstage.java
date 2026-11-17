@@ -139,6 +139,18 @@ public final class Backstage extends Composite {
         return this;
     }
 
+    /**
+     * The entries in order: a page's id, a command entry's command id, and {@code "|"} for a
+     * separator (for tests, and for code that checks what a backstage holds).
+     */
+    public List<String> entryIds() {
+        return entries.stream().map(e -> switch (e) {
+            case Page page -> page.id();
+            case CommandEntry command -> command.command().id();
+            case Separator separator -> "|";
+        }).toList();
+    }
+
     /** The page ids, in order. */
     public List<String> pageIds() {
         return entries.stream().filter(e -> e instanceof Page).map(e -> ((Page) e).id()).toList();

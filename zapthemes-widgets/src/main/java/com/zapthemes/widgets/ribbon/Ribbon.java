@@ -89,6 +89,8 @@ public class Ribbon extends RibbonSurface {
     private final Set<Command> listened = new HashSet<>();
     private final CommandListener commandListener = this::commandChanged;
     private final List<Consumer<RibbonTab>> selectionListeners = new CopyOnWriteArrayList<>();
+    private final List<Consumer<Command>> hoverListeners = new CopyOnWriteArrayList<>();
+    private Command hovered;
     private final List<Consumer<Boolean>> collapseListeners = new CopyOnWriteArrayList<>();
     private Consumer<Command> quickAccessHook;
     private boolean keyTipsEnabled = !"cocoa".equals(SWT.getPlatform());
@@ -167,7 +169,16 @@ public class Ribbon extends RibbonSurface {
         tabsChanged();
     }
 
-    void removeTab(RibbonTab tab) {
+    /** Adds a tab at {@code index} among the regular tabs (clamped to their number). */
+    public RibbonTab addTab(int index, String id, String label) {
+        checkWidget();
+        RibbonTab tab = new RibbonTab(this, id, label, null);
+        insertTab(Math.max(0, index), tab);
+        return tab;
+    }
+
+    /** Removes a regular tab; when it was selected, the first tab showing is selected. */
+    public void removeTab(RibbonTab tab) {
         tabs.remove(tab);
         tabsChanged();
     }
@@ -211,6 +222,25 @@ public class Ribbon extends RibbonSurface {
 
     public void addSelectionListener(Consumer<RibbonTab> listener) {
         selectionListeners.add(listener);
+    }
+
+    /**
+     * Told the command under the mouse when it changes, in the ribbon or its popups, and
+     * {@code null} when the mouse leaves it: for a status line showing the command's description.
+     */
+    public void addHoverListener(Consumer<Command> listener) {
+        hoverListeners.add(listener);
+    }
+
+    public void removeHoverListener(Consumer<Command> listener) {
+        hoverListeners.remove(listener);
+    }
+
+    void hoverChanged(Command command) {
+        if (command != hovered) {
+            hovered = command;
+            hoverListeners.forEach(l -> l.accept(command));
+        }
     }
 
     public void removeSelectionListener(Consumer<RibbonTab> listener) {
@@ -263,6 +293,14 @@ public class Ribbon extends RibbonSurface {
         checkWidget();
         fileTabLabel = label;
         backstageSetup = setup;
+        if (backstage != null) {
+            // A new File tab: the backstage is made again from the new setup on next use.
+            if (backstage.isOpen()) {
+                backstage.close();
+            }
+            backstage.dispose();
+            backstage = null;
+        }
         invalidate();
     }
 
@@ -1172,6 +1210,9 @@ public class Ribbon extends RibbonSurface {
                 } else if (event.keyCode == SWT.F10 && (event.stateMask & SWT.MODIFIER_MASK) == 0 && keyTipsEnabled && (isVisible() || isBackstageOpen())) {
                     toggleKeyTips();
                     event.doit = false;
+                } else if (shell == getShell() && altChord(event)) {
+                    event.doit = false;
+                    event.type = SWT.None;
                 }
             }
             case SWT.KeyUp -> {
@@ -1190,6 +1231,28 @@ public class Ribbon extends RibbonSurface {
             default -> {
             }
         }
+    }
+
+    /**
+     * Alt and a letter pressed together, as menu-bar users type a menu's mnemonic (Alt+E): when a
+     * top-level KeyTip starts with the letter, shows the KeyTips and types it. Otherwise the key
+     * goes on (to a mnemonic in the contents, say).
+     */
+    private boolean altChord(Event event) {
+        if ((event.stateMask & SWT.MODIFIER_MASK) != SWT.ALT || !keyTipsEnabled || !isVisible() || isBackstageOpen()
+                || keyTips.isShowing() || event.keyCode <= 0 || event.keyCode > 0x7F
+                || !Character.isLetterOrDigit(event.keyCode)) {
+            return false;
+        }
+        String letter = String.valueOf(Character.toUpperCase((char) event.keyCode));
+        boolean known = KeyTips.assign(this, KeyTips.topHots(this)).stream().anyMatch(e -> e.tip().startsWith(letter));
+        if (!known) {
+            return false;
+        }
+        altAlone = false;
+        showKeyTips();
+        typeKeyTips(letter);
+        return true;
     }
 
     private boolean isInBackstage(Control control) {

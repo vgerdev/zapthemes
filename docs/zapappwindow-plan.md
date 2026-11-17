@@ -7,6 +7,8 @@ its base class from `ApplicationWindow` to `ZapAppWindow` and runs. Its `addMenu
 `addToolBar()` and `createMenuManager()` code keeps working and is turned into ribbon tabs and
 groups. Writing `createRibbon()` by hand then makes the ribbon a good one.
 
+![ZapAppWindowDemo: a plain ApplicationWindow's menus and tool bar as the ribbon](images/zapappwindow-zap-light.png)
+
 Part 2 is a Claude Code skill, shipped as a plugin in this repository, that does that rewrite for
 an existing JFace application.
 
@@ -216,7 +218,7 @@ Without a menu bar, SWT stops running accelerators (they belong to menu items), 
 |---|---|---|
 | 1 ✅ | **Shortcuts** | `CommandKeyBindings`, the `@` label fix and the fallback id in `ActionCommands`, with their tests. Every `Ribbon` installs the bindings of its shell, so plain SWT ribbon apps get them too; a shortcut that the shell's own menu bar also has is left to the menu bar |
 | 2 ✅ | **ZapAppWindow** | The class over `TitleBarWindow`, the managers intercepted, the ribbon in the layout, the status line and `run(…)`; `RibbonApplicationWindow` removed and its test moved. As built: the ribbon is created in `createToolBarControl`, so JFace's own layout code places it; `Ribbon.setBackstageHeader(Control...)` (new) keeps the title bar above the open backstage; `getRibbonPreferences()` is one `CustomizationStore` for both bars unless `getTitleBarPreferences()` names a different file (the title bar's own file is a Properties file, so the two can't share one path otherwise). `run(…)` turns the shortcuts off; the title bar stays enabled, for its caption buttons. The status line's hover messages move to step 3, which needs a hover listener on the ribbon |
-| 3 | **Conversion** | `RibbonConversion`: backstage, tabs, groups, Home, KeyTips, ids, `refreshRibbon()`; the demo and its screenshots |
+| 3 ✅ | **Conversion** | `RibbonConversion`: backstage, tabs, groups, Home, KeyTips, ids, `refreshRibbon()`; the demo and its screenshots. As built: every action in the menus and tool bar is registered before any tab is made, so accelerators work for actions only the (lazy) backstage shows; group ids are a namespace of their own (a group `auto.edit.find` beside the command `auto.edit.find`); a dynamic `ContributionItem` becomes a drop-down it fills on each open; File submenus are backstage pages of buttons built from the menu as it would show, again on each open; new ribbon API: `addTab(index, …)`, `removeTab`, `RibbonTab.addGroup(index, …)`, `removeGroup`, `addHoverListener`, `Backstage.entryIds()`, Alt+letter chords (`RibbonTest`), and `setFileTab` replaces a backstage already made. Demo: `ZapAppWindowDemo` (`runZapAppWindow`, `smokeTestZapAppWindow`), screenshots composed per child (`DemoSupport.screenshotByChildren`) since printing a title-bar shell offsets its children |
 | 4 | **Docs** | The docs above |
 
 Steps 1–3 can be one PR if they turn out small; step 1 is useful on its own to plain SWT ribbon

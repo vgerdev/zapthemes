@@ -100,7 +100,15 @@ public final class RibbonTab {
         changed();
     }
 
-    void removeGroup(RibbonGroup group) {
+    /** Adds a group at {@code index} among the groups (clamped to their number). */
+    public RibbonGroup addGroup(int index, String groupId, String groupLabel) {
+        RibbonGroup group = new RibbonGroup(this, groupId, groupLabel);
+        insertGroup(Math.max(0, index), group);
+        return group;
+    }
+
+    /** Removes {@code group} from the tab. */
+    public void removeGroup(RibbonGroup group) {
         groups.remove(group);
         changed();
     }
