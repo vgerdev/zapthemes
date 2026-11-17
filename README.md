@@ -8,6 +8,8 @@ through the proxies. See [docs/PLAN.md](docs/PLAN.md), [docs/phase0-findings.md]
 [docs/phase5-notes.md](docs/phase5-notes.md) and [docs/phase6-notes.md](docs/phase6-notes.md).
 
 **Using it in an app, and writing themes:** [docs/theme-authoring.md](docs/theme-authoring.md).
+**A JFace app with the Office ribbon:** extend `ZapAppWindow` instead of `ApplicationWindow`
+([how](docs/theme-authoring.md#a-jface-application-window-with-the-ribbon-zapappwindow)).
 Releasing: [docs/releasing.md](docs/releasing.md).
 
 ![Native controls next to their canvas replacements, dark theme on Windows](docs/images/zap-dark-native-vs-canvas.png)

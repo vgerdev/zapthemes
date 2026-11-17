@@ -513,9 +513,82 @@ accent keys unless the theme sets `useAppAccent: false`, as zap-high-contrast do
 
 Commands are shared with other bars (the title bar's quick access toolbar) through
 `com.zapthemes.widgets.command`: one `CommandRegistry` per shell, and one `CustomizationStore`
-file with a section per bar. JFace apps add `zapthemes-jface-ribbon` for actions as commands and
-`ZapAppWindow`, an `ApplicationWindow` whose ribbon replaces the menu bar and tool bar (see
-[zapappwindow-plan.md](zapappwindow-plan.md)).
+file with a section per bar. A command's shortcut runs it from the keyboard
+(`CommandKeyBindings`, which every ribbon installs for its shell), since a window with a ribbon
+has no menu bar to run accelerators.
+
+### A JFace application window with the ribbon: ZapAppWindow
+
+`ZapAppWindow` (in `zapthemes-jface-ribbon`) is JFace's `ApplicationWindow` with the Office look: the
+title bar with its quick access toolbar, a ribbon in place of the menu bar and the tool bar, the
+contents, and the status line. An application written for `ApplicationWindow` moves over by
+changing its base class; its menus and tool bar become the ribbon by themselves.
+
+![A plain ApplicationWindow's menus and tool bar as the ribbon](images/zapappwindow-zap-light.png)
+
+**1. Add the dependency** next to `zapthemes-jface`:
+
+```kotlin
+implementation("com.zapthemes:zapthemes-jface-ribbon:1.0.0")
+```
+
+**2. Change the base class.** Nothing else has to change:
+
+```java
+import com.zapthemes.jface.ribbon.ZapAppWindow;
+
+class NotesWindow extends ZapAppWindow {          // was: extends ApplicationWindow
+    NotesWindow() {
+        super(null);
+        addMenuBar();                             // still create the managers as before
+        addToolBar(SWT.FLAT | SWT.RIGHT);
+        addStatusLine();
+    }
+    @Override protected MenuManager createMenuManager() { ... }       // unchanged
+    @Override protected ToolBarManager createToolBarManager(int style) { ... }
+}
+```
+
+What the window does with them:
+
+| Written for `ApplicationWindow` | In a `ZapAppWindow` |
+|---|---|
+| The tool bar or cool bar | A **Home** tab, first: a group per section (named by a named `Separator`, else *Commands 1*, *2*…), large buttons for actions with an image. No `ToolBar` is created; `getToolBarManager()` still returns the manager |
+| The **File** menu (id `file`, else the text *File*) | The **backstage**: its actions are entries, its submenus pages of buttons (built again each time it opens, so a recent-files menu stays current), *About* from the Help menu and *Exit*/*Close* last. No File menu: a *Close* entry |
+| Every other top-level menu | A **tab**: groups cut at separators (named by a named `Separator`, else after their first item), submenus and dynamic items as drop-down buttons, mnemonics as KeyTips (Alt+E or Alt, E opens the Edit tab) |
+| Accelerators (`"&Save@Ctrl+S"`, `setAccelerator`) | Still work, for every action in the menus and tool bar, shown on the ribbon or not |
+| `addStatusLine()`, `setStatus`, `run(…)` with a progress monitor | Unchanged. Hovering a ribbon button also shows its action's tooltip in the status line (`setRibbonStatusMessages(false)` turns it off) |
+| `getMenuBarManager()` | The manager, so code that adds to it still runs; after structural changes call `refreshRibbon()` (enabled, checked and label changes reach the ribbon by themselves) |
+
+Everything the conversion makes has an id starting with `auto.`. An action without an id gets one
+from its menu path and label, `auto.edit.rename`.
+
+**3. Make it yours**, as far as you want to go:
+
+- **Give your actions ids** (`setId("edit.rename")`). Users' ribbon customizations are stored by id,
+  and a generated id changes when the menu does.
+- **Adjust the ribbon** in `createRibbon(Ribbon)`, which runs after the conversion: add groups and
+  large images (`ActionCommands.setLargeImage(action, descriptor32)`), move commands, or remove
+  what you replace (`ribbon.removeTab(ribbon.tab("auto.view"))`). `command(IAction)` registers an
+  action; `RibbonContributions.add(group, action)` adds a button for it.
+- **Build it all by hand**: return `false` from `convertMenus()`; the managers are then kept only for
+  other code.
+- **Backstage pages**: `createBackstage(Backstage)` adds Info, Open or Options pages after the File
+  menu's entries; `getFileTabLabel()` returning `null` removes the File tab.
+- **Customizations**: `getRibbonPreferences()` names the file users' ribbon and quick access toolbar
+  customizations are saved in.
+- **Your own rules**: override `createRibbonConversion()` with a `RibbonConversion` subclass (which
+  menu is File, which actions go last).
+
+**Limits.** A `ControlContribution` (a native control on a tool bar) is left out, with a log message:
+the ribbon draws on a canvas and hosts no native controls, so add a `RibbonComboBox` for it in
+`createRibbon`. A shortcut on a plain key (Delete, F2) runs its command even while a text field has
+the focus, as a menu accelerator does on Windows.
+
+`./gradlew :zapthemes-demo:runZapAppWindow --args="--theme zap-dark"` runs
+[ZapAppWindowDemo](../zapthemes-demo/src/main/java/com/zapthemes/demo/ZapAppWindowDemo.java), a
+plain `ApplicationWindow` moved over this way. The design is in
+[zapappwindow-plan.md](zapappwindow-plan.md).
 
 ## 8. The theme editor
 

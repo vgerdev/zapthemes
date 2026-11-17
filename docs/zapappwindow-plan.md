@@ -219,7 +219,7 @@ Without a menu bar, SWT stops running accelerators (they belong to menu items), 
 | 1 ✅ | **Shortcuts** | `CommandKeyBindings`, the `@` label fix and the fallback id in `ActionCommands`, with their tests. Every `Ribbon` installs the bindings of its shell, so plain SWT ribbon apps get them too; a shortcut that the shell's own menu bar also has is left to the menu bar |
 | 2 ✅ | **ZapAppWindow** | The class over `TitleBarWindow`, the managers intercepted, the ribbon in the layout, the status line and `run(…)`; `RibbonApplicationWindow` removed and its test moved. As built: the ribbon is created in `createToolBarControl`, so JFace's own layout code places it; `Ribbon.setBackstageHeader(Control...)` (new) keeps the title bar above the open backstage; `getRibbonPreferences()` is one `CustomizationStore` for both bars unless `getTitleBarPreferences()` names a different file (the title bar's own file is a Properties file, so the two can't share one path otherwise). `run(…)` turns the shortcuts off; the title bar stays enabled, for its caption buttons. The status line's hover messages move to step 3, which needs a hover listener on the ribbon |
 | 3 ✅ | **Conversion** | `RibbonConversion`: backstage, tabs, groups, Home, KeyTips, ids, `refreshRibbon()`; the demo and its screenshots. As built: every action in the menus and tool bar is registered before any tab is made, so accelerators work for actions only the (lazy) backstage shows; group ids are a namespace of their own (a group `auto.edit.find` beside the command `auto.edit.find`); a dynamic `ContributionItem` becomes a drop-down it fills on each open; File submenus are backstage pages of buttons built from the menu as it would show, again on each open; new ribbon API: `addTab(index, …)`, `removeTab`, `RibbonTab.addGroup(index, …)`, `removeGroup`, `addHoverListener`, `Backstage.entryIds()`, Alt+letter chords (`RibbonTest`), and `setFileTab` replaces a backstage already made. Demo: `ZapAppWindowDemo` (`runZapAppWindow`, `smokeTestZapAppWindow`), screenshots composed per child (`DemoSupport.screenshotByChildren`) since printing a title-bar shell offsets its children |
-| 4 | **Docs** | The docs above |
+| 4 ✅ | **Docs** | The docs above: the guide is a subsection of [theme-authoring.md §7](theme-authoring.md#a-jface-application-window-with-the-ribbon-zapappwindow), where using the ribbon in an app is described, with a pointer from [examples.md](examples.md) |
 
 Steps 1–3 can be one PR if they turn out small; step 1 is useful on its own to plain SWT ribbon
 apps.
@@ -237,6 +237,25 @@ apps.
   only structural changes do.
 - **Mnemonic clashes:** two menus with the same mnemonic get KeyTips assigned by the ribbon's
   usual rule (a letter and a digit).
+
+### As built (Part 1)
+
+- **Classes.** `com.zapthemes.jface.ribbon`: `ZapAppWindow` (extends `TitleBarWindow`),
+  `RibbonConversion`, and `ActionCommands` with fallback ids; `RibbonApplicationWindow` is gone.
+  `com.zapthemes.widgets.command.CommandKeyBindings` runs shortcuts.
+- **Ribbon API added** for it: `Ribbon.addTab(int, …)`, `removeTab`, `RibbonTab.addGroup(int, …)`,
+  `removeGroup`, `addHoverListener`, `setBackstageHeader`, `Backstage.entryIds()`; Alt+letter
+  chords; `setFileTab` replaces a backstage already made.
+- **Where it differs from the plan above:** the title bar's preferences can't share the ribbon's
+  file by path (it is a Properties file), so `getRibbonPreferences()` serves both bars unless
+  `getTitleBarPreferences()` names another file; `run(…)` leaves the title bar enabled for its caption
+  buttons; groups have an id namespace of their own; the tool bar's unnamed sections are
+  *Commands 1*, *Commands 2* (or *Commands* alone).
+- **Tests:** `CommandKeyBindingsTest` (10), `ZapAppWindowTest` (8), `RibbonConversionTest` (10),
+  `JFaceRibbonTest` (6), `RibbonTest` (55, with hover and Alt chords), and
+  `smokeTestZapAppWindow` in `:zapthemes-demo:smokeTest`.
+- **Not done:** the GTK and macOS checks by hand (as for the ribbon and the title bar); ZapNotes
+  itself still extends `ApplicationWindow` (Part 2 tests the skill on a copy of it).
 
 ## Part 2: the conversion skill
 
