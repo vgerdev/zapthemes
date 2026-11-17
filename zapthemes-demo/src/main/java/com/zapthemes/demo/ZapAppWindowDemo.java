@@ -315,16 +315,19 @@ public final class ZapAppWindowDemo extends ZapAppWindow {
         ribbon.getBackstage().close();
         DemoSupport.settle(display);
 
-        Event chord = new Event();
-        chord.keyCode = 'e';
-        chord.stateMask = SWT.ALT;
-        chord.doit = true;
-        editor.notifyListeners(SWT.KeyDown, chord);
-        DemoSupport.settle(display);
-        check(failures, "Edit".equals(ribbon.getSelection().label()), "Alt+E selects Edit: " + ribbon.getSelection().label());
-        Map<String, String> tips = ribbon.visibleKeyTips();
-        check(failures, !tips.isEmpty(), "Edit's KeyTips show");
-        ribbon.hideKeyTips();
+        // KeyTips are off by default on macOS, which has no Alt convention.
+        if (ribbon.isKeyTipsEnabled()) {
+            Event chord = new Event();
+            chord.keyCode = 'e';
+            chord.stateMask = SWT.ALT;
+            chord.doit = true;
+            editor.notifyListeners(SWT.KeyDown, chord);
+            DemoSupport.settle(display);
+            check(failures, "Edit".equals(ribbon.getSelection().label()), "Alt+E selects Edit: " + ribbon.getSelection().label());
+            Map<String, String> tips = ribbon.visibleKeyTips();
+            check(failures, !tips.isEmpty(), "Edit's KeyTips show");
+            ribbon.hideKeyTips();
+        }
 
         failures.forEach(f -> System.err.println("FAILED: " + f));
         System.out.println(failures.isEmpty() ? "ZapAppWindow demo smoke test passed" : failures.size() + " failures");
