@@ -77,8 +77,42 @@ abstract class SkillSnippetsCompileCheck extends ZapAppWindow {
         set.setVisible(true);
         ActionCommands.setLargeImage(save, null);
         CommandKeyBindings.install(getShell()).bindings();
+        CommandKeyBindings.install(getShell()).find(SWT.MOD1 | 'S').ifPresent(c -> { });
+        RibbonContributions.add(group, save).large().keyTip("S");
+        java.util.List<com.zapthemes.widgets.ribbon.RibbonButton> buttons = RibbonContributions.fill(group);
+        ribbon.commands().find("file.save").ifPresent(c -> { });
+        ribbon.commands().get("file.save");
+        ribbon.commands().all();
+        ActionCommands.setRadioGroup(save, rename);
+        if (ribbon.tab("missing") == null) {
+            command(save);
+        }
         refreshRibbon();
         getRibbon();
+    }
+
+    /** The screenshot code in ribbon-api.md, "Screenshots". */
+    static void screenshot(org.eclipse.swt.widgets.Shell shell, String file) {
+        org.eclipse.swt.graphics.Rectangle area = shell.getClientArea();
+        Image image = new Image(shell.getDisplay(), area.width, area.height);
+        org.eclipse.swt.graphics.GC gc = new org.eclipse.swt.graphics.GC(image);
+        for (org.eclipse.swt.widgets.Control child : shell.getChildren()) {
+            org.eclipse.swt.graphics.Rectangle b = child.getBounds();
+            if (!child.getVisible() || b.isEmpty()) {
+                continue;
+            }
+            Image part = new Image(shell.getDisplay(), b.width, b.height);
+            org.eclipse.swt.graphics.GC partGc = new org.eclipse.swt.graphics.GC(part);
+            child.print(partGc);
+            partGc.dispose();
+            gc.drawImage(part, b.x - area.x, b.y - area.y);
+            part.dispose();
+        }
+        gc.dispose();
+        org.eclipse.swt.graphics.ImageLoader loader = new org.eclipse.swt.graphics.ImageLoader();
+        loader.data = new org.eclipse.swt.graphics.ImageData[] { image.getImageData() };
+        loader.save(file, SWT.IMAGE_PNG);
+        image.dispose();
     }
 
     @Override

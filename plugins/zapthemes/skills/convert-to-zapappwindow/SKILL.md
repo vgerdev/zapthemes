@@ -18,7 +18,9 @@ don't guess at ribbon API.
 
 Follow the project's own conventions throughout: explicit imports (no wildcards), its formatting,
 Lombok if it already uses it, its build tool. Ask before steps 2 (a new dependency) and 8 (deleting
-code). Keep the user informed after each step; offer to stop after step 3.
+code). Keep the user informed after each step; offer to stop after step 3. When the user has
+answered these in advance (an unattended run), follow their answers and don't stop to ask; list in
+your report what you decided on their behalf (group labels, pages left out).
 
 ## 1. Find the windows
 
@@ -59,6 +61,23 @@ since `ZapAppWindow` extends `TitleBarWindow`.
 Fix compile errors that come from the change: code that read `getToolBarControl()` as a `ToolBar`,
 or `getMenuBarManager().getMenu()` (now `null`: there is no native menu bar).
 
+Then run the app's UI tests and smoke tests, and expect these, which come from the new window and
+are not bugs:
+
+- **The title bar paints itself.** `TitleBar` (`com.zapthemes.widgets.titlebar.TitleBar`) and the
+  controls in it take their colors from whether the window is active and from the accent color, and
+  from theme names of their own. A check that compares every control's background with its type's
+  plain theme background fails there: skip the comparison for the `TitleBar` and its children, and
+  keep any other check (tagging, say) for them.
+- **No `ToolBar`, `CoolBar` or native menu bar** exists any more; tests that look for one need the
+  ribbon (`getRibbon()`) instead.
+- **Workarounds for the native menu bar**, such as resetting `resizeHasOccurred` in
+  `initializeBounds()`, are harmless while `addMenuBar()` stays. Once step 8 removes it, the
+  workaround has nothing left to work around: remove it, or at least its comment.
+- **Code that detects a closed window by a menu's disposal** (`menuManager.getMenu() != null &&
+  menuManager.getMenu().isDisposed()`) sees a menu only after its ribbon drop-down was first opened.
+  Track closed windows another way (a dispose listener on the shell) if it matters.
+
 ## 4. Give every action an id
 
 Users' ribbon customizations and the quick access toolbar store command ids, so ids must not change
@@ -70,6 +89,15 @@ menu becomes `rename.setId("edit.rename");`.
 
 Give submenus that become drop-downs an id too: `new MenuManager("&Theme", "window.theme")`.
 
+- **When the rule gives a poor id** (a label of symbols or digits: `A+` → `home.a`, `100 %` →
+  `home.100`), choose a descriptive one (`view.zoomIn`, `view.zoomLevel`). Keep the generated ids
+  only if the app has already shipped with the automatic ribbon, whose users may have saved
+  customizations under them.
+- **Actions made in a loop** (one per theme, per recent file) take their id from the item's own
+  stable key: `"theme." + theme.id()`. An id may contain letters, digits, `.`, `-` and `_`.
+- **Two actions that do the same thing** (a tool bar button and a menu item with separate `Action`
+  objects) become one action, used in both places, so the ribbon shows one command.
+
 ## 5. Write `createRibbon(Ribbon)`
 
 Build the ribbon the menus and tool bar described, the way a person would design it. Calls are in
@@ -77,12 +105,22 @@ Build the ribbon the menus and tool bar described, the way a person would design
 
 - **Home first:** the tool bar's commands and the most-used commands of the Edit menu (clipboard,
   undo/redo, find), in groups with real labels (*Clipboard*, *Editing*). The main one or two
-  commands of a group are large (`.large()`).
-- **A tab per remaining menu** (not File), in menu order, labeled with the menu text without `&`, its
-  mnemonic as the tab's KeyTip. Cut groups at the menu's separators. Label each group from what it
-  holds; when that isn't clear from the code, ask the user.
-- **Submenus** become drop-down buttons (`RibbonContributions.fill(group, submenuManager)`).
-- **Check and radio actions** become toggle buttons by themselves.
+  commands of a group are large (`.large()`). With no tool bar and no Edit menu, there is no Home
+  tab: start with the first menu's tab.
+- **A tab per remaining menu** (not File), in menu order, labeled with the menu text without `&`.
+  Cut groups at the menu's separators. Label each group from what it holds; when that isn't clear
+  from the code, ask the user. A menu whose every action already went to Home (the same actions)
+  needs no tab of its own; one that only does similar things keeps its tab.
+- **Tab KeyTips** must differ from each other: F is taken by File and H by Home. Use the menu's
+  mnemonic; when another tab has it, use another letter of the label, or Office's own (Y for Help).
+- **Submenus** become drop-down buttons (`RibbonContributions.fill(group, submenuManager)`). The
+  drop-down builds its menu from the manager each time it opens, so items the app adds to the
+  manager later show without `refreshRibbon()`.
+- **Check and radio actions** become toggle buttons by themselves. Radio actions added to one
+  ribbon group with `RibbonContributions` stay mutually exclusive, as in their menu; for radio
+  actions placed another way, call `ActionCommands.setRadioGroup(a, b, c)`.
+- **KeyTips** you don't set are assigned by the ribbon (a free letter of the label), so set only
+  the ones the menus' mnemonics give.
 - **Large icons:** where the app has 32 px versions of its icons, call
   `ActionCommands.setLargeImage(action, descriptor32)` before the action is added. Don't invent
   icons; list the actions that have none.
@@ -99,10 +137,14 @@ doesn't also convert the managers.
 
 ## 6. Write `createBackstage(Backstage)`
 
+With no File menu, write no `createBackstage`: a backstage left empty gets a *Close* entry for the
+window by itself.
+
 From the File menu: each action is a command entry (`backstage.addCommand(command(action).id())`),
 in menu order, with the menu's separators (`addSeparator()`). A submenu such as *Recent Files*
-becomes a page (`addPage`) listing its entries as buttons. *Exit* or *Close* come last, as in
-Office. Ask the user whether to add pages they want (Info, Options opening the app's preferences
+becomes a page (`addPage`) listing its entries as buttons. *About* from the Help menu goes after a
+separator near the end, and *Exit* or *Close* come last, as in Office; a Help tab may show About
+too. Ask the user whether to add pages they want (Info, Options opening the app's preferences
 dialog).
 
 Every action that was in the File menu must still be registered (`command(action)`), so its
@@ -138,8 +180,15 @@ Show the user what will be deleted and ask before deleting.
 4. **Every accelerator still runs:** list the old accelerators (from action texts like
    `"&Save@Ctrl+S"` or `"&Save\tCtrl+S"`, and `setAccelerator` calls) and check each one maps to its
    action. `CommandKeyBindings.install(shell).bindings()` gives the shortcut-to-command table at run
-   time; a project with UI tests can assert on it.
-5. Take a screenshot if the project has a way to (a demo or smoke-test option), and show it.
+   time (it returns the bindings the window already installed); a project with UI tests can assert
+   on it. It lists only commands that are enabled and visible now: enable an action that starts
+   disabled (Save, before any change) before asserting, or its shortcut looks lost when it isn't.
+5. **A screenshot**, if the project can take one. `Shell.print(gc)` leaves out the title bar and the
+   ribbon of a `ZapAppWindow` on Windows and shifts the rest; print each of the shell's children
+   with `Control.print` into its place in one image instead (see
+   [references/ribbon-api.md](references/ribbon-api.md), "Screenshots"). **Never copy the screen**
+   (`new GC(display).copyArea(...)`): it captures whatever window is in front, which may be the
+   user's private work, not the app.
 
 Report what was left out: skipped `ControlContribution`s, actions with no large icon, shortcut
 clashes, and any menu entries the user should place by hand.

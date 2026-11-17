@@ -11,12 +11,15 @@ Only these calls. Imports are explicit: `com.zapthemes.widgets.ribbon.*` classes
 |---|---|
 | `command(action)` (in `ZapAppWindow`) | Registers the action as a command of the window's ribbon and returns it. The command follows the action: text (its `&` mnemonic kept, its accelerator left out), tooltip as description, image, enabled, checked, accelerator. Check box and radio actions are toggles; `AS_DROP_DOWN_MENU` with an `IMenuCreator` is a split button |
 | `RibbonContributions.add(group, action)` | Registers the action and adds a button for it to `group`; returns the `RibbonButton` |
-| `RibbonContributions.fill(group, items...)` | Adds a button per `IContributionItem`: an `ActionContributionItem` is its action, a `MenuManager` (it needs an id) a drop-down whose menu is the manager's; separators and other items are skipped. Returns the buttons |
+| `RibbonContributions.fill(group, items...)` | Adds a button per `IContributionItem`: an `ActionContributionItem` is its action, a `MenuManager` (it needs an id) a drop-down whose menu is built from the manager each time it opens; separators and other items are skipped. Returns `List<RibbonButton>` |
 | `RibbonContributions.fill(group.row(), items...)` | The same into a row of small buttons, separators kept |
 | `ActionCommands.setLargeImage(action, imageDescriptor32)` | The 32 px image for the action's large buttons. Call before the action is registered |
 
 An action needs `getId()` or `getActionDefinitionId()`; `command(action)` throws otherwise (step 4
-gives every action an id).
+gives every action an id). The command's id is the action's id, and `command(action)` returns the
+same command every time it is called for one action, so call it wherever you need the command.
+`ActionCommands.setRadioGroup(actions...)` makes radio actions mutually exclusive when they are not
+added to one group through `RibbonContributions`.
 
 ## Tabs and groups
 
@@ -24,7 +27,7 @@ gives every action an id).
 |---|---|
 | `ribbon.addTab(id, label)` | A tab at the end; returns `RibbonTab` |
 | `ribbon.addTab(index, id, label)` | A tab at `index` |
-| `ribbon.tab(id)`, `ribbon.tabs()` | Look up |
+| `ribbon.tab(id)`, `ribbon.tabs()` | Look up; `tab(id)` is `null` when there is none |
 | `ribbon.removeTab(tab)` | Remove (an automatic `auto.` tab, say) |
 | `tab.setKeyTip("H")` | The tab's KeyTip (one or two letters); returns the tab |
 | `tab.addGroup(id, label)`, `tab.addGroup(index, id, label)` | A group; returns `RibbonGroup` |
@@ -38,6 +41,10 @@ gives every action an id).
 | `button.large()` | Draw the item large (32 px icon over its label) |
 | `button.sizes(max, min)` | Its largest and smallest size |
 | `button.keyTip("P")` | The item's KeyTip |
+
+`large()`, `sizes(...)` and `keyTip(...)` return the item (as `RibbonItem`), so they chain:
+`RibbonContributions.add(group, save).large().keyTip("S");`. `ribbon.commands()` is the window's
+`CommandRegistry`: `add(command)`, `find(id)` (an `Optional`), `get(id)`, `all()`.
 
 ## Combo boxes
 
@@ -76,6 +83,43 @@ Page contents are ordinary SWT controls created through the ZapThemes proxies
 (`new com.zapthemes.swt.widgets.Label(parent, SWT.NONE)`), or `com.zapthemes.widgets.FlatButton` for
 buttons. Give a page title the theme class `backstageTitle`:
 `ThemeManager.get(display).setThemeClass(label, "backstageTitle")`.
+
+## Shortcuts (`com.zapthemes.widgets.command.CommandKeyBindings`)
+
+The ribbon installs these for its shell; nothing to set up. `CommandKeyBindings.install(shell)` returns
+the ones already installed (it never makes a second set). `bindings()` maps each accelerator to the
+command it runs now: enabled and visible commands only. `find(SWT.MOD1 | 'S')` gives the command one
+accelerator runs, as an `Optional`.
+
+## Screenshots
+
+`Shell.print` misses the title bar and ribbon of a `ZapAppWindow` on Windows. Compose the image from
+the shell's children instead:
+
+```java
+Rectangle area = shell.getClientArea();
+Image image = new Image(shell.getDisplay(), area.width, area.height);
+GC gc = new GC(image);
+for (Control child : shell.getChildren()) {
+    Rectangle b = child.getBounds();
+    if (!child.getVisible() || b.isEmpty()) {
+        continue;
+    }
+    Image part = new Image(shell.getDisplay(), b.width, b.height);
+    GC partGc = new GC(part);
+    child.print(partGc);
+    partGc.dispose();
+    gc.drawImage(part, b.x - area.x, b.y - area.y);
+    part.dispose();
+}
+gc.dispose();
+ImageLoader loader = new ImageLoader();
+loader.data = new ImageData[] { image.getImageData() };
+loader.save(file, SWT.IMAGE_PNG);
+image.dispose();
+```
+
+Never copy the screen (`new GC(display).copyArea`): it captures whatever window is in front.
 
 ## Window-level
 
