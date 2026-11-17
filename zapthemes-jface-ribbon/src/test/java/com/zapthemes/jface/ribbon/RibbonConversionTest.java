@@ -317,6 +317,24 @@ class RibbonConversionTest {
     }
 
     @Test
+    void aHandWrittenBackstageGetsNoCloseEntry() {
+        Notes notes = new Notes() {
+            @Override
+            protected boolean convertMenus() {
+                return false;
+            }
+
+            @Override
+            protected void createBackstage(Backstage backstage) {
+                backstage.addCommand(command(save).id());
+            }
+        };
+        notes.save.setId("file.save");
+        assertThat(open(notes).getRibbon().getBackstage().entryIds()).containsExactly("file.save");
+        assertThat(notes.getRibbon().tabs()).as("nothing converted").isEmpty();
+    }
+
+    @Test
     void noFileTabWhenTheLabelIsNull() {
         Notes notes = new Notes() {
             @Override

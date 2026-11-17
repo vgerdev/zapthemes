@@ -153,15 +153,18 @@ public class ZapAppWindow extends TitleBarWindow {
             return;
         }
         ribbon.setFileTab(label, backstage -> {
-            int entries = convertMenus() ? conversion.fillBackstage(backstage, menuBarManager) : 0;
-            if (entries == 0) {
+            if (convertMenus()) {
+                conversion.fillBackstage(backstage, menuBarManager);
+            }
+            createBackstage(backstage);
+            if (backstage.entryIds().isEmpty()) {
+                // Neither a File menu nor the app gave it entries: one to close the window.
                 Command close = ribbon.commands().find(CLOSE_COMMAND).orElse(null);
                 if (close == null) {
                     close = ribbon.commands().add(new Command(CLOSE_COMMAND, "&Close").onRun(e -> close()));
                 }
                 backstage.addCommand(close.id());
             }
-            createBackstage(backstage);
         });
     }
 
@@ -201,7 +204,7 @@ public class ZapAppWindow extends TitleBarWindow {
 
     /**
      * Adds the app's own backstage pages (Info, New, Open, Options); called when the backstage is
-     * first used, after the File menu's entries. With no File menu, the backstage has a
+     * first used, after the File menu's entries. A backstage left with no entries gets a
      * <em>Close</em> entry for the window.
      */
     protected void createBackstage(Backstage backstage) {
