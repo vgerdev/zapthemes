@@ -35,7 +35,8 @@ import com.zapthemes.widgets.ribbon.RibbonTab;
  * with its base class changed to {@link ZapAppWindow}: the menus and tool bar become the ribbon by
  * themselves, the File menu the backstage, and the status line stays. Nothing here builds a ribbon.
  *
- * <p>{@code --smoke} switches through every bundled theme, checks the tabs, the backstage, an
+ * <p>{@code --theme <id>} starts in a bundled theme ({@code zap-dark}); View › Next Theme (Ctrl+T)
+ * switches. {@code --smoke} switches through every bundled theme, checks the tabs, the backstage, an
  * accelerator and the status line, and exits. {@code --screenshots <dir>} saves the window in every
  * theme and the backstage.
  */
@@ -46,6 +47,7 @@ public final class ZapAppWindowDemo extends ZapAppWindow {
     private static final RGB ORANGE = new RGB(0xC4, 0x3E, 0x1C);
 
     private final DemoIcons icons;
+    private final List<Theme> themes;
     private final List<String> ran = new ArrayList<>();
     private Text editor;
 
@@ -62,9 +64,10 @@ public final class ZapAppWindowDemo extends ZapAppWindow {
     private final IAction zoomIn;
     private final IAction zoomOut;
 
-    private ZapAppWindowDemo(DemoIcons icons) {
+    private ZapAppWindowDemo(DemoIcons icons, List<Theme> themes) {
         super(null);
         this.icons = icons;
+        this.themes = themes;
         newNote = action("&New Note...@Ctrl+N", "N", BLUE, "Start an empty note.");
         open = action("&Open...@Ctrl+O", "O", BLUE, "Open a note from a file.");
         save = action("&Save@Ctrl+S", "S", BLUE, "Save the note.");
@@ -149,6 +152,17 @@ public final class ZapAppWindowDemo extends ZapAppWindow {
         view.add(zoomOut);
         view.add(new Separator("show"));
         view.add(wrap);
+        view.add(new Separator("themes"));
+        view.add(new Action("Next &Theme@Ctrl+T") {
+            @Override
+            public void run() {
+                ThemeManager manager = ThemeManager.get(getShell().getDisplay());
+                int current = themes.indexOf(manager.getTheme());
+                Theme next = themes.get((current + 1) % themes.size());
+                manager.setTheme(next);
+                setStatus("Theme: " + next.id());
+            }
+        });
 
         MenuManager help = new MenuManager("&Help", "help");
         help.add(action("&About the Demo", null, null, null));
@@ -214,9 +228,17 @@ public final class ZapAppWindowDemo extends ZapAppWindow {
         int shots = options.indexOf("--screenshots");
         Display display = new Display();
         List<Theme> themes = DemoSupport.bundledThemes();
-        ThemeManager.get(display).setTheme(themes.getFirst());
+        int named = options.indexOf("--theme");
+        String wanted = named >= 0 && named + 1 < options.size() ? options.get(named + 1) : null;
+        Theme first = themes.stream().filter(t -> t.id().equals(wanted)).findFirst().orElse(themes.getFirst());
+        if (wanted != null && !first.id().equals(wanted)) {
+            System.err.println("No bundled theme " + wanted + "; using " + first.id() + ". Themes: "
+                    + themes.stream().map(Theme::id).toList());
+        }
+        ThemeManager.get(display).setTheme(first);
+        System.out.println("Theme: " + first.id());
         DemoIcons icons = new DemoIcons(display);
-        ZapAppWindowDemo demo = new ZapAppWindowDemo(icons);
+        ZapAppWindowDemo demo = new ZapAppWindowDemo(icons, themes);
         demo.setBlockOnOpen(false);
         demo.open();
         DemoSupport.settle(display);
