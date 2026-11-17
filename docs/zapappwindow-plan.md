@@ -351,5 +351,5 @@ formatting), and asks before steps 2 (a new dependency) and 8 (deleting code).
 
 | # | Step | What |
 |---|---|---|
-| 5 | **Plugin and skill** | The marketplace file, the plugin, `SKILL.md` and its references; README install lines |
+| 5 ✅ | **Plugin and skill** | The marketplace file, the plugin, `SKILL.md` and its references; README install lines. As built: `claude plugin validate` passes for both manifests; the plugin's version is the library's (`1.0.0-SNAPSHOT`); `SkillSnippetsCompileCheck` (in `zapthemes-jface-ribbon`'s tests, compiled but not run) holds every call the references name, so an API change that breaks the skill breaks the build. The backstage's automatic *Close* entry now comes only when the backstage is left empty, so a hand-written one (step 6 of the skill) gets none (fixed in PR #59) |
 | 6 | **Tested** | The ZapNotes, JFaceSample and JFaceDemo runs and their evals; fixes to the skill from them |

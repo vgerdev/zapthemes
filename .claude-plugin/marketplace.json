@@ -1,0 +1,17 @@
+{
+  "name": "zapthemes",
+  "owner": {
+    "name": "vgerdev"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for applications built on ZapThemes, the JSON-themed SWT/JFace library."
+  },
+  "plugins": [
+    {
+      "name": "zapthemes",
+      "source": "./plugins/zapthemes",
+      "description": "Skills for ZapThemes applications: convert a JFace ApplicationWindow to ZapAppWindow, with an Office-style ribbon in place of its menu bar and tool bar.",
+      "version": "1.0.0-SNAPSHOT"
+    }
+  ]
+}
