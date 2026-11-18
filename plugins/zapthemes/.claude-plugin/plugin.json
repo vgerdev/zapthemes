@@ -1,0 +1,10 @@
+{
+  "name": "zapthemes",
+  "version": "1.0.0-SNAPSHOT",
+  "description": "Skills for ZapThemes applications: convert a JFace ApplicationWindow to ZapAppWindow, with an Office-style ribbon in place of its menu bar and tool bar.",
+  "author": {
+    "name": "vgerdev"
+  },
+  "repository": "https://github.com/vgerdev/zapthemes",
+  "keywords": ["swt", "jface", "ribbon", "zapthemes"]
+}

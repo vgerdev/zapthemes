@@ -10,6 +10,8 @@ through the proxies. See [docs/PLAN.md](docs/PLAN.md), [docs/phase0-findings.md]
 **Using it in an app, and writing themes:** [docs/theme-authoring.md](docs/theme-authoring.md).
 **A JFace app with the Office ribbon:** extend `ZapAppWindow` instead of `ApplicationWindow`
 ([how](docs/theme-authoring.md#a-jface-application-window-with-the-ribbon-zapappwindow)).
+**Claude Code plugin:** `/plugin marketplace add vgerdev/zapthemes`, then `/plugin install zapthemes@zapthemes`,
+adds the `convert-to-zapappwindow` skill, which moves a JFace app's windows to `ZapAppWindow`.
 Releasing: [docs/releasing.md](docs/releasing.md).
 
 ![Native controls next to their canvas replacements, dark theme on Windows](docs/images/zap-dark-native-vs-canvas.png)
