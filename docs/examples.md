@@ -25,6 +25,13 @@ For your own application the same steps apply: run the codemod over your sources
 the imports to `com.zapthemes.swt.widgets` by hand), depend on `zapthemes-jface` instead of
 `org.eclipse.jface`, and pick a theme with the property or `ThemeManager.setTheme`.
 
+### From ApplicationWindow to the ribbon
+
+A JFace application whose windows extend `ApplicationWindow` can then take the Office look by
+extending `ZapAppWindow` (`zapthemes-jface-ribbon`) instead: its menus and tool bar become ribbon
+tabs and the File backstage, its accelerators keep working, and its status line stays. See
+[A JFace application window with the ribbon](theme-authoring.md#a-jface-application-window-with-the-ribbon-zapappwindow).
+
 ## Running them
 
 ```bash

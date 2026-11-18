@@ -50,6 +50,43 @@ final class DemoSupport {
         save(shell, dir, name, false);
     }
 
+    /**
+     * Saves the shell's client area composed from each visible child's {@link Control#print}:
+     * printing a whole {@code NO_TRIM} shell (a custom title bar's) on Windows draws its children
+     * offset and leaves canvases out.
+     */
+    static void screenshotByChildren(Shell shell, Path dir, String name) {
+        try {
+            Files.createDirectories(dir);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Rectangle area = shell.getClientArea();
+        Image image = new Image(shell.getDisplay(), area.width, area.height);
+        GC gc = new GC(image);
+        gc.setBackground(shell.getBackground());
+        gc.fillRectangle(0, 0, area.width, area.height);
+        for (Control child : shell.getChildren()) {
+            Rectangle bounds = child.getBounds();
+            if (!child.getVisible() || bounds.isEmpty()) {
+                continue;
+            }
+            Image part = new Image(shell.getDisplay(), bounds.width, bounds.height);
+            GC partGc = new GC(part);
+            child.print(partGc);
+            partGc.dispose();
+            gc.drawImage(part, bounds.x - area.x, bounds.y - area.y);
+            part.dispose();
+        }
+        gc.dispose();
+        ImageLoader loader = new ImageLoader();
+        loader.data = new ImageData[] { image.getImageData() };
+        String file = dir.resolve(name + ".png").toString();
+        loader.save(file, SWT.IMAGE_PNG);
+        image.dispose();
+        System.out.println("Saved " + file);
+    }
+
     /** Saves one control as PNG through {@link Control#print}. */
     static void screenshot(Control control, Path dir, String name) {
         try {

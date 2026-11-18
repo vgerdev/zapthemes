@@ -74,6 +74,9 @@ bold.setEnabled(false);
   separators, or a `Consumer<Menu>` that fills an SWT menu), and a handler
   (`Consumer<CommandEvent>`; the event says which bar and widget ran it, and for a split
   button whether the arrow part was used).
+- **Shortcuts run:** `CommandKeyBindings` (installed by every `Ribbon` for its shell) runs a
+  visible, enabled command when its shortcut is typed in the shell, as a menu bar runs
+  accelerators; a shortcut the shell's own menu bar has is left to it.
 - **Listeners:** `Command.addListener(CommandListener)` gets a property name
   (`Command.ENABLED`, `CHECKED`, `LABEL`, `IMAGES`, `DESCRIPTION`, `VISIBLE`) on every change.
   The ribbon and the title bar repaint from these, so the app only changes the command.
@@ -208,6 +211,8 @@ item's size and bounds.
 - Typing a tab's KeyTip selects the tab and shows the badges of its items. Typing an item's
   KeyTip runs it, or opens its menu, gallery, list or collapsed group, whose own items then show
   KeyTips.
+- Alt and a letter pressed together (Alt+E, as menu-bar users type a menu mnemonic) shows the
+  badges and types that letter at once, when a top-level KeyTip starts with it.
 - KeyTips may have two letters. Typing the first letter hides the badges that do not start with
   it.
 - **Esc** goes back one level; at the top level it hides the badges and gives focus back to the
@@ -344,7 +349,11 @@ New module `zapthemes-jface-ribbon` (depends on `zapthemes-jface` and `zapthemes
   and any other item is wrapped as a command when it has an id.
 - `RibbonApplicationWindow extends ApplicationWindow`: `addRibbon()` in the constructor instead
   of `addMenuBar()` / `addCoolBar()`; `createRibbon(Ribbon)` to fill it; the ribbon goes where the
-  tool bar would, the backstage covers the window, the status line stays.
+  tool bar would, the backstage covers the window, the status line stays. Since replaced by
+  `ZapAppWindow` ([zapappwindow-plan.md](zapappwindow-plan.md)): a `TitleBarWindow` whose menu bar
+  and tool bar managers become the ribbon's tabs and the backstage by themselves
+  (`RibbonConversion`), with the title bar kept above the open backstage
+  (`Ribbon.setBackstageHeader`).
 - Sizes and images through `ImageDescriptor`s are created per zoom and disposed with the ribbon
   (a `LocalResourceManager`).
 

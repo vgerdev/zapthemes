@@ -57,8 +57,12 @@ public final class RibbonContributions {
         return row;
     }
 
-    /** Adds a button for {@code action}. */
+    /**
+     * Adds a button for {@code action}. Radio actions added to one group are a radio group
+     * ({@link ActionCommands#setRadioGroup}).
+     */
     public static RibbonButton add(RibbonGroup group, IAction action) {
+        ActionCommands.joinRadioGroup(group, action);
         return group.add(ActionCommands.register(group.ribbon().commands(), action, group.ribbon()));
     }
 
@@ -68,6 +72,7 @@ public final class RibbonContributions {
         }
         Control owner = group.ribbon();
         if (item instanceof ActionContributionItem actionItem) {
+            ActionCommands.joinRadioGroup(group, actionItem.getAction());
             return ActionCommands.register(group.ribbon().commands(), actionItem.getAction(), owner);
         }
         if (item instanceof MenuManager manager) {

@@ -14,7 +14,6 @@ import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.PaletteData;
-import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -24,7 +23,6 @@ import org.junit.jupiter.api.Test;
 
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.ThemeRegistry;
-import com.zapthemes.swt.widgets.Label;
 import com.zapthemes.themes.BundledThemes;
 import com.zapthemes.widgets.command.Command;
 import com.zapthemes.widgets.command.CommandEvent;
@@ -33,13 +31,11 @@ import com.zapthemes.widgets.command.CommandRegistry;
 import com.zapthemes.widgets.ribbon.Ribbon;
 import com.zapthemes.widgets.ribbon.RibbonGroup;
 import com.zapthemes.widgets.ribbon.RibbonItem;
-import com.zapthemes.widgets.ribbon.RibbonTab;
 
 class JFaceRibbonTest {
 
     private static Display display;
     private Shell shell;
-    private Window window;
 
     @BeforeAll
     static void theme() {
@@ -51,9 +47,6 @@ class JFaceRibbonTest {
 
     @AfterEach
     void tearDown() {
-        if (window != null) {
-            window.close();
-        }
         if (shell != null && !shell.isDisposed()) {
             shell.dispose();
         }
@@ -116,6 +109,96 @@ class JFaceRibbonTest {
     }
 
     @Test
+    void actionsWithoutAnIdTakeTheFallbackIdOnce() {
+        shell = new com.zapthemes.swt.widgets.Shell(display);
+        CommandRegistry registry = CommandRegistry.of(shell);
+        Action rename = new Action("&Rename...@F2") {
+        };
+        Command command = ActionCommands.register(registry, rename, shell, "edit.rename");
+        assertThat(command.id()).isEqualTo("edit.rename");
+        assertThat(rename.getId()).isNull();
+        assertThat(ActionCommands.register(registry, rename, shell, "toolbar.rename")).isSameAs(command);
+        assertThat(ActionCommands.idOf(rename)).isEqualTo("edit.rename");
+        assertThat(ActionCommands.register(registry, rename, shell)).isSameAs(command);
+    }
+
+    @Test
+    void acceleratorsWrittenWithAnAtSignAreLeftOutOfTheLabelAndRunTheAction() {
+        shell = new com.zapthemes.swt.widgets.Shell(display);
+        org.eclipse.swt.widgets.Text text = new com.zapthemes.swt.widgets.Text(shell, SWT.BORDER);
+        CommandRegistry registry = CommandRegistry.of(shell);
+        List<String> runs = new ArrayList<>();
+        Action save = new Action("&Save@Ctrl+S") {
+            @Override
+            public void run() {
+                runs.add("save");
+            }
+        };
+        save.setId("file.save");
+        Command command = ActionCommands.register(registry, save, shell);
+        assertThat(command.label()).isEqualTo("&Save");
+        assertThat(command.shortcut()).isEqualTo(SWT.CTRL | 'S');
+
+        save.setText("Save &All@Ctrl+Shift+S");
+        assertThat(command.label()).isEqualTo("Save &All");
+        assertThat(command.shortcut()).isEqualTo(SWT.CTRL | SWT.SHIFT | 'S');
+
+        com.zapthemes.widgets.command.CommandKeyBindings bindings = com.zapthemes.widgets.command.CommandKeyBindings.install(shell);
+        org.eclipse.swt.widgets.Event key = new org.eclipse.swt.widgets.Event();
+        key.type = SWT.KeyDown;
+        key.widget = text;
+        key.keyCode = 's';
+        key.character = (char) 0x13;
+        key.stateMask = SWT.CTRL | SWT.SHIFT;
+        assertThat(bindings.handle(key)).isTrue();
+        assertThat(runs).containsExactly("save");
+    }
+
+    @Test
+    void radioActionsInOneGroupAreExclusiveAndStayCheckedWhenClickedAgain() {
+        shell = new com.zapthemes.swt.widgets.Shell(display);
+        Ribbon ribbon = new Ribbon(shell, SWT.NONE);
+        RibbonGroup group = ribbon.addTab("view", "View").addGroup("view.theme", "Theme");
+        List<String> runs = new ArrayList<>();
+        Action light = radio("theme.light", "Light", runs);
+        Action dark = radio("theme.dark", "Dark", runs);
+        light.setChecked(true);
+        RibbonContributions.add(group, light);
+        RibbonContributions.add(group, dark);
+        Command lightCommand = ribbon.commands().get("theme.light");
+        Command darkCommand = ribbon.commands().get("theme.dark");
+
+        darkCommand.run(new CommandEvent(darkCommand, ribbon));
+        assertThat(dark.isChecked()).isTrue();
+        assertThat(light.isChecked()).as("the other radio in the group goes off").isFalse();
+        assertThat(lightCommand.isChecked()).isFalse();
+
+        darkCommand.run(new CommandEvent(darkCommand, ribbon));
+        assertThat(dark.isChecked()).as("clicking the checked radio keeps it checked").isTrue();
+        assertThat(runs).containsExactly("Dark", "Dark");
+
+        Action elsewhere = radio("other.radio", "Elsewhere", runs);
+        elsewhere.setChecked(true);
+        RibbonContributions.add(ribbon.addTab("other", "Other").addGroup("other.group", "Other"), elsewhere);
+        lightCommand.run(new CommandEvent(lightCommand, ribbon));
+        assertThat(dark.isChecked()).isFalse();
+        assertThat(elsewhere.isChecked()).as("radios in another group are not touched").isTrue();
+    }
+
+    private static Action radio(String id, String text, List<String> runs) {
+        Action action = new Action(text, IAction.AS_RADIO_BUTTON) {
+            @Override
+            public void run() {
+                if (isChecked()) {
+                    runs.add(text);
+                }
+            }
+        };
+        action.setId(id);
+        return action;
+    }
+
+    @Test
     void dropDownActionsAreSplitButtons() {
         shell = new com.zapthemes.swt.widgets.Shell(display);
         Action paste = new Action("Paste", IAction.AS_DROP_DOWN_MENU) {
@@ -165,64 +248,5 @@ class JFaceRibbonTest {
         };
         action.setId(id);
         return action;
-    }
-
-    /** A ribbon window as an app writes one. */
-    static final class Window extends RibbonApplicationWindow {
-        final Action save = action("file.save", "&Save");
-        Control content;
-
-        Window() {
-            super(null);
-            addRibbon();
-            addStatusLine();
-        }
-
-        @Override
-        protected void createRibbon(Ribbon ribbon) {
-            RibbonTab home = ribbon.addTab("home", "Home");
-            RibbonContributions.add(home.addGroup("home.file", "File"), save).large();
-            ribbon.setFileTab("File", backstage -> backstage.addCommand("file.save"));
-        }
-
-        @Override
-        protected Control createContents(Composite parent) {
-            Label label = new Label(parent, SWT.NONE);
-            label.setText("Content");
-            content = label;
-            return label;
-        }
-    }
-
-    @Test
-    void ribbonWindowPutsTheRibbonInTheToolBarsPlace() {
-        window = new Window();
-        window.setBlockOnOpen(false);
-        window.open();
-        while (display.readAndDispatch()) {
-            // Settle.
-        }
-        Shell windowShell = window.getShell();
-        Ribbon ribbon = window.getRibbon();
-        assertThat(ribbon).isNotNull();
-        assertThat(windowShell.getMenuBar()).isNull();
-        assertThat(ribbon.getBounds().y).isZero();
-        assertThat(ribbon.getBounds().width).isEqualTo(windowShell.getClientArea().width);
-        Control content = window.content;
-        assertThat(content.getBounds().y).isGreaterThanOrEqualTo(ribbon.getBounds().height);
-        assertThat(ribbon.commands().get("file.save")).isNotNull();
-
-        ribbon.openBackstage();
-        while (display.readAndDispatch()) {
-            // Settle.
-        }
-        assertThat(ribbon.getBackstage().getBounds()).isEqualTo(windowShell.getClientArea());
-        assertThat(content.isVisible()).isFalse();
-        ribbon.getBackstage().close();
-        while (display.readAndDispatch()) {
-            // Settle.
-        }
-        assertThat(content.isVisible()).isTrue();
-        assertThat(content.getBounds().y).isGreaterThanOrEqualTo(ribbon.getBounds().height);
     }
 }

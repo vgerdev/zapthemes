@@ -101,6 +101,13 @@ val smokeTitleBar = tasks.register<JavaExec>("smokeTestTitleBar") {
     classpath = sourceSets.main.get().runtimeClasspath
     args("--smoke")
 }
+val smokeZapAppWindow = tasks.register<JavaExec>("smokeTestZapAppWindow") {
+    group = "verification"
+    description = "Smoke-tests the ZapAppWindow demo: menus and tool bar as the ribbon, backstage, accelerators, status line."
+    mainClass = "com.zapthemes.demo.ZapAppWindowDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("--smoke")
+}
 val smokeRibbon = tasks.register<JavaExec>("smokeTestRibbon") {
     group = "verification"
     description = "Smoke-tests the ribbon demo: reduction, KeyTips, backstage, contextual tabs, collapse."
@@ -125,7 +132,7 @@ val smokeFileBrowser = tasks.register<JavaExec>("smokeTestFileBrowser") {
     mustRunAfter(":zapthemes-files:test")
 }
 val smokeTasks = listOf(smokeStandalone, smokeJFace, smokeNebula, smokeText, smokeNatTable, smokeVisualization, smokeRibbon, smokeTitleBar,
-    smokePreview, smokeFileBrowser)
+    smokePreview, smokeFileBrowser, smokeZapAppWindow)
 smokeTasks.forEach { task ->
     task.configure {
         dependsOn(clearRecordedKeys)
@@ -176,6 +183,14 @@ tasks.register<JavaExec>("runRibbon") {
     group = "application"
     description = "Runs the ribbon demo."
     mainClass = "com.zapthemes.demo.RibbonDemo"
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
+// A plain JFace ApplicationWindow on ZapAppWindow: its menus and tool bar become the ribbon.
+tasks.register<JavaExec>("runZapAppWindow") {
+    group = "application"
+    description = "Runs the ZapAppWindow demo."
+    mainClass = "com.zapthemes.demo.ZapAppWindowDemo"
     classpath = sourceSets.main.get().runtimeClasspath
 }
 

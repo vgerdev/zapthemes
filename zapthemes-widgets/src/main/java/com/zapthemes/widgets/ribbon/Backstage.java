@@ -76,6 +76,7 @@ public final class Backstage extends Composite {
     private boolean open;
     private Layout savedLayout;
     private final Map<Control, Boolean> savedVisibility = new HashMap<>();
+    private final List<Control> header = new ArrayList<>();
     private final Listener escape = this::escapeFilter;
     private final List<Consumer<Boolean>> openListeners = new ArrayList<>();
     private final Map<String, String> keyTipsById = new HashMap<>();
@@ -138,6 +139,18 @@ public final class Backstage extends Composite {
         return this;
     }
 
+    /**
+     * The entries in order: a page's id, a command entry's command id, and {@code "|"} for a
+     * separator (for tests, and for code that checks what a backstage holds).
+     */
+    public List<String> entryIds() {
+        return entries.stream().map(e -> switch (e) {
+            case Page page -> page.id();
+            case CommandEntry command -> command.command().id();
+            case Separator separator -> "|";
+        }).toList();
+    }
+
     /** The page ids, in order. */
     public List<String> pageIds() {
         return entries.stream().filter(e -> e instanceof Page).map(e -> ((Page) e).id()).toList();
@@ -183,7 +196,7 @@ public final class Backstage extends Composite {
             savedLayout = parent.getLayout();
             savedVisibility.clear();
             for (Control sibling : parent.getChildren()) {
-                if (sibling != this) {
+                if (sibling != this && !header.contains(sibling)) {
                     savedVisibility.put(sibling, sibling.getVisible());
                     sibling.setVisible(false);
                 }
@@ -441,16 +454,42 @@ public final class Backstage extends Composite {
         }
     }
 
-    /** Gives the backstage its parent's whole client area. */
+    /** Sets the {@link Ribbon#setBackstageHeader header}: siblings kept visible above the backstage. */
+    void setHeader(List<Control> controls) {
+        header.clear();
+        header.addAll(controls);
+        if (open) {
+            getParent().layout(true, true);
+        }
+    }
+
+    /** The header controls, then the backstage in the rest of the client area. */
     private final class FillAll extends Layout {
         @Override
         protected Point computeSize(Composite composite, int wHint, int hHint, boolean flushCache) {
-            return Backstage.this.computeSize(wHint, hHint, flushCache);
+            Point size = Backstage.this.computeSize(wHint, hHint, flushCache);
+            for (Control control : visibleHeader()) {
+                Point e = control.computeSize(wHint, SWT.DEFAULT, flushCache);
+                size.x = Math.max(size.x, e.x);
+                size.y += e.y;
+            }
+            return size;
         }
 
         @Override
         protected void layout(Composite composite, boolean flushCache) {
-            Backstage.this.setBounds(composite.getClientArea());
+            Rectangle area = composite.getClientArea();
+            for (Control control : visibleHeader()) {
+                int h = control.computeSize(area.width, SWT.DEFAULT, flushCache).y;
+                control.setBounds(area.x, area.y, area.width, h);
+                area.y += h;
+                area.height = Math.max(0, area.height - h);
+            }
+            Backstage.this.setBounds(area);
+        }
+
+        private List<Control> visibleHeader() {
+            return header.stream().filter(c -> !c.isDisposed() && c.getVisible() && c.getParent() == getParent()).toList();
         }
     }
 

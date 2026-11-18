@@ -1,10 +1,12 @@
 package com.zapthemes.jface.ribbon;
 
+import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuCreator;
+import org.eclipse.jface.action.LegacyActionTools;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.resource.LocalResourceManager;
@@ -23,13 +25,19 @@ import com.zapthemes.widgets.command.Images;
  * action, and the action the command:
  *
  * <ul>
- *   <li>its id is the action's id, else its definition id (one is required: customizations store it);</li>
- *   <li>text (without the accelerator part after a tab), tooltip (as the description), enabled,
+ *   <li>its id is the action's id, else its definition id, else a fallback id the caller gives
+ *       (one is required: customizations store it);</li>
+ *   <li>text (without the accelerator part, after a tab or JFace's {@code @}), the accelerator
+ *       (run by {@link com.zapthemes.widgets.command.CommandKeyBindings}), tooltip (as the description), enabled,
  *       checked, image (16 px) and the large image ({@link #setLargeImage}, 32 px) follow the action;</li>
  *   <li>{@code AS_CHECK_BOX} and {@code AS_RADIO_BUTTON} are toggles; {@code AS_DROP_DOWN_MENU}
  *       with an {@link IMenuCreator} is a split button whose arrow opens the creator's menu;</li>
  *   <li>running the command runs the action ({@code runWithEvent}); a toggle's new checked state
  *       is set on the action first, as JFace's own items do.</li>
+ *   <li>{@code AS_RADIO_BUTTON} actions behave as in a JFace menu: clicking a checked one keeps it
+ *       checked (and runs it), and checking one unchecks the others of its {@link #setRadioGroup
+ *       radio group}, which {@link RibbonContributions} makes of the radio actions it adds to one
+ *       ribbon group (a menu's adjacent radio items are a group the same way).</li>
  * </ul>
  */
 public final class ActionCommands {
@@ -50,7 +58,20 @@ public final class ActionCommands {
      * (usually the ribbon or the shell).
      */
     public static Command register(CommandRegistry registry, IAction action, Control owner) {
-        String id = idOf(action);
+        return register(registry, action, owner, null);
+    }
+
+    /**
+     * As {@link #register(CommandRegistry, IAction, Control)}, with {@code fallbackId} as the command
+     * id when the action has neither an id nor a definition id. The action is not changed. An action
+     * keeps the first fallback id it was registered with, so the same action in a menu and on a
+     * tool bar is one command.
+     */
+    public static Command register(CommandRegistry registry, IAction action, Control owner, String fallbackId) {
+        String id = idOf(action, fallbackId);
+        if (action.getId() == null && action.getActionDefinitionId() == null) {
+            FALLBACK_IDS.putIfAbsent(action, id);
+        }
         Command existing = registry.find(id).orElse(null);
         if (existing != null && SYNCED.containsKey(existing)) {
             return existing;
@@ -62,20 +83,79 @@ public final class ActionCommands {
     }
 
     private static final Map<Command, Boolean> SYNCED = new WeakHashMap<>();
+    private static final Map<IAction, String> FALLBACK_IDS = new WeakHashMap<>();
+    private static final Map<IAction, Object> RADIO_GROUPS = new WeakHashMap<>();
+
+    /**
+     * Puts radio actions in one group: checking one through the ribbon unchecks the others, as
+     * adjacent radio items of a JFace menu do. Actions added to one ribbon group through
+     * {@link RibbonContributions} are a group already; call this for radio actions placed otherwise.
+     */
+    public static void setRadioGroup(IAction... actions) {
+        joinRadioGroup(new Object(), actions);
+    }
+
+    /** Puts the radio actions among {@code actions} in the group named by {@code key}. */
+    static void joinRadioGroup(Object key, IAction... actions) {
+        for (IAction action : actions) {
+            if (action.getStyle() == IAction.AS_RADIO_BUTTON) {
+                RADIO_GROUPS.put(action, key);
+            }
+        }
+    }
+
+    /** Unchecks the other actions of {@code action}'s radio group. */
+    private static void uncheckOthers(IAction action) {
+        Object key = RADIO_GROUPS.get(action);
+        if (key == null) {
+            return;
+        }
+        for (Map.Entry<IAction, Object> entry : List.copyOf(RADIO_GROUPS.entrySet())) {
+            IAction other = entry.getKey();
+            if (other != action && entry.getValue() == key && other.isChecked()) {
+                other.setChecked(false);
+            }
+        }
+    }
+
+    /** The id {@code action} has or was registered with, or {@code null} when it has none yet. */
+    static String knownId(IAction action) {
+        String id = action.getId() != null ? action.getId() : action.getActionDefinitionId();
+        return id != null && !id.isBlank() ? id : FALLBACK_IDS.get(action);
+    }
+
+    /** Whether {@link #setLargeImage} gave {@code action} a large image. */
+    static boolean hasLargeImage(IAction action) {
+        return LARGE.get(action) != null;
+    }
 
     /** The command id of {@code action}: its id, else its definition id. */
     public static String idOf(IAction action) {
+        return idOf(action, null);
+    }
+
+    /**
+     * The command id of {@code action}: its id, else its definition id, else the fallback id it was
+     * first registered with, else {@code fallbackId}.
+     */
+    public static String idOf(IAction action, String fallbackId) {
         String id = action.getId() != null ? action.getId() : action.getActionDefinitionId();
+        if (id == null || id.isBlank()) {
+            id = FALLBACK_IDS.getOrDefault(action, fallbackId);
+        }
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("A ribbon action needs an id (setId): " + action.getText());
         }
         return id;
     }
 
+    /**
+     * The action's text without its accelerator, as JFace's menus show it: {@code "&Save\tCtrl+S"}
+     * and {@code "&Save@Ctrl+S"} are {@code "&Save"}.
+     */
     static String text(IAction action) {
         String text = action.getText() == null ? "" : action.getText();
-        int tab = text.indexOf('\t');
-        return tab >= 0 ? text.substring(0, tab) : text;
+        return LegacyActionTools.removeAcceleratorText(text);
     }
 
     private static void sync(Command command, IAction action, Control owner) {
@@ -103,7 +183,11 @@ public final class ActionCommands {
             updating[0] = true;
             try {
                 switch (event.getProperty()) {
-                    case IAction.TEXT -> command.label(text(action));
+                    case IAction.TEXT -> {
+                        // Action.setText also sets the accelerator from "\tCtrl+S" or "@Ctrl+S".
+                        command.label(text(action));
+                        command.shortcut(action.getAccelerator());
+                    }
                     case IAction.ENABLED -> command.setEnabled(action.isEnabled());
                     case IAction.CHECKED -> command.setChecked(action.isChecked());
                     case IAction.IMAGE -> command.images(images(action, resources));
@@ -118,6 +202,15 @@ public final class ActionCommands {
         };
         action.addPropertyChangeListener(listener);
         owner.addListener(org.eclipse.swt.SWT.Dispose, e -> action.removePropertyChangeListener(listener));
+        if (action.getStyle() == IAction.AS_RADIO_BUTTON) {
+            IPropertyChangeListener radio = event -> {
+                if (IAction.CHECKED.equals(event.getProperty()) && action.isChecked()) {
+                    uncheckOthers(action);
+                }
+            };
+            action.addPropertyChangeListener(radio);
+            owner.addListener(org.eclipse.swt.SWT.Dispose, e -> action.removePropertyChangeListener(radio));
+        }
         command.addListener((c, property) -> {
             if (updating[0] || !Command.CHECKED.equals(property)) {
                 return;
@@ -130,6 +223,10 @@ public final class ActionCommands {
             }
         });
         command.onRun(e -> {
+            if (action.getStyle() == IAction.AS_RADIO_BUTTON && !command.isChecked()) {
+                // The toggle unchecked a checked radio: a radio item stays checked when clicked.
+                command.setChecked(true);
+            }
             Event event = e.event() != null ? e.event() : new Event();
             if (event.widget == null) {
                 event.widget = e.widget();

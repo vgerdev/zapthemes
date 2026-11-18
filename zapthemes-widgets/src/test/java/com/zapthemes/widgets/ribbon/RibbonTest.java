@@ -1427,6 +1427,42 @@ class RibbonTest {
         assertThat(pixel(barX(insert), barY(m, insert))).isEqualTo(strip);
     }
 
+    @Test
+    void hoverListenersHearTheCommandUnderTheMouse() {
+        List<Command> heard = new ArrayList<>();
+        ribbon.addHoverListener(heard::add);
+        Hot item = ribbon.hotsOf(Hot.Kind.ITEM).getFirst();
+        Command command = ribbon.commandOf(item);
+        hoverOver(item);
+        hoverOver(item);
+        ribbon.notifyListeners(SWT.MouseExit, new Event());
+        assertThat(heard).containsExactly(command, null);
+    }
+
+    @Test
+    void altWithALetterShowsAndTypesThatKeyTip() {
+        ribbon.setKeyTipsEnabled(true);
+        RibbonTab second = ribbon.tabs().get(1);
+        second.setKeyTip("Q");
+        Event chord = new Event();
+        chord.keyCode = 'q';
+        chord.character = 'q';
+        chord.stateMask = SWT.ALT;
+        chord.doit = true;
+        content.notifyListeners(SWT.KeyDown, chord);
+        assertThat(ribbon.getSelection()).isSameAs(second);
+        assertThat(chord.doit).isFalse();
+        ribbon.hideKeyTips();
+
+        Event other = new Event();
+        other.keyCode = '7';
+        other.stateMask = SWT.ALT;
+        other.doit = true;
+        content.notifyListeners(SWT.KeyDown, other);
+        assertThat(other.doit).as("no KeyTip starts with 7: the key goes on").isTrue();
+        assertThat(ribbon.isShowingKeyTips()).isFalse();
+    }
+
     private Hot tabHot(String label) {
         return ribbon.hotsOf(Hot.Kind.TAB).stream().filter(h -> ((RibbonTab) h.target()).label().equals(label)).findFirst().orElseThrow();
     }
