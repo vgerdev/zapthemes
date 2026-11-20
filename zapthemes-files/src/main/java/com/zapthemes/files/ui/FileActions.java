@@ -107,9 +107,11 @@ final class FileActions {
         add(SORT, "Sort", Glyph.SORT, 0, null).style(Command.Style.DROP_DOWN).description("Sort the items");
         add(VIEW, "View", Glyph.DETAILS_VIEW, 0, null).style(Command.Style.DROP_DOWN).description("Change the layout and the panes");
         add(MORE, "See more", Glyph.MORE, 0, null).style(Command.Style.DROP_DOWN);
-        add(DETAILS_PANE, "Details", Glyph.DETAILS_PANE, 0, null).style(Command.Style.TOGGLE)
-                .description("The details pane comes with a later version");
-        add(PREVIEW_PANE, "Preview pane", null, 0, null).style(Command.Style.TOGGLE);
+        add(DETAILS_PANE, "Details", Glyph.DETAILS_PANE, SWT.ALT | SWT.SHIFT | 'P',
+                e -> browser.setDetailsPaneVisible(!browser.isDetailsPaneVisible())).style(Command.Style.TOGGLE)
+                .description("Show or hide the details pane");
+        add(PREVIEW_PANE, "Preview pane", null, SWT.ALT | 'P', e -> browser.setPreviewPaneVisible(!browser.isPreviewPaneVisible()))
+                .style(Command.Style.TOGGLE).description("Show or hide the preview pane");
         add(OPEN, "&Open", null, SWT.CR, e -> browser.openSelected());
         add(COPY_PATH, "Copy as p&ath", null, SWT.MOD1 | SWT.SHIFT | 'C', e -> copyPath());
         add(COPY_NAME, "Copy &name", null, 0, e -> copyText(browser.targets().stream().map(FileEntry::name).toList()));
@@ -119,14 +121,8 @@ final class FileActions {
                 copyText(List.of(fs.format(browser.getCurrentPath())));
             }
         });
-        add(SELECT_ALL, "Select &all", null, SWT.MOD1 | 'A', e -> {
-            browser.fileTable().table.selectAll();
-            browser.selectionChangedByCommand();
-        });
-        add(SELECT_NONE, "Select &none", null, 0, e -> {
-            browser.fileTable().table.deselectAll();
-            browser.selectionChangedByCommand();
-        });
+        add(SELECT_ALL, "Select &all", null, SWT.MOD1 | 'A', e -> browser.setSelectedEntries(browser.getVisibleEntries()));
+        add(SELECT_NONE, "Select &none", null, 0, e -> browser.setSelectedEntries(List.of()));
         add(INVERT_SELECTION, "&Invert selection", null, 0, e -> invertSelection());
         add(PROPERTIES, "P&roperties", null, SWT.ALT | SWT.CR, e -> properties());
         add(REFRESH, "R&efresh", null, SWT.F5, e -> browser.refresh());
@@ -137,9 +133,6 @@ final class FileActions {
         add(SHOW_NAVIGATION_PANE, "&Navigation pane", null, 0,
                 e -> browser.setNavigationPaneVisible(commands.get(SHOW_NAVIGATION_PANE).isChecked())).style(Command.Style.TOGGLE)
                 .setChecked(true);
-        // Coming with the details and preview panes.
-        commands.get(DETAILS_PANE).setEnabled(false);
-        commands.get(PREVIEW_PANE).setEnabled(false);
     }
 
     private Command add(String id, String label, Glyph glyph, int shortcut, Consumer<CommandEvent> run) {
@@ -164,6 +157,10 @@ final class FileActions {
 
     /** The glyph the command bar draws for a built-in command, or null. */
     Glyph glyph(String id) {
+        if (id.equals(VIEW)) {
+            // View shows the layout in use, as Explorer's button does.
+            return browser.getView() == FileView.DETAILS ? Glyph.DETAILS_VIEW : Glyph.LARGE_ICONS_VIEW;
+        }
         return glyphs.get(id);
     }
 
@@ -238,6 +235,8 @@ final class FileActions {
         commands.get(SHOW_HIDDEN).setChecked(browser.isShowHidden());
         commands.get(SHOW_EXTENSIONS).setChecked(browser.isShowExtensions());
         commands.get(SHOW_NAVIGATION_PANE).setChecked(browser.isNavigationPaneVisible());
+        commands.get(DETAILS_PANE).setChecked(browser.isDetailsPaneVisible());
+        commands.get(PREVIEW_PANE).setChecked(browser.isPreviewPaneVisible());
     }
 
     /** Looks at the clipboard again (on focus, before menus, after copying). */
@@ -315,7 +314,7 @@ final class FileActions {
         FileEntry entry = browser.targets().getFirst();
         Consumer<String> commit = name -> commitRename(entry, name);
         boolean started = browser.navigationTreeHasFocus() ? browser.navigationTree().startRename(entry, commit)
-                : browser.fileTable().startRename(entry, commit);
+                : browser.view().startRename(entry, commit);
         if (started) {
             renames++;
         }
@@ -418,7 +417,7 @@ final class FileActions {
         held = new Held(fs, List.copyOf(entries), cut, text);
         pasteAvailable = true;
         update();
-        browser.fileTable().table.redraw();
+        browser.view().control().redraw();
     }
 
     /** Copies the selected items' paths as text, one per line. */
@@ -491,7 +490,7 @@ final class FileActions {
 
     /** Whether a rename field is open, in the file view or the navigation pane. */
     boolean renaming() {
-        return browser.fileTable().editor() != null || browser.navigationTree().editor() != null;
+        return browser.view().editor() != null || browser.navigationTree().editor() != null;
     }
 
     /**
@@ -544,21 +543,8 @@ final class FileActions {
     }
 
     private void invertSelection() {
-        org.eclipse.swt.widgets.Table table = browser.fileTable().table;
-        int count = table.getItemCount();
-        boolean[] selected = new boolean[count];
-        for (int index : table.getSelectionIndices()) {
-            selected[index] = true;
-        }
-        table.deselectAll();
-        List<Integer> invert = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
-            if (!selected[i]) {
-                invert.add(i);
-            }
-        }
-        table.select(invert.stream().mapToInt(Integer::intValue).toArray());
-        browser.selectionChangedByCommand();
+        List<FileEntry> selected = browser.getSelectedEntries();
+        browser.setSelectedEntries(browser.getVisibleEntries().stream().filter(e -> !selected.contains(e)).toList());
     }
 
     // ------------------------------------------------------------------ menus
@@ -634,26 +620,35 @@ final class FileActions {
         fillGroupBy(cascade(menu, "Group by", true));
     }
 
-    private static void fillGroupBy(Menu menu) {
-        plain(menu, SWT.RADIO, "(None)", true, true, null);
-        for (String key : List.of("Name", "Date modified", "Type", "Size")) {
-            plain(menu, SWT.RADIO, key, false, false, null);
+    void fillGroupBy(Menu menu) {
+        FileOrder.Key current = browser.getGroupBy();
+        plain(menu, SWT.RADIO, "(None)", true, current == null, () -> browser.setGroupBy(null, true));
+        for (FileTable.Column column : browser.fileTable().columns()) {
+            FileOrder.Key key = column.key();
+            if (key != null) {
+                // Dates and sizes newest and largest first, as Explorer starts them.
+                boolean ascending = key != FileOrder.Key.MODIFIED && key != FileOrder.Key.SIZE;
+                plain(menu, SWT.RADIO, column.title(), true, key == current, () -> browser.setGroupBy(key, ascending));
+            }
         }
+        separator(menu);
+        boolean grouped = current != null;
+        plain(menu, SWT.RADIO, "Ascending", grouped, grouped && browser.isGroupAscending(), () -> browser.setGroupBy(current, true));
+        plain(menu, SWT.RADIO, "Descending", grouped, grouped && !browser.isGroupAscending(), () -> browser.setGroupBy(current, false));
+        separator(menu);
+        plain(menu, SWT.PUSH, "&Collapse all groups", grouped, false, () -> browser.setGroupsCollapsed(true));
+        plain(menu, SWT.PUSH, "&Expand all groups", grouped, false, () -> browser.setGroupsCollapsed(false));
     }
 
     void fillViewMenu(Menu menu) {
         update();
-        // The other layouts come with the owner-drawn views.
-        for (String layout : List.of("Extra large icons", "Large icons", "Medium icons", "Small icons", "List")) {
-            plain(menu, SWT.RADIO, layout, false, false, null);
-        }
-        plain(menu, SWT.RADIO, "Details", true, true, null);
-        for (String layout : List.of("Tiles", "Content")) {
-            plain(menu, SWT.RADIO, layout, false, false, null);
+        FileView shown = browser.getView();
+        for (FileView view : FileView.values()) {
+            plain(menu, SWT.RADIO, view.label() + "\tCtrl+Shift+" + (view.ordinal() + 1), true, view == shown, () -> browser.setView(view));
         }
         separator(menu);
-        item(menu, DETAILS_PANE, SWT.CHECK).setText("Details pane");
-        item(menu, PREVIEW_PANE, SWT.CHECK);
+        item(menu, DETAILS_PANE, SWT.CHECK).setText("Details pane\tAlt+Shift+P");
+        item(menu, PREVIEW_PANE, SWT.CHECK).setText("Preview pane\tAlt+P");
         separator(menu);
         Menu show = cascade(menu, "Show", true);
         item(show, SHOW_NAVIGATION_PANE, SWT.CHECK);

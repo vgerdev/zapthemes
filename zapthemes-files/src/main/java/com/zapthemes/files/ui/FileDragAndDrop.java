@@ -71,9 +71,12 @@ final class FileDragAndDrop {
         this.browser = browser;
         Table table = browser.fileTable().table;
         Tree tree = browser.navigationTree().tree;
+        FileGrid grid = browser.fileGrid();
         dragSource(table, false);
+        dragSource(grid, false);
         dragSource(tree, true);
         dropTarget(table);
+        dropTarget(grid);
         dropTarget(tree);
         table.addListener(SWT.EraseItem, this::paintDropItem);
         tree.addListener(SWT.EraseItem, this::paintDropItem);
@@ -96,8 +99,11 @@ final class FileDragAndDrop {
             TreeItem item = browser.navigationTree().tree.getItem(new Point(x, y));
             FileEntry entry = item == null ? null : browser.navigationTree().folderEntry(item);
             entries = entry == null ? List.of() : List.of(entry);
+        } else if (browser.view() instanceof FileGrid grid && !grid.dragsItems(x, y)) {
+            // On empty space a drag draws a rubber band instead.
+            entries = List.of();
         } else {
-            entries = browser.fileTable().selection();
+            entries = browser.getSelectedEntries();
         }
         boolean fixed = entries.stream().anyMatch(e -> e.kind() == EntryKind.DRIVE || e.path().isTop());
         return fixed ? List.of() : entries;
@@ -114,7 +120,8 @@ final class FileDragAndDrop {
                     event.doit = false;
                     return;
                 }
-                browser.fileTable().cancelSlowClick();
+                browser.view().cancelSlowClick();
+                browser.fileGrid().cancelBand();
                 FileSystem fs = browser.getFileSystem();
                 dragging = new Dragged(fs, entries);
                 draggedFrom = browser;
@@ -188,7 +195,7 @@ final class FileDragAndDrop {
             @Override
             public void drop(DropTargetEvent event) {
                 highlight(null);
-                FilePath into = folderAt(event.item);
+                FilePath into = folderAt(event);
                 if (event.data instanceof Dragged dragged) {
                     int operation = operation(dragged, into, event.detail);
                     event.detail = FileDragAndDrop.this.drop(dragged, into, operation) ? operation : DND.DROP_NONE;
@@ -223,14 +230,43 @@ final class FileDragAndDrop {
             highlight(null);
             return;
         }
-        FilePath into = folderAt(event.item);
+        FilePath into = folderAt(event);
         int operation = operation(dragged, into, event.detail);
         if ((event.operations & operation) == 0) {
             operation = (event.operations & DND.DROP_COPY) != 0 && operation != DND.DROP_NONE ? DND.DROP_COPY : DND.DROP_NONE;
         }
         event.detail = operation;
         event.feedback = DND.FEEDBACK_SCROLL | (event.widget instanceof DropTarget t && t.getControl() instanceof Tree ? DND.FEEDBACK_EXPAND : 0);
+        if (gridOf(event) instanceof FileGrid grid) {
+            FileEntry entry = gridEntry(grid, event);
+            highlight(null);
+            grid.setDropTarget(operation != DND.DROP_NONE && entry != null && entry.isContainer() ? entry : null);
+            if (event.feedback != 0) {
+                grid.scrollForDrop(grid.toControl(event.x, event.y));
+            }
+            return;
+        }
         highlight(operation != DND.DROP_NONE && intoItem(event.item) ? (Item) event.item : null);
+    }
+
+    /** The grid a drag is over, or null (the table or the tree). */
+    private static FileGrid gridOf(DropTargetEvent event) {
+        return event.widget instanceof DropTarget t && t.getControl() instanceof FileGrid grid ? grid : null;
+    }
+
+    private static FileEntry gridEntry(FileGrid grid, DropTargetEvent event) {
+        Point point = grid.toControl(event.x, event.y);
+        return grid.entryAt(point.x, point.y);
+    }
+
+    /** Where a drop of {@code event} goes (see {@link #folderAt(org.eclipse.swt.widgets.Widget)}). */
+    private FilePath folderAt(DropTargetEvent event) {
+        FileGrid grid = gridOf(event);
+        if (grid == null) {
+            return folderAt(event.item);
+        }
+        FileEntry entry = gridEntry(grid, event);
+        return checked(entry != null && entry.isContainer() ? entry.path() : browser.getCurrentPath());
     }
 
     private static TransferData find(TransferData[] types, Transfer transfer) {
@@ -247,9 +283,8 @@ final class FileDragAndDrop {
     /** Whether a drop on {@code item} goes into it (a folder), rather than into the folder shown. */
     private boolean intoItem(org.eclipse.swt.widgets.Widget item) {
         if (item instanceof TableItem row) {
-            int index = row.getParent().indexOf(row);
-            List<FileEntry> rows = browser.fileTable().rows();
-            return index >= 0 && index < rows.size() && rows.get(index).isContainer();
+            FileEntry entry = browser.fileTable().entryOf(row);
+            return entry != null && entry.isContainer();
         }
         return item instanceof TreeItem node && browser.navigationTree().folderOf(node) != null;
     }
@@ -263,13 +298,17 @@ final class FileDragAndDrop {
         if (item instanceof TreeItem node) {
             folder = browser.navigationTree().folderOf(node);
         } else if (item instanceof TableItem && intoItem(item)) {
-            TableItem row = (TableItem) item;
-            folder = browser.fileTable().rows().get(row.getParent().indexOf(row)).path();
+            folder = browser.fileTable().entryOf((TableItem) item).path();
         } else if (item == null || item instanceof TableItem) {
             folder = browser.getCurrentPath();
         } else {
             folder = null;
         }
+        return checked(folder);
+    }
+
+    /** {@code folder}, or null if nothing can go there (the top of the local disks). */
+    private FilePath checked(FilePath folder) {
         FileSystem fs = browser.getFileSystem();
         if (folder == null || fs == null || fs instanceof LocalFileSystem && LocalFileSystem.diskPath(fs, folder).isEmpty()) {
             return null;
@@ -427,6 +466,9 @@ final class FileDragAndDrop {
 
     /** Highlights {@code item} (a folder row or tree item) as where a drop goes, or nothing. */
     void highlight(Item item) {
+        if (item == null) {
+            browser.fileGrid().setDropTarget(null);
+        }
         if (item == dropItem) {
             return;
         }

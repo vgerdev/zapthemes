@@ -139,7 +139,7 @@ the zoom without resizing windows.
 | 2 ✅ | **Commands and operations** | Command bar, View/Sort menus, context menus; rename in place, new folder, delete (to trash where the platform has it); cut/copy/paste through the clipboard and a `FileTransferHandler`. |
 | 3 ✅ | **Address editing** | The editable path field, clear button, completion of folder names, and the drop-down of recent and typed locations. A history entry is a *location* (a filesystem, a path and a label), not a string, so it can name places of any filesystem: plain paths (`C:\opt`), named places ("OneDrive", "Recycle Bin" style entries an application adds), remote folders. |
 | 4 ✅ | **Drag and drop** | Drag out (`FileTransfer` for local files, an in-process `FileEntryTransfer` for virtual ones), drop in from the OS and between browsers, handed to the `FileTransferHandler`; drop highlighting on folders. |
-| 5 | **More views and panes** | Icon sizes, List, Tiles, Content; Group by; details pane; preview pane (images, text). |
+| 5 ✅ | **More views and panes** | Icon sizes, List, Tiles, Content; Group by; details pane; preview pane (images, text). |
 | 6 | **zapscp fit** | Permissions, Owner, Group columns; show hidden and mask filter; bookmarks into the tree; the adapter written and tested against zapscp's providers once it is merged. |
 | 7 | **Platform icons and watching** | Platform icons and type names (if wanted); `watch` for local folders. |
 
@@ -162,8 +162,8 @@ the zoom without resizing windows.
 - **Delete** is permanent, after a confirmation the application can replace
   (`setDeleteConfirmation`). Moving local files to the platform trash needs native calls on
   Windows (no Java API without AWT); it is a step 7 item.
-- **Group by** (by type, date, size; collapsible group headers) comes with the owner-drawn views in
-  step 5, since a native `Table` has no groups.
+- **Group by** (by type, date, size; collapsible group headers) came in step 5: owner-drawn headers
+  in the grid, and header rows in the Details table.
 
 - Delete goes to the platform trash for local files where SWT or the JDK offers it
   (`Desktop.moveToTrash` needs AWT, so possibly a small native call per platform), and is
@@ -344,3 +344,77 @@ Known limits, for later steps:
 - Virtual entries can't be dropped on other applications (they would need a download first,
   through the application's transfer handler).
 - No drops on the breadcrumb's segments yet, nor spring-loaded folders in the file view.
+
+## Step 5 in detail
+
+- **Layouts** (`FileView`, `FileBrowser.setView`): Extra large, Large, Medium and Small icons,
+  List, Details, Tiles and Content, as in Explorer's View menu, with its shortcuts
+  (Ctrl+Shift+1 to 8). They're also in the status bar's Details and Large icons toggles.
+  - Details stays the native virtual `Table`.
+  - The other layouts are one owner-drawn view (`FileGrid`, a `Canvas`). It does selection with
+    the mouse and keys (Ctrl, Shift, arrows, Home, End, Page Up and Down, typing a name's first
+    letters), a rubber band on empty space, hover, rename in place, drag and drop, and basic
+    accessibility.
+  - Icon sizes at 100 %: 256, 96, 48 and 16 pixels; List 16, Tiles 48, Content 32. They follow
+    the zoom.
+  - Icons, List and Tiles flow in rows; List flows in columns and scrolls sideways when it isn't
+    grouped.
+- **Thumbnails:** image files show their picture in the icon layouts from Medium up, and in Tiles
+  and Content.
+  - They're read in the background, one at a time, only for items in view, and kept in a small
+    cache.
+  - Only on a filesystem with `READ`, and only for files up to 20 MB.
+- **Group by** (`setGroupBy(key, ascending)`): Name, Date modified, Type, Size, and Permissions or
+  Owner where the filesystem has them; ascending or descending. The grouping itself is
+  `FileGroups`, with no SWT:
+  - Name: 0–9, A–H, I–P, Q–Z, Other.
+  - Date: Today, Yesterday, Earlier this week, Last week, Earlier this month, Last month, Earlier
+    this year, A long time ago, Unknown.
+  - Size: Empty, Tiny (under 16 KB), Small (under 1 MB), Medium (under 128 MB), Large (under
+    1 GB), Huge (under 4 GB), Gigantic, Unspecified (folders).
+  - Type, Permissions and Owner group by value.
+  - Every layout shows group headers, Details included (header rows in the table). A header
+    shows the group's name and item count. Its chevron collapses the group, and a click on the
+    header selects the group's items. Items keep the sort order within their group.
+- **Panes** at the right, behind a sash. Only one shows at a time, as in Explorer:
+  - The details pane (Alt+Shift+P) shows a large icon or thumbnail, the name and type, then
+    Size, Date modified, Permissions, Owner, Group and Link target as the entry has them. With
+    several items selected it shows "N items selected" and their size; with none, the folder
+    shown and its item count.
+  - The preview pane (Alt+P) shows images scaled to fit, and text files (up to their first
+    64 KB) in a read-only field. Other files show "No preview available."; with nothing
+    selected it says "Select a file to preview."
+  - Both read in the background, and a newer selection drops an older read.
+- **Theming:** the grid and the panes read the Details table's colors (background, foreground,
+  selection, hover), so a theme that styles `Table` styles them too. A `FileItemView` rule can
+  override them, and is in the property catalog.
+- **Tests:**
+  - `FileGroupsTest`: the groups by name, date, size, type and owner, and their order.
+  - `ViewsAndPanesTest`, 20 tests:
+    - Every layout lists the same items and keeps the selection; the shortcuts, the View menu
+      and the status bar toggles pick the layout; the layouts size their items and follow the
+      zoom without resizing the window.
+    - In the grid: clicks with Ctrl and Shift, the rubber band, the keys and typing, opening,
+      rename in place, drops onto folders, and the context menus.
+    - Groups in the grid and in Details: collapsing them, a header selecting its group, the
+      Group by menu, and forgetting collapsed groups in another folder.
+    - The details and preview panes, text read up to the limit, thumbnails, shrinking pictures,
+      and names wrapping after hyphens and dots.
+    - A hidden navigation pane or table stays hidden.
+  - The demo's smoke test goes through every layout, waits for a thumbnail, groups by type in the
+    grid and in Details, and checks both panes. New screenshots: each layout, Large icons in
+    every theme, grouped icons and Details, the details pane, and image and text previews.
+- **Fixed on the way:**
+  - On Windows, turning redraw back on for a hidden table or tree shows it again. That put the
+    Details table back over the grid, and would have brought back a hidden navigation pane.
+  - On GTK, a virtual table that shrinks doesn't mark its dropped rows disposed, so theming one
+    later crashed. `ThemeManager` now skips rows their table or tree no longer has.
+
+Known limits, for later steps:
+
+- Explorer keeps a layout per folder; the browser keeps one until the application changes it.
+- The preview pane shows pictures and text only, with no handler for other types (PDF, Office)
+  yet. Text is shown in the theme's font, without syntax colors.
+- Group headers in Details are rows of the native table, as high as the other rows.
+- Ctrl with the mouse wheel zooms the whole application, as it does elsewhere in ZapThemes, rather
+  than going through the layouts as in Explorer.

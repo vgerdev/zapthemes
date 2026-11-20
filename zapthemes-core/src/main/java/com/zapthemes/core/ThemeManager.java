@@ -740,6 +740,24 @@ public final class ThemeManager {
         event.type = SWT.None;
     }
 
+    /**
+     * Whether {@code widget} is a row its table or tree no longer has: a virtual table that shrinks
+     * releases its rows without marking them disposed on GTK, and touching one crashes there.
+     */
+    private static boolean removedRow(Widget widget) {
+        if (widget instanceof org.eclipse.swt.widgets.TableItem row) {
+            return row.getParent().isDisposed() || row.getParent().indexOf(row) < 0;
+        }
+        if (widget instanceof org.eclipse.swt.widgets.TreeItem node) {
+            org.eclipse.swt.widgets.TreeItem parent = node.getParentItem();
+            if (parent != null) {
+                return parent.isDisposed() || parent.indexOf(node) < 0;
+            }
+            return node.getParent().isDisposed() || node.getParent().indexOf(node) < 0;
+        }
+        return false;
+    }
+
     private void onSkin(Event event) {
         Widget widget = event.widget;
         if (widget == null || widget.getData(ThemeKeys.THEME_CONTROL_TYPE) != null) {
@@ -748,7 +766,7 @@ public final class ThemeManager {
         // SWT may send Skin while the widget's constructor is still running (from a layout it
         // triggers), so theme it once construction is over. Proxies have tagged themselves by then.
         display.asyncExec(() -> {
-            if (widget.isDisposed() || widget.getData(ThemeKeys.THEME_CONTROL_TYPE) != null) {
+            if (widget.isDisposed() || widget.getData(ThemeKeys.THEME_CONTROL_TYPE) != null || removedRow(widget)) {
                 return;
             }
             try {
