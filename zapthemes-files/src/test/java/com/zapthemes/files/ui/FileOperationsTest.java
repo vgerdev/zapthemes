@@ -281,7 +281,8 @@ class FileOperationsTest {
         assertThat(labels(view)).containsExactly("Extra large icons", "Large icons", "Medium icons", "Small icons", "List", "Details", "Tiles",
                 "Content", "-", "Details pane", "Preview pane", "-", "Show");
         assertThat(itemNamed(view, "Details").getSelection()).isTrue();
-        assertThat(itemNamed(view, "Large icons").getEnabled()).isFalse();
+        assertThat(itemNamed(view, "Large icons").getEnabled()).isTrue();
+        assertThat(itemNamed(view, "Large icons").getSelection()).isFalse();
         Menu sort = itemNamed(menu, "Sort by").getMenu();
         assertThat(labels(sort)).startsWith("Name", "Date modified", "Type", "Size", "-", "Ascending", "Descending");
         assertThat(itemNamed(sort, "Name").getSelection()).isTrue();

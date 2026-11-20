@@ -370,6 +370,14 @@ public final class MemoryFileSystem implements FileSystem {
             return this;
         }
 
+        /** Adds a file holding {@code content} (an image, say). */
+        public Builder file(String path, byte[] content) {
+            last = make(path, false);
+            last.content = content.clone();
+            last.size = last.content.length;
+            return this;
+        }
+
         /** Sets the last added entry's modification time. */
         public Builder modified(Instant modified) {
             last.modified = modified;

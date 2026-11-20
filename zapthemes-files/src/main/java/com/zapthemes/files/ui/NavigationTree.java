@@ -79,7 +79,7 @@ final class NavigationTree {
     /** Fills the tree for the browser's filesystem and places. */
     void rebuild() {
         revealGeneration++;
-        tree.setRedraw(false);
+        boolean redraw = redrawOff();
         tree.removeAll();
         topItem = null;
         FileSystem fs = browser.getFileSystem();
@@ -99,7 +99,25 @@ final class NavigationTree {
             topItem.setData(new Node(FilePath.TOP, null));
             new TreeItem(topItem, SWT.NONE).setText("Loading…");
         }
-        tree.setRedraw(true);
+        redrawOn(redraw);
+    }
+
+    /**
+     * Turns redraw off while the tree changes; true if it did. Not for a hidden tree (the
+     * navigation pane hidden): Windows would show it again when redraw is turned back on.
+     */
+    private boolean redrawOff() {
+        if (!tree.getVisible()) {
+            return false;
+        }
+        tree.setRedraw(false);
+        return true;
+    }
+
+    private void redrawOn(boolean wasOff) {
+        if (wasOff) {
+            tree.setRedraw(true);
+        }
     }
 
     /** Repaints the items (after a zoom: the icons are drawn at the new size). */
@@ -133,7 +151,7 @@ final class NavigationTree {
                 return;
             }
             node.loaded = true;
-            tree.setRedraw(false);
+            boolean redraw = redrawOff();
             for (org.eclipse.swt.widgets.TreeItem child : item.getItems()) {
                 child.dispose();
             }
@@ -148,7 +166,7 @@ final class NavigationTree {
                     new TreeItem(child, SWT.NONE).setText("Loading…");
                 }
             }
-            tree.setRedraw(true);
+            redrawOn(redraw);
             Runnable done = node.whenLoaded;
             node.whenLoaded = null;
             if (done != null) {
