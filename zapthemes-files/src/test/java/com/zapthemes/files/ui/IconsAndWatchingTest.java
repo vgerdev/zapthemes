@@ -332,6 +332,8 @@ class IconsAndWatchingTest {
         assertThat(server.watchedCount()).isEqualTo(1);
         FileBrowserProbe.select(browser, "folder 40", "folder 41");
         browser.fileTable().table.setTopIndex(30);
+        // GTK scrolls once the table is laid out, and may settle elsewhere: what it settles on is kept.
+        pause(300);
         idle();
         int top = browser.fileTable().table.getTopIndex();
         int refreshes = FileBrowserProbe.watchRefreshes(browser);
@@ -352,6 +354,8 @@ class IconsAndWatchingTest {
         assertThat(other.isAlive()).isFalse();
         assertThat(FileBrowserProbe.watchRefreshes(browser)).isEqualTo(refreshes + 1);
         assertThat(selected()).containsExactly("folder 40", "folder 41");
+        // GTK may scroll in two steps.
+        pause(200);
         assertThat(browser.fileTable().table.getTopIndex()).isEqualTo(top);
 
         // The same in the grid.
