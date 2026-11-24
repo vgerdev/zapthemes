@@ -332,6 +332,7 @@ class IconsAndWatchingTest {
         assertThat(server.watchedCount()).isEqualTo(1);
         FileBrowserProbe.select(browser, "folder 40", "folder 41");
         browser.fileTable().table.setTopIndex(30);
+        idle();
         int top = browser.fileTable().table.getTopIndex();
         int refreshes = FileBrowserProbe.watchRefreshes(browser);
 
@@ -347,6 +348,7 @@ class IconsAndWatchingTest {
             }
         });
         waitFor(() -> names().contains("zz new 9") && !names().contains("report10.pdf"));
+        idle();
         assertThat(other.isAlive()).isFalse();
         assertThat(FileBrowserProbe.watchRefreshes(browser)).isEqualTo(refreshes + 1);
         assertThat(selected()).containsExactly("folder 40", "folder 41");
@@ -410,8 +412,18 @@ class IconsAndWatchingTest {
     void aRenameInPlaceIsNotInterrupted() throws IOException {
         waitFor(() -> ME.equals(FileBrowserProbe.watchedFolder(browser)));
         FileBrowserProbe.select(browser, "notes.txt");
-        browser.rename();
-        assertThat(browser.view().editor()).isNotNull();
+        // On CI the test window may not be active: the field would lose the focus and commit.
+        InlineEditor.finishOnFocusOut = false;
+        try {
+            browser.rename();
+            assertThat(browser.view().editor()).isNotNull();
+            renameWhileTheFolderChanges();
+        } finally {
+            InlineEditor.finishOnFocusOut = true;
+        }
+    }
+
+    private void renameWhileTheFolderChanges() throws IOException {
         int refreshes = FileBrowserProbe.watchRefreshes(browser);
         server.createDirectory(ME, "while renaming");
         pause(FolderWatcher.DELAY * 3);

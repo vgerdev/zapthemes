@@ -923,6 +923,12 @@ public class FileBrowser extends Composite {
             entries = List.copyOf(listed);
             showEntries(selected);
             view().setScroll(scroll);
+            // GTK may scroll a table to its selection later: back again after that.
+            getDisplay().asyncExec(() -> {
+                if (!isDisposed() && Objects.equals(folder, current) && !loading) {
+                    view().setScroll(scroll);
+                }
+            });
             navigationTree.relist(folder);
             actions.update();
         });
