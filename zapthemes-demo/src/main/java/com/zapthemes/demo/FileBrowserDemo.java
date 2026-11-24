@@ -16,6 +16,8 @@ import java.util.function.BooleanSupplier;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.dnd.DND;
+import org.eclipse.swt.graphics.ImageData;
+import org.eclipse.swt.graphics.ImageLoader;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
@@ -38,6 +40,7 @@ import com.zapthemes.files.MemoryFileSystem;
 import com.zapthemes.files.RootedFileSystem;
 import com.zapthemes.files.ui.FileBrowser;
 import com.zapthemes.files.ui.FileBrowserProbe;
+import com.zapthemes.files.ui.FileView;
 import com.zapthemes.swt.widgets.Combo;
 import com.zapthemes.swt.widgets.Composite;
 import com.zapthemes.swt.widgets.Label;
@@ -81,7 +84,7 @@ public final class FileBrowserDemo {
         boolean smoke = options.contains("--smoke");
         int shots = options.indexOf("--screenshots");
         Display display = new Display();
-        Path sample = createSample();
+        Path sample = createSample(display);
         FileBrowserDemo demo = new FileBrowserDemo(display, sample);
         demo.open(smoke);
         int exitCode = 0;
@@ -107,7 +110,7 @@ public final class FileBrowserDemo {
     // ------------------------------------------------------------------ the sample filesystems
 
     /** A folder like the one in Explorer's screenshots, with fixed dates so screenshots repeat. */
-    private static Path createSample() {
+    private static Path createSample(Display display) {
         try {
             // The real path: on Windows CI the temporary directory is a short name (RUNNER~1),
             // which the tree's listing of the Users folder never shows.
@@ -118,14 +121,16 @@ public final class FileBrowserDemo {
             Files.createDirectories(root.resolve("reports/2024"));
             file(root.resolve("uptime-kuma-helm/Chart.yaml"), 412, "2024-03-07T17:00");
             file(root.resolve("uptime-kuma-helm/templates/deployment.yaml"), 2_310, "2024-03-07T17:00");
-            file(root.resolve("iad-email-images/banner.png"), 88_201, "2024-04-08T13:45");
+            // Pictures and text with something in them, for the thumbnails and the preview pane
+            // (padded to the sizes the screenshots show).
+            file(root.resolve("iad-email-images/banner.png"), picture(display, 600, 200, false), 88_201, "2024-04-08T13:45");
             file(root.resolve("iad-email-images/logo.webp"), 9_870, "2024-04-08T13:45");
             file(root.resolve("Install Kubernetes Cluster Node with Cilium.docx"), 1_066_000, "2025-02-03T04:50");
             file(root.resolve("Kubernetes Install On RHEL 9.docx"), 51_400, "2025-02-06T11:40");
             file(root.resolve("Picking Between Calico and Cilium for Your Cluster.docx"), 232_000, "2025-02-06T11:43");
             file(root.resolve("uptime-kuma-helm.7z"), 235_100, "2024-03-07T17:01");
-            file(root.resolve("notes.txt"), 1_200, "2025-01-15T09:12");
-            file(root.resolve("cluster-diagram.png"), 145_000, "2025-01-20T16:30");
+            file(root.resolve("notes.txt"), NOTES.getBytes(java.nio.charset.StandardCharsets.UTF_8), 1_200, "2025-01-15T09:12");
+            file(root.resolve("cluster-diagram.png"), picture(display, 640, 420, true), 145_000, "2025-01-20T16:30");
             file(root.resolve("install.sh"), 3_400, "2025-02-01T08:05");
             file(root.resolve("reports/2025/q1/summary.pdf"), 380_000, "2025-03-31T18:00");
             file(root.resolve("reports/2024/budget.xlsx"), 64_000, "2024-12-20T10:00");
@@ -146,6 +151,66 @@ public final class FileBrowserDemo {
     private static void file(Path path, int size, String modified) throws IOException {
         Files.write(path, new byte[size]);
         Files.setLastModifiedTime(path, time(modified));
+    }
+
+    /** A file holding {@code content}, padded with zeros (after a PNG's end, or spaces after text) to {@code size} bytes. */
+    private static void file(Path path, byte[] content, int size, String modified) throws IOException {
+        byte[] bytes = java.util.Arrays.copyOf(content, Math.max(size, content.length));
+        if (!path.toString().endsWith(".png")) {
+            java.util.Arrays.fill(bytes, content.length, bytes.length, (byte) ' ');
+        }
+        Files.write(path, bytes);
+        Files.setLastModifiedTime(path, time(modified));
+    }
+
+    private static final String NOTES = """
+            Cluster notes
+
+            - Control plane: three nodes behind the load balancer.
+            - Cilium replaces kube-proxy; Hubble is on for flow logs.
+            - Uptime Kuma watches the ingress and the API server.
+
+            Next: move the reports to the shared drive.
+            """;
+
+    /** A PNG drawn here: a cluster diagram (boxes joined by lines) or a banner (a gradient with a title). */
+    private static byte[] picture(Display display, int width, int height, boolean diagram) {
+        org.eclipse.swt.graphics.Image image = new org.eclipse.swt.graphics.Image(display, width, height);
+        org.eclipse.swt.graphics.GC gc = new org.eclipse.swt.graphics.GC(image);
+        try {
+            gc.setAntialias(SWT.ON);
+            if (diagram) {
+                gc.setBackground(new org.eclipse.swt.graphics.Color(0xF4, 0xF7, 0xFB));
+                gc.fillRectangle(0, 0, width, height);
+                gc.setForeground(new org.eclipse.swt.graphics.Color(0x5B, 0x6B, 0x80));
+                gc.setLineWidth(3);
+                int[][] nodes = { { 270, 40 }, { 80, 250 }, { 270, 250 }, { 460, 250 } };
+                for (int i = 1; i < nodes.length; i++) {
+                    gc.drawLine(nodes[0][0] + 50, nodes[0][1] + 60, nodes[i][0] + 50, nodes[i][1]);
+                }
+                int[] colors = { 0x2B6CB0, 0x2F855A, 0x2F855A, 0x2F855A };
+                for (int i = 0; i < nodes.length; i++) {
+                    int c = colors[i];
+                    gc.setBackground(new org.eclipse.swt.graphics.Color(c >> 16, c >> 8 & 0xFF, c & 0xFF));
+                    gc.fillRoundRectangle(nodes[i][0], nodes[i][1], 100, 60, 14, 14);
+                }
+            } else {
+                gc.setForeground(new org.eclipse.swt.graphics.Color(0x1E, 0x3A, 0x8A));
+                gc.setBackground(new org.eclipse.swt.graphics.Color(0x0E, 0xA5, 0xE9));
+                gc.fillGradientRectangle(0, 0, width, height, false);
+                gc.setBackground(new org.eclipse.swt.graphics.Color(0xFF, 0xFF, 0xFF));
+                gc.fillRoundRectangle(40, 70, 260, 18, 9, 9);
+                gc.fillRoundRectangle(40, 104, 180, 14, 7, 7);
+            }
+        } finally {
+            gc.dispose();
+        }
+        ImageLoader loader = new ImageLoader();
+        loader.data = new ImageData[] { image.getImageData() };
+        image.dispose();
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        loader.save(out, SWT.IMAGE_PNG);
+        return out.toByteArray();
     }
 
     private static FileTime time(String local) {
@@ -507,6 +572,54 @@ public final class FileBrowserDemo {
             problems.add("rooted: can't clean up the copy: " + e);
         }
         select(local);
+        idle(local);
+
+        // Step 5: the layouts, Group by, and the details and preview panes.
+        List<String> details = names(local);
+        for (FileView view : FileView.values()) {
+            local.setView(view);
+            idle(local);
+            DemoSupport.settle(display);
+            expect(problems, names(local).equals(details), "local: " + view.label() + " lists " + names(local));
+            expect(problems, FileBrowserProbe.viewControl(local).isVisible(), "local: " + view.label() + " isn't shown");
+        }
+        local.setView(FileView.LARGE_ICONS);
+        idle(local);
+        paint(FileBrowserProbe.viewControl(local));
+        waitFor(() -> FileBrowserProbe.thumbnails(local) >= 1);
+        expect(problems, FileBrowserProbe.thumbnails(local) >= 1, "local: no thumbnail of cluster-diagram.png");
+        local.setGroupBy(FileOrder.Key.TYPE, true);
+        idle(local);
+        List<String> groups = FileBrowserProbe.groupHeaders(local);
+        expect(problems, groups.contains("File folder (3)") && groups.contains("PNG image (1)"), "local: groups by type " + groups);
+        FileBrowserProbe.toggleGroup(local, "File folder");
+        expect(problems, !names(local).contains("reports"), "local: a collapsed group still shows its items");
+        FileBrowserProbe.toggleGroup(local, "File folder");
+        local.setView(FileView.DETAILS);
+        idle(local);
+        expect(problems, FileBrowserProbe.groupHeaders(local).equals(groups), "local: Details groups " + FileBrowserProbe.groupHeaders(local));
+        local.setGroupBy(null, true);
+        local.setDetailsPaneVisible(true);
+        FileBrowserProbe.select(local, "notes.txt");
+        List<String> pane = FileBrowserProbe.detailsPane(local);
+        expect(problems, pane.size() > 2 && pane.get(1).equals("Text document"), "local: details pane " + pane);
+        local.setPreviewPaneVisible(true);
+        waitFor(() -> FileBrowserProbe.previewText(local) != null);
+        expect(problems, String.valueOf(FileBrowserProbe.previewText(local)).startsWith("Cluster notes"),
+                "local: preview of notes.txt " + FileBrowserProbe.previewText(local));
+        FileBrowserProbe.select(local, "cluster-diagram.png");
+        waitFor(() -> FileBrowserProbe.previewShowsPicture(local));
+        expect(problems, FileBrowserProbe.previewShowsPicture(local), "local: no preview of cluster-diagram.png");
+        local.setPreviewPaneVisible(false);
+        FileBrowserProbe.select(local);
+        // Slow and remote: Tiles of the server, its thumbnails and previews read through the filesystem.
+        select(remote);
+        remote.setView(FileView.TILES);
+        idle(remote);
+        expect(problems, names(remote).contains("app.jar"), "remote: Tiles lists " + names(remote));
+        remote.setView(FileView.DETAILS);
+        idle(remote);
+        select(local);
 
         // Every theme: each part is themed; zoom grows the bars, not the window.
         for (Theme theme : available) {
@@ -530,6 +643,19 @@ public final class FileBrowserDemo {
         return problems.isEmpty() ? 0 : 1;
     }
 
+    /** Paints {@code control} as a screenshot does (a window behind others may get no paint of its own). */
+    private void paint(Control control) {
+        Point size = control.getSize();
+        org.eclipse.swt.graphics.Image image = new org.eclipse.swt.graphics.Image(display, Math.max(1, size.x), Math.max(1, size.y));
+        org.eclipse.swt.graphics.GC gc = new org.eclipse.swt.graphics.GC(image);
+        try {
+            control.print(gc);
+        } finally {
+            gc.dispose();
+            image.dispose();
+        }
+    }
+
     private static void expect(List<String> problems, boolean ok, String what) {
         if (!ok) {
             problems.add(what);
@@ -547,6 +673,15 @@ public final class FileBrowserDemo {
             }
         }
         return checked;
+    }
+
+    /** Settles, painting the view so its thumbnails are read, until they are. */
+    private void settleWithThumbnails(FileBrowser browser) {
+        idle(browser);
+        DemoSupport.settle(display);
+        paint(FileBrowserProbe.viewControl(browser));
+        idle(browser);
+        DemoSupport.settle(display);
     }
 
     private void screenshots(Path dir) {
@@ -590,6 +725,55 @@ public final class FileBrowserDemo {
         DemoSupport.settle(display);
         DemoSupport.screenshot(shell, dir, "filebrowser-drop");
         FileBrowserProbe.highlightDrop(local, null);
+        DemoSupport.settle(display);
+
+        // Step 5: the layouts (Large icons in every theme), groups and the panes.
+        select(local);
+        for (Theme theme : available) {
+            themes.setTheme(theme);
+            local.setView(FileView.LARGE_ICONS);
+            settleWithThumbnails(local);
+            DemoSupport.screenshot(shell, dir, "filebrowser-large-icons-" + theme.id());
+        }
+        themes.setTheme(available.getFirst());
+        for (FileView view : List.of(FileView.EXTRA_LARGE_ICONS, FileView.MEDIUM_ICONS, FileView.SMALL_ICONS, FileView.LIST, FileView.TILES,
+                FileView.CONTENT)) {
+            local.setView(view);
+            settleWithThumbnails(local);
+            DemoSupport.screenshot(shell, dir, "filebrowser-" + view.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'));
+        }
+        local.setView(FileView.MEDIUM_ICONS);
+        local.setGroupBy(FileOrder.Key.TYPE, true);
+        FileBrowserProbe.toggleGroup(local, "Word document");
+        FileBrowserProbe.select(local, "cluster-diagram.png");
+        settleWithThumbnails(local);
+        DemoSupport.screenshot(shell, dir, "filebrowser-grouped-icons");
+        local.setView(FileView.DETAILS);
+        local.setGroupBy(FileOrder.Key.MODIFIED, false);
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-grouped-details");
+        local.setGroupBy(null, true);
+        local.setDetailsPaneVisible(true);
+        FileBrowserProbe.select(local, "Install Kubernetes Cluster Node with Cilium.docx");
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-details-pane");
+        local.setPreviewPaneVisible(true);
+        FileBrowserProbe.select(local, "cluster-diagram.png");
+        waitFor(() -> FileBrowserProbe.previewShowsPicture(local));
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-preview-image");
+        FileBrowserProbe.select(local, "notes.txt");
+        waitFor(() -> FileBrowserProbe.previewText(local) != null);
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-preview-text");
+        for (Theme theme : available) {
+            themes.setTheme(theme);
+            DemoSupport.settle(display);
+            DemoSupport.screenshot(shell, dir, "filebrowser-preview-text-" + theme.id());
+        }
+        themes.setTheme(available.getFirst());
+        local.setPreviewPaneVisible(false);
+        FileBrowserProbe.select(local);
         DemoSupport.settle(display);
 
         // A chevron's drop-down, with the window behind it.

@@ -8,15 +8,18 @@ import java.nio.file.NotDirectoryException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.StackLayout;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -29,6 +32,7 @@ import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.ZoomListener;
 import com.zapthemes.files.Capability;
 import com.zapthemes.files.FileEntry;
+import com.zapthemes.files.FileGroups;
 import com.zapthemes.files.FileOrder;
 import com.zapthemes.files.FilePath;
 import com.zapthemes.files.FileSystem;
@@ -51,8 +55,8 @@ import com.zapthemes.widgets.command.CommandEvent;
  * <p>From the top: the navigation row (Back, Forward, Up, Refresh and the breadcrumb address bar,
  * whose chevrons drop down the subfolders of each level and which turns into a text field when its
  * empty space is clicked), the command bar (New, Cut, Copy, Paste, Rename, Share, Delete, Sort,
- * View, ...), then the navigation pane (places and the folder tree) beside the Details view, and
- * the status bar. Items are renamed in place (F2, Rename, or a slow second click); pastes go to a
+ * View, ...), then the navigation pane (places and the folder tree) beside the file view (Details, or
+ * one of the other layouts of {@link FileView}), the details or preview pane, and the status bar. Items are renamed in place (F2, Rename, or a slow second click); pastes go to a
  * {@link FileTransferHandler}.
  *
  * <p>Every filesystem call runs in the background; the browser stays responsive while a slow one
@@ -62,13 +66,15 @@ import com.zapthemes.widgets.command.CommandEvent;
  * <p>Keys: Alt+Left and Alt+Right (or Backspace in the file view) go back and forward, Alt+Up goes
  * up, F5 refreshes, Enter opens, Alt+D and Ctrl+L edit the path, F4 drops down the recent
  * locations; Ctrl+X, C and V cut, copy and paste, Del deletes, F2 renames, Ctrl+Shift+N makes a
- * folder, Ctrl+A selects all.
+ * folder, Ctrl+A selects all; Ctrl+Shift+1 to 8 pick a layout, Alt+P shows the preview pane and
+ * Alt+Shift+P the details pane.
  *
  * <p>The address bar's recent locations ({@link #setLocationHistory}) can name folders of any
  * filesystem; Back and Forward follow the browser across them.
  *
  * <p>Theme types: {@code FileBrowser} (the frame), {@code FileNavigationBar}, {@code FileCommandBar}, {@code FileStatusBar};
- * the panes are a {@code Tree} and a {@code Table}.
+ * {@code FileItemView} (the layouts other than Details, and the details and preview panes); the
+ * navigation pane is a {@code Tree} and the Details view a {@code Table}.
  */
 public class FileBrowser extends Composite {
 
@@ -92,7 +98,12 @@ public class FileBrowser extends Composite {
     private final NavigationBar navigationBar;
     private final SashForm sash;
     private final NavigationTree navigationTree;
+    private final Composite views;
+    private final StackLayout viewStack = new StackLayout();
     private final FileTable fileTable;
+    private final FileGrid fileGrid;
+    private final SidePane sidePane;
+    private final Thumbnails thumbnails;
     private final StatusBar statusBar;
     private final FileActions actions;
     private final FileDragAndDrop dragAndDrop;
@@ -127,6 +138,15 @@ public class FileBrowser extends Composite {
     private boolean shiftRightClick;
     private boolean shiftKeyDown;
     private LocationHistory history = new LocationHistory();
+    private FileView view = FileView.DETAILS;
+    private FileOrder.Key sortKey = FileOrder.Key.NAME;
+    private boolean sortAscending = true;
+    private FileOrder.Key groupKey;
+    private boolean groupAscending = true;
+    private final Set<String> collapsed = new HashSet<>();
+    private List<ItemView.Section> shownSections = List.of();
+    private boolean detailsPane;
+    private boolean previewPane;
     private Predicate<Location> locationHandler;
 
     /** A browser with nothing to show yet; give it a filesystem with {@link #setFileSystem}. */
@@ -149,21 +169,30 @@ public class FileBrowser extends Composite {
         sash = new SashForm(this, SWT.HORIZONTAL | SWT.SMOOTH);
         sash.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         navigationTree = new NavigationTree(this, sash);
-        fileTable = new FileTable(this, sash);
-        sash.setWeights(24, 76);
+        views = new com.zapthemes.swt.widgets.Composite(sash, SWT.NONE);
+        views.setLayout(viewStack);
+        fileTable = new FileTable(this, views);
+        fileGrid = new FileGrid(this, views);
+        viewStack.topControl = fileTable.table;
+        sidePane = new SidePane(this, sash);
+        sidePane.setVisible(false);
+        sash.setWeights(24, 56, 20);
+        thumbnails = new Thumbnails(this);
         statusBar = new StatusBar(this);
         statusBar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
-        fileTable.table.addListener(SWT.Selection, e -> selectionChanged());
-        fileTable.table.addListener(SWT.DefaultSelection, e -> openSelection());
-        for (Control control : new Control[] { navigationBar, commandBar, navigationTree.tree, fileTable.table, statusBar }) {
+        for (Control control : new Control[] { fileTable.table, fileGrid }) {
+            control.addListener(SWT.Selection, e -> selectionChanged());
+            control.addListener(SWT.DefaultSelection, e -> openSelection());
+            control.addListener(SWT.FocusIn, e -> focused(false));
+            control.addListener(SWT.MenuDetect, this::viewMenu);
+        }
+        for (Control control : new Control[] { navigationBar, commandBar, navigationTree.tree, fileTable.table, fileGrid, statusBar }) {
             control.addListener(SWT.KeyDown, this::keyDown);
         }
-        fileTable.table.addListener(SWT.FocusIn, e -> focused(false));
         navigationTree.tree.addListener(SWT.FocusIn, e -> focused(true));
         navigationTree.tree.addListener(SWT.Selection, e -> actions.update());
-        fileTable.table.addListener(SWT.MenuDetect, this::tableMenu);
-        for (Control control : new Control[] { fileTable.table, navigationTree.tree }) {
+        for (Control control : new Control[] { fileTable.table, fileGrid, navigationTree.tree }) {
             control.addListener(SWT.MouseDown, e -> shiftRightClick = e.button == 3 && (e.stateMask & SWT.SHIFT) != 0);
             control.addListener(SWT.KeyDown, e -> shiftKeyDown = (e.stateMask & SWT.SHIFT) != 0 || e.keyCode == SWT.SHIFT);
             control.addListener(SWT.KeyUp, e -> shiftKeyDown = false);
@@ -171,7 +200,11 @@ public class FileBrowser extends Composite {
         navigationTree.tree.addListener(SWT.MenuDetect, this::treeMenu);
         dragAndDrop = new FileDragAndDrop(this);
         ThemeManager.get(getDisplay()).addZoomListener(zoomListener);
-        ThemeManager.get(getDisplay()).addThemeChangeListener(this, (previous, next) -> fileTable.restripe());
+        ThemeManager.get(getDisplay()).addThemeChangeListener(this, (previous, next) -> {
+            fileTable.restripe();
+            fileGrid.redraw();
+            sidePane.fontChanged();
+        });
         addListener(SWT.Dispose, e -> {
             ThemeManager.get(getDisplay()).removeZoomListener(zoomListener);
             loader.close();
@@ -206,7 +239,17 @@ public class FileBrowser extends Composite {
         entries = List.of();
         defaultPlaces = List.of();
         fileTable.setColumns(fs.capabilities());
-        fileTable.setRows(List.of(), List.of());
+        if (groupKey != null && !groupKeys().contains(groupKey)) {
+            groupKey = null;
+        }
+        if (!sortKeys().contains(sortKey)) {
+            sortKey = FileOrder.Key.NAME;
+            sortAscending = true;
+            fileTable.showSort(sortKey, sortAscending);
+        }
+        collapsed.clear();
+        thumbnails.cancelWaiting();
+        view().setSections(List.of(), List.of());
         navigationTree.rebuild();
         if (places == null && fs instanceof LocalFileSystem local) {
             loader.run(local::standardPlaces, (found, failure) -> {
@@ -338,7 +381,7 @@ public class FileBrowser extends Composite {
         if (reload != null) {
             reload.run();
         } else if (current != null) {
-            List<FileEntry> selected = fileTable.selection();
+            List<FileEntry> selected = getSelectedEntries();
             navigate(current, selected.isEmpty() ? null : selected.getFirst().name(), Move.REFRESH);
         }
     }
@@ -399,11 +442,18 @@ public class FileBrowser extends Composite {
 
     /** The entries shown, in their order. */
     public List<FileEntry> getVisibleEntries() {
-        return fileTable.rows();
+        return view().rows();
     }
 
     public List<FileEntry> getSelectedEntries() {
-        return fileTable.selection();
+        return view().selection();
+    }
+
+    /** Selects {@code entries} of those shown (the others are left out); the selection listeners are told. */
+    public void setSelectedEntries(List<FileEntry> entries) {
+        checkWidget();
+        view().select(entries);
+        selectionChanged();
     }
 
     /** Whether hidden files are shown; off by default. */
@@ -411,7 +461,7 @@ public class FileBrowser extends Composite {
         checkWidget();
         if (show != showHidden) {
             showHidden = show;
-            showEntries(fileTable.selection().stream().map(FileEntry::path).toList());
+            showEntries(selectedPaths());
             navigationTree.rebuild();
             if (current != null) {
                 navigationTree.reveal(current);
@@ -423,18 +473,137 @@ public class FileBrowser extends Composite {
         return showHidden;
     }
 
-    /** Sorts the Details view by {@code key}; folders stay first. */
+    /** Sorts the items by {@code key}; folders stay first. */
     public void setSort(FileOrder.Key key, boolean ascending) {
         checkWidget();
-        fileTable.sortBy(key, ascending);
+        Objects.requireNonNull(key, "key");
+        sortKey = key;
+        sortAscending = ascending;
+        fileTable.showSort(key, ascending);
+        showEntries(selectedPaths());
     }
 
     public FileOrder.Key getSortKey() {
-        return fileTable.sortKey();
+        return sortKey;
     }
 
     public boolean isSortAscending() {
-        return fileTable.ascending();
+        return sortAscending;
+    }
+
+    /**
+     * Groups the items by {@code key} (null: no groups), as Explorer's "Group by": by name (0 - 9,
+     * A - H, ...), date modified (Today, Yesterday, ...), type, size (Tiny, Small, ...), or
+     * permissions and owner where the filesystem has them; the groups in {@code ascending} order.
+     */
+    public void setGroupBy(FileOrder.Key key, boolean ascending) {
+        checkWidget();
+        if (key != groupKey) {
+            collapsed.clear();
+        }
+        groupKey = key;
+        groupAscending = ascending;
+        showEntries(selectedPaths());
+    }
+
+    /** What the items are grouped by, or null. */
+    public FileOrder.Key getGroupBy() {
+        return groupKey;
+    }
+
+    public boolean isGroupAscending() {
+        return groupAscending;
+    }
+
+    /** Collapses or expands every group. */
+    public void setGroupsCollapsed(boolean collapse) {
+        checkWidget();
+        collapsed.clear();
+        if (collapse && groupKey != null) {
+            groups().forEach(g -> collapsed.add(g.label()));
+        }
+        showEntries(selectedPaths());
+    }
+
+    /** The labels of the collapsed groups. */
+    public Set<String> getCollapsedGroups() {
+        return Set.copyOf(collapsed);
+    }
+
+    /** Shows the items in {@code view}: one of Explorer's layouts (Details by default). */
+    public void setView(FileView view) {
+        checkWidget();
+        Objects.requireNonNull(view, "view");
+        if (view == this.view) {
+            return;
+        }
+        List<FilePath> select = selectedPaths();
+        boolean focus = view().control().isFocusControl();
+        ItemView before = view();
+        this.view = view;
+        if (view != FileView.DETAILS) {
+            fileGrid.setView(view);
+        }
+        ItemView after = view();
+        if (after != before) {
+            // Emptied while it still shows: on Windows turning a hidden table's redraw back on shows it again.
+            before.setSections(List.of(), List.of());
+            viewStack.topControl = after.control();
+            views.layout();
+        }
+        showEntries(select);
+        if (focus) {
+            after.control().setFocus();
+        }
+        statusBar.redraw();
+        commandBar.redraw();
+        actions.update();
+    }
+
+    public FileView getView() {
+        return view;
+    }
+
+    /** Shows or hides the details pane at the right (Alt+Shift+P); it replaces the preview pane. */
+    public void setDetailsPaneVisible(boolean visible) {
+        checkWidget();
+        showPane(visible, false);
+    }
+
+    public boolean isDetailsPaneVisible() {
+        return detailsPane;
+    }
+
+    /** Shows or hides the preview pane at the right (Alt+P): images and text files; it replaces the details pane. */
+    public void setPreviewPaneVisible(boolean visible) {
+        checkWidget();
+        showPane(false, visible);
+    }
+
+    public boolean isPreviewPaneVisible() {
+        return previewPane;
+    }
+
+    private void showPane(boolean details, boolean preview) {
+        boolean was = detailsPane || previewPane;
+        detailsPane = details;
+        previewPane = preview;
+        boolean show = details || preview;
+        if (show) {
+            sidePane.setMode(details ? SidePane.Mode.DETAILS : SidePane.Mode.PREVIEW);
+        }
+        if (show != was) {
+            int[] weights = sash.getWeights();
+            if (show && weights.length == 3) {
+                // A quarter of the room beside the navigation pane, as Explorer opens it.
+                int room = weights[1] + weights[2];
+                sash.setWeights(weights[0], room * 3 / 4, Math.max(1, room / 4));
+            }
+            sidePane.setVisible(show);
+            sash.layout(true);
+        }
+        sidePane.update(getSelectedEntries());
+        actions.update();
     }
 
     /** Whether a folder is being listed. */
@@ -624,6 +793,8 @@ public class FileBrowser extends Composite {
         if (show != showExtensions) {
             showExtensions = show;
             fileTable.restripe();
+            fileGrid.refreshRows();
+            sidePane.update(getSelectedEntries());
             actions.update();
         }
     }
@@ -635,12 +806,13 @@ public class FileBrowser extends Composite {
     /** Shows or hides the navigation pane. */
     public void setNavigationPaneVisible(boolean visible) {
         checkWidget();
-        sash.setMaximizedControl(visible ? null : fileTable.table);
+        navigationTree.tree.setVisible(visible);
+        sash.layout(true);
         actions.update();
     }
 
     public boolean isNavigationPaneVisible() {
-        return sash.getMaximizedControl() == null;
+        return navigationTree.tree.getVisible();
     }
 
     // ------------------------------------------------------------------ navigation
@@ -697,7 +869,7 @@ public class FileBrowser extends Composite {
         reload = () -> go(target, selectName, again, done);
         FileSystem fs = fileSystem;
         if (fs.has(Capability.SLOW) && move != Move.REFRESH) {
-            fileTable.showMessage("Loading…");
+            view().showMessage("Loading…");
         }
         updateStatus();
         pending = loader.run(() -> {
@@ -743,6 +915,10 @@ public class FileBrowser extends Composite {
                 case REFRESH -> {
                 }
             }
+            if (!Objects.equals(previous, listing.path())) {
+                collapsed.clear();
+                thumbnails.cancelWaiting();
+            }
             current = listing.path();
             labels = listing.labels();
             entries = List.copyOf(listing.entries());
@@ -763,9 +939,64 @@ public class FileBrowser extends Composite {
     }
 
     private void showEntries(List<FilePath> select) {
-        List<FileEntry> shown = showHidden ? entries : entries.stream().filter(e -> !e.hidden()).toList();
-        fileTable.setRows(shown, select);
+        List<FileEntry> shown = shownEntries();
+        List<ItemView.Section> sections;
+        if (groupKey == null) {
+            sections = ItemView.Section.plain(shown);
+        } else {
+            sections = new ArrayList<>();
+            for (FileGroups.Group group : groups(shown)) {
+                boolean closed = collapsed.contains(group.label());
+                sections.add(new ItemView.Section(group.label(), closed ? List.of() : group.entries(), group.entries().size(), closed));
+            }
+        }
+        shownSections = List.copyOf(sections);
+        view().setSections(sections, select);
         updateStatus();
+        sidePane.update(getSelectedEntries());
+    }
+
+    /** The entries shown (hidden ones left out unless shown), sorted. */
+    private List<FileEntry> shownEntries() {
+        List<FileEntry> shown = new ArrayList<>(showHidden ? entries : entries.stream().filter(e -> !e.hidden()).toList());
+        shown.sort(FileOrder.by(sortKey, sortAscending));
+        return shown;
+    }
+
+    private List<FileGroups.Group> groups() {
+        return groups(shownEntries());
+    }
+
+    private List<FileGroups.Group> groups(List<FileEntry> shown) {
+        return FileGroups.group(shown, groupKey, groupAscending, java.time.Instant.now(), java.time.ZoneId.systemDefault());
+    }
+
+    private List<FilePath> selectedPaths() {
+        return getSelectedEntries().stream().map(FileEntry::path).toList();
+    }
+
+    /** The group headers shown, as "label (count)" (empty when not grouped). */
+    List<String> groupHeaders() {
+        return shownSections.stream().filter(s -> s.label() != null).map(FileGrid::headerText).toList();
+    }
+
+    /** Collapses group {@code label}, or expands it. */
+    void toggleGroup(String label) {
+        if (!collapsed.remove(label)) {
+            collapsed.add(label);
+        }
+        showEntries(selectedPaths());
+        view().control().setFocus();
+    }
+
+    /** The keys the items can be sorted by here: the columns'. */
+    List<FileOrder.Key> sortKeys() {
+        return fileTable.columns().stream().map(FileTable.Column::key).filter(Objects::nonNull).toList();
+    }
+
+    /** The keys the items can be grouped by here. */
+    List<FileOrder.Key> groupKeys() {
+        return sortKeys();
     }
 
     private void failed(FilePath path, Throwable failure) {
@@ -780,7 +1011,7 @@ public class FileBrowser extends Composite {
         }
         String message = "Can't open \"" + name + "\": " + describe(failure);
         if (current == null) {
-            fileTable.showMessage(message);
+            view().showMessage(message);
         } else if (fileSystem.has(Capability.SLOW)) {
             // The list was cleared while loading: show the folder that is still current again.
             showEntries(List.of());
@@ -934,6 +1165,35 @@ public class FileBrowser extends Composite {
         return fileTable;
     }
 
+    FileGrid fileGrid() {
+        return fileGrid;
+    }
+
+    /** The file view shown: the Details table or the grid of the other layouts. */
+    ItemView view() {
+        return view == FileView.DETAILS ? fileTable : fileGrid;
+    }
+
+    SidePane sidePane() {
+        return sidePane;
+    }
+
+    Thumbnails thumbnails() {
+        return thumbnails;
+    }
+
+    /** An entry's name as the views show it: without its extension when extensions are hidden, an arrow after a link. */
+    String displayName(FileEntry entry) {
+        String name = entry.displayName();
+        if (!showExtensions && !entry.isContainer() && entry.label() == null) {
+            String extension = FileTypes.extension(name);
+            if (!extension.isEmpty()) {
+                name = name.substring(0, name.length() - extension.length() - 1);
+            }
+        }
+        return name + (entry.link() ? "  →" : "");
+    }
+
     StatusBar statusBar() {
         return statusBar;
     }
@@ -960,7 +1220,7 @@ public class FileBrowser extends Composite {
             FileEntry entry = navigationTree.selectedEntry();
             return entry == null ? List.of() : List.of(entry);
         }
-        return fileTable.selection();
+        return getSelectedEntries();
     }
 
     boolean navigationTreeHasFocus() {
@@ -1008,7 +1268,7 @@ public class FileBrowser extends Composite {
 
     /** Runs the command whose shortcut {@code event} is; false if none is. */
     private boolean runShortcut(Event event) {
-        if (event.widget != navigationTree.tree && event.widget != fileTable.table) {
+        if (event.widget != navigationTree.tree && event.widget != view().control()) {
             return false;
         }
         int key = event.keyCode == SWT.KEYPAD_CR ? SWT.CR : event.keyCode;
@@ -1031,27 +1291,30 @@ public class FileBrowser extends Composite {
         return false;
     }
 
-    private void tableMenu(Event event) {
-        org.eclipse.swt.widgets.Table table = fileTable.table;
+    private void viewMenu(Event event) {
+        Control control = view().control();
         treeFocused = false;
         boolean onItems;
         if (event.detail == SWT.MENU_MOUSE) {
-            org.eclipse.swt.widgets.TableItem item = table.getItem(table.toControl(event.x, event.y));
-            if (item == null) {
-                table.deselectAll();
-                selectionChanged();
+            org.eclipse.swt.graphics.Point point = control.toControl(event.x, event.y);
+            FileEntry entry = view().entryAt(point.x, point.y);
+            if (entry == null) {
+                if (!getSelectedEntries().isEmpty()) {
+                    view().select(List.of());
+                    selectionChanged();
+                }
                 onItems = false;
             } else {
-                if (!table.isSelected(table.indexOf(item))) {
-                    table.setSelection(item);
+                if (!getSelectedEntries().contains(entry)) {
+                    view().select(List.of(entry));
                     selectionChanged();
                 }
                 onItems = true;
             }
         } else {
-            onItems = table.getSelectionCount() > 0;
+            onItems = !getSelectedEntries().isEmpty();
         }
-        showMenu(table, event, onItems);
+        showMenu(control, event, onItems);
     }
 
     private void treeMenu(Event event) {
@@ -1120,7 +1383,8 @@ public class FileBrowser extends Composite {
     private void selectionChanged() {
         updateStatus();
         actions.update();
-        List<FileEntry> selected = fileTable.selection();
+        List<FileEntry> selected = getSelectedEntries();
+        sidePane.update(selected);
         selectionListeners.forEach(listener -> listener.accept(selected));
     }
 
@@ -1137,7 +1401,7 @@ public class FileBrowser extends Composite {
     }
 
     private void openSelection() {
-        List<FileEntry> selected = fileTable.selection();
+        List<FileEntry> selected = getSelectedEntries();
         if (selected.isEmpty()) {
             return;
         }
@@ -1157,7 +1421,16 @@ public class FileBrowser extends Composite {
         boolean alt = (event.stateMask & SWT.MODIFIER_MASK) == SWT.ALT;
         boolean ctrl = (event.stateMask & SWT.MODIFIER_MASK) == SWT.MOD1;
         boolean none = (event.stateMask & SWT.MODIFIER_MASK) == 0;
-        if (alt && event.keyCode == SWT.ARROW_LEFT || none && event.keyCode == SWT.BS && event.widget == fileTable.table) {
+        boolean ctrlShift = (event.stateMask & SWT.MODIFIER_MASK) == (SWT.MOD1 | SWT.SHIFT);
+        boolean altShift = (event.stateMask & SWT.MODIFIER_MASK) == (SWT.ALT | SWT.SHIFT);
+        int digit = layoutDigit(event);
+        if (ctrlShift && digit >= 1 && digit <= FileView.values().length) {
+            setView(FileView.values()[digit - 1]);
+        } else if (alt && event.keyCode == 'p') {
+            setPreviewPaneVisible(!previewPane);
+        } else if (altShift && event.keyCode == 'p') {
+            setDetailsPaneVisible(!detailsPane);
+        } else if (alt && event.keyCode == SWT.ARROW_LEFT || none && event.keyCode == SWT.BS && event.widget == view().control()) {
             back();
         } else if (alt && event.keyCode == SWT.ARROW_RIGHT) {
             forward();
@@ -1175,6 +1448,17 @@ public class FileBrowser extends Composite {
         event.doit = false;
     }
 
+    /** The digit key of {@code event} (1 to 9, on the main keys or the keypad, whatever Shift makes of them), or -1. */
+    private static int layoutDigit(Event event) {
+        if (event.keyCode >= '1' && event.keyCode <= '9') {
+            return event.keyCode - '0';
+        }
+        if (event.keyCode >= SWT.KEYPAD_1 && event.keyCode <= SWT.KEYPAD_9) {
+            return event.keyCode - SWT.KEYPAD_1 + 1;
+        }
+        return -1;
+    }
+
     private void updateStatus() {
         if (statusBar == null) {
             return;
@@ -1183,11 +1467,11 @@ public class FileBrowser extends Composite {
         if (loading && (fileSystem != null && fileSystem.has(Capability.SLOW) || current == null)) {
             text = "Loading…";
         } else {
-            int count = fileTable.rows().size();
+            int count = groupKey == null ? view().rows().size() : (int) entries.stream().filter(e -> showHidden || !e.hidden()).count();
             text = count + (count == 1 ? " item" : " items");
         }
         String selection = "";
-        List<FileEntry> selected = fileTable.selection();
+        List<FileEntry> selected = getSelectedEntries();
         if (!selected.isEmpty()) {
             selection = selected.size() + (selected.size() == 1 ? " item selected" : " items selected");
             long bytes = 0;
@@ -1217,6 +1501,8 @@ public class FileBrowser extends Composite {
         navigationBar.closePopup();
         navigationTree.refreshImages();
         fileTable.refreshRows();
+        fileGrid.refreshRows();
+        sidePane.fontChanged();
         navigationBar.redraw();
         commandBar.redraw();
         old.dispose();

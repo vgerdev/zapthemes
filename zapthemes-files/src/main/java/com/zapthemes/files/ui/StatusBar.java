@@ -12,8 +12,8 @@ import com.zapthemes.files.ui.FileIcons.Glyph;
 
 /**
  * The browser's status bar: the item count and the selection at the left ("9 items", "2 items
- * selected 1.2 MB", "Loading…", an error), and the view toggles at the right (Details; Large icons
- * comes with the icon views).
+ * selected 1.2 MB", "Loading…", an error), and the view toggles at the right: Details and Large
+ * icons, the one in use pressed.
  *
  * <p>Theme type {@code FileStatusBar}: {@code background}, {@code foreground}, {@code font},
  * {@code hoverBackground}, {@code pressedBackground} (the current view's toggle),
@@ -25,18 +25,27 @@ final class StatusBar extends Canvas {
     private static final int PAD = 10;
     private static final int TOGGLE = 22;
     private static final int GLYPH = 14;
+    private static final FileView[] VIEWS = { FileView.DETAILS, FileView.LARGE_ICONS };
 
     private String text = "";
     private String selection = "";
     private boolean error;
     private int hoverToggle = -1;
+    private final FileBrowser browser;
 
     @SuppressWarnings("this-escape")
     StatusBar(FileBrowser browser) {
         super(browser, SWT.DOUBLE_BUFFERED);
+        this.browser = browser;
         addListener(SWT.Paint, this::paint);
         addListener(SWT.MouseMove, e -> setHoverToggle(toggleAt(e.x, e.y)));
         addListener(SWT.MouseExit, e -> setHoverToggle(-1));
+        addListener(SWT.MouseUp, e -> {
+            int toggle = e.button == 1 ? toggleAt(e.x, e.y) : -1;
+            if (toggle >= 0) {
+                browser.setView(VIEWS[toggle]);
+            }
+        });
         ThemeManager.applyOnCreate(this, "FileStatusBar");
     }
 
@@ -86,7 +95,7 @@ final class StatusBar extends Canvas {
     private void setHoverToggle(int index) {
         if (index != hoverToggle) {
             hoverToggle = index;
-            setToolTipText(index == 0 ? "Details" : index == 1 ? "Large icons (coming with the icon views)" : null);
+            setToolTipText(index >= 0 ? VIEWS[index].label() + " (Ctrl+Shift+" + (VIEWS[index].ordinal() + 1) + ")" : null);
             redraw();
         }
     }
@@ -116,8 +125,8 @@ final class StatusBar extends Canvas {
         int glyph = px(GLYPH);
         for (int i = 0; i < 2; i++) {
             Rectangle r = toggleBounds(i);
-            boolean enabled = i == 0;
-            if (i == 0) {
+            boolean enabled = true;
+            if (browser.getView() == VIEWS[i]) {
                 gc.setBackground(colors.pressed());
                 gc.fillRoundRectangle(r.x, r.y, r.width, r.height, arc, arc);
             } else if (hoverToggle == i && enabled) {

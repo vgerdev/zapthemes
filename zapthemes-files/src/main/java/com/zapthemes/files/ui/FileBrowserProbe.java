@@ -29,7 +29,7 @@ public final class FileBrowserProbe {
     /** The Details view's texts for the entry named {@code name}, or an empty array. */
     public static String[] row(FileBrowser browser, String name) {
         FileTable table = browser.fileTable();
-        return table.rows().stream().filter(e -> e.name().equals(name)).findFirst().map(table::texts).orElse(new String[0]);
+        return browser.getVisibleEntries().stream().filter(e -> e.name().equals(name)).findFirst().map(table::texts).orElse(new String[0]);
     }
 
     /** The Details view's column titles. */
@@ -107,8 +107,8 @@ public final class FileBrowserProbe {
 
     /** The labels of the condensed or the classic ("Show more options") context menu. */
     public static List<String> contextMenu(FileBrowser browser, boolean onItems, boolean classic) {
-        org.eclipse.swt.widgets.Menu menu = classic ? browser.createClassicMenu(browser.fileTable().table, onItems)
-                : browser.createContextMenu(browser.fileTable().table, onItems);
+        org.eclipse.swt.widgets.Control control = browser.view().control();
+        org.eclipse.swt.widgets.Menu menu = classic ? browser.createClassicMenu(control, onItems) : browser.createContextMenu(control, onItems);
         try {
             return java.util.Arrays.stream(menu.getItems())
                     .map(i -> (i.getStyle() & org.eclipse.swt.SWT.SEPARATOR) != 0 ? "-" : i.getText().split("\t")[0].replace("&", "")).toList();
@@ -119,11 +119,9 @@ public final class FileBrowserProbe {
 
     /** Selects the entries named {@code names} in the file view, as a click would. */
     public static void select(FileBrowser browser, String... names) {
-        List<FileEntry> rows = browser.fileTable().rows();
         List<String> wanted = List.of(names);
-        int[] indices = java.util.stream.IntStream.range(0, rows.size()).filter(i -> wanted.contains(rows.get(i).name())).toArray();
-        browser.fileTable().table.setSelection(indices);
-        browser.fileTable().table.notifyListeners(org.eclipse.swt.SWT.Selection, new org.eclipse.swt.widgets.Event());
+        browser.view().select(browser.view().rows().stream().filter(e -> wanted.contains(e.name())).toList());
+        browser.view().control().notifyListeners(org.eclipse.swt.SWT.Selection, new org.eclipse.swt.widgets.Event());
         browser.focused(false);
     }
 
@@ -137,7 +135,7 @@ public final class FileBrowserProbe {
      * closed (it may lose its focus at once without a window manager), renames the selection directly.
      */
     public static void finishRename(FileBrowser browser, String name) {
-        InlineEditor editor = browser.fileTable().editor() != null ? browser.fileTable().editor() : browser.navigationTree().editor();
+        InlineEditor editor = browser.view().editor() != null ? browser.view().editor() : browser.navigationTree().editor();
         if (editor != null) {
             if (name != null) {
                 editor.text().setText(name);
@@ -191,9 +189,10 @@ public final class FileBrowserProbe {
      * if refused. The browser's side of a drag, without the platform's.
      */
     public static int drop(FileBrowser source, List<String> names, FileBrowser target, String onto, int operation) {
-        List<FileEntry> entries = source.fileTable().rows().stream().filter(e -> names.contains(e.name())).toList();
+        List<FileEntry> entries = source.getVisibleEntries().stream().filter(e -> names.contains(e.name())).toList();
         FileDragAndDrop dnd = target.dragAndDrop();
-        FilePath into = dnd.folderAt(onto == null ? null : rowItem(target, onto));
+        FilePath into = target.getView() == FileView.DETAILS ? dnd.folderAt(onto == null ? null : rowItem(target, onto))
+                : folderInGrid(target, onto);
         FileEntryTransfer.Dragged dragged = new FileEntryTransfer.Dragged(source.getFileSystem(), entries);
         int done = dnd.operation(dragged, into, operation);
         FileDragAndDrop.setDragFrom(source);
@@ -206,16 +205,71 @@ public final class FileBrowserProbe {
 
     /** Highlights the row named {@code name} as where a drop goes (null: none), as while dragging over it. */
     public static void highlightDrop(FileBrowser browser, String name) {
-        browser.dragAndDrop().highlight(name == null ? null : rowItem(browser, name));
+        FileEntry entry = name == null ? null : entry(browser, name);
+        browser.view().setDropTarget(entry);
+    }
+
+    private static FileEntry entry(FileBrowser browser, String name) {
+        return browser.getVisibleEntries().stream().filter(e -> e.name().equals(name)).findFirst().orElse(null);
     }
 
     private static org.eclipse.swt.widgets.TableItem rowItem(FileBrowser browser, String name) {
-        List<FileEntry> rows = browser.fileTable().rows();
-        for (int i = 0; i < rows.size(); i++) {
-            if (rows.get(i).name().equals(name)) {
-                return browser.fileTable().table.getItem(i);
-            }
-        }
-        return null;
+        FileEntry entry = entry(browser, name);
+        return entry == null ? null : browser.fileTable().itemOf(entry);
+    }
+
+    /** Where a drop on the grid's item {@code onto} (null: empty space) goes. */
+    private static FilePath folderInGrid(FileBrowser browser, String onto) {
+        FileEntry entry = onto == null ? null : entry(browser, onto);
+        return entry != null && entry.isContainer() ? entry.path() : browser.getCurrentPath();
+    }
+
+    // ------------------------------------------------------------------ step 5: layouts, groups, panes
+
+    /** The group headers shown, as "label (count)", in order (empty when not grouped). */
+    public static List<String> groupHeaders(FileBrowser browser) {
+        return browser.groupHeaders();
+    }
+
+    /** Collapses or expands group {@code label}, as a click on its chevron does. */
+    public static void toggleGroup(FileBrowser browser, String label) {
+        browser.toggleGroup(label);
+    }
+
+    /** The bounds of the item named {@code name} in the grid (a layout other than Details), or null. */
+    public static org.eclipse.swt.graphics.Rectangle itemBounds(FileBrowser browser, String name) {
+        FileEntry entry = entry(browser, name);
+        return entry == null || browser.getView() == FileView.DETAILS ? null : browser.fileGrid().boundsOf(entry);
+    }
+
+    /** The file view's control: the Details table, or the grid of the other layouts. */
+    public static org.eclipse.swt.widgets.Control viewControl(FileBrowser browser) {
+        return browser.view().control();
+    }
+
+    /** What the details pane lists: "label: value" lines, or the plain value of the name and type lines. */
+    public static List<String> detailsPane(FileBrowser browser) {
+        return browser.sidePane().details().stream().map(l -> l[0] == null ? l[1] : l[0] + ": " + l[1]).toList();
+    }
+
+    /** The text the preview pane shows, or null if it shows none (a picture, a message). */
+    public static String previewText(FileBrowser browser) {
+        SidePane pane = browser.sidePane();
+        return pane.text().isVisible() ? pane.text().getText() : null;
+    }
+
+    /** Whether the preview pane shows a picture. */
+    public static boolean previewShowsPicture(FileBrowser browser) {
+        return browser.sidePane().showsPicture();
+    }
+
+    /** The line the preview pane shows instead of a preview ("No preview available."), or null. */
+    public static String previewMessage(FileBrowser browser) {
+        return browser.sidePane().previewMessage();
+    }
+
+    /** Thumbnails read so far. */
+    public static int thumbnails(FileBrowser browser) {
+        return browser.thumbnails().size();
     }
 }
