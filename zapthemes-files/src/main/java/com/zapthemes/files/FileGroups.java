@@ -52,6 +52,7 @@ public final class FileGroups {
             case SIZE -> e -> e.isContainer() ? UNSPECIFIED : sizeGroup(e.size());
             case PERMISSIONS -> e -> e.permissions() == null || e.permissions().isEmpty() ? UNSPECIFIED : e.permissions();
             case OWNER -> e -> e.owner() == null || e.owner().isEmpty() ? UNSPECIFIED : e.owner();
+            case GROUP -> e -> e.group() == null || e.group().isEmpty() ? UNSPECIFIED : e.group();
         };
         Map<String, List<FileEntry>> groups = new LinkedHashMap<>();
         for (FileEntry entry : entries) {

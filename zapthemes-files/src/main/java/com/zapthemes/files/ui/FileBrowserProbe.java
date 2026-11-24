@@ -125,6 +125,37 @@ public final class FileBrowserProbe {
         browser.focused(false);
     }
 
+    /** The labels of the column headers' menu, with "[x]" before those shown. */
+    public static List<String> columnsMenu(FileBrowser browser) {
+        org.eclipse.swt.widgets.Menu menu = browser.createColumnsMenu();
+        try {
+            return java.util.Arrays.stream(menu.getItems()).map(i -> (i.getSelection() ? "[x] " : "[ ] ") + i.getText()).toList();
+        } finally {
+            menu.dispose();
+        }
+    }
+
+    /** Picks {@code label} in the column headers' menu, toggling that column. */
+    public static void toggleColumn(FileBrowser browser, String label) {
+        org.eclipse.swt.widgets.Menu menu = browser.createColumnsMenu();
+        try {
+            for (org.eclipse.swt.widgets.MenuItem item : menu.getItems()) {
+                if (item.getText().equals(label)) {
+                    item.setSelection(!item.getSelection());
+                    item.notifyListeners(org.eclipse.swt.SWT.Selection, new org.eclipse.swt.widgets.Event());
+                }
+            }
+        } finally {
+            menu.dispose();
+        }
+    }
+
+    /** Selects the place at {@code index} in the navigation pane, giving the pane the focus. */
+    public static void selectPlace(FileBrowser browser, int index) {
+        browser.navigationTree().selectPlace(index);
+        browser.focused(true);
+    }
+
     /** How many in-place renames have started. */
     public static int renamesStarted(FileBrowser browser) {
         return browser.actions().renamesStarted();
@@ -141,6 +172,8 @@ public final class FileBrowserProbe {
                 editor.text().setText(name);
             }
             editor.finish(name != null);
+        } else if (name != null && browser.navigationTreeHasFocus() && browser.navigationTree().selectedPlace() != null) {
+            browser.renamePlace(browser.navigationTree().selectedPlace(), name);
         } else if (name != null && browser.getSelectedEntries().size() == 1) {
             browser.actions().commitRename(browser.getSelectedEntries().getFirst(), name);
         }

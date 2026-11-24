@@ -619,6 +619,26 @@ public final class FileBrowserDemo {
         expect(problems, names(remote).contains("app.jar"), "remote: Tiles lists " + names(remote));
         remote.setView(FileView.DETAILS);
         idle(remote);
+        // Step 6: what zapscp's panes need. The Group column, hiding columns, the mask filter, pinned places.
+        expect(problems, FileBrowserProbe.columns(remote).contains("Group"), "remote: columns " + FileBrowserProbe.columns(remote));
+        remote.setColumnVisible(FileOrder.Key.OWNER, false);
+        expect(problems, !FileBrowserProbe.columns(remote).contains("Owner"), "remote: Owner still shown");
+        remote.setColumnVisible(FileOrder.Key.OWNER, true);
+        remote.setFilter("*.yml; *.sh");
+        idle(remote);
+        // Folders, and files ending in .yml or .sh (an earlier drop put install.sh there).
+        expect(problems, names(remote).containsAll(List.of("logs", "releases", "secrets", "application.yml", "start.sh"))
+                && remote.getVisibleEntries().stream().allMatch(e -> e.isContainer() || e.name().endsWith(".yml") || e.name().endsWith(".sh")),
+                "remote: filtered " + names(remote));
+        expect(problems, FileBrowserProbe.status(remote).contains("filter: *.yml; *.sh"), "remote: status " + FileBrowserProbe.status(remote));
+        remote.setFilter(null);
+        idle(remote);
+        FilePath logs = remote.getCurrentPath().resolve("logs");
+        remote.pin(logs, "Server logs");
+        expect(problems, remote.isPinned(logs) && FileBrowserProbe.treeRoots(remote).contains("Server logs"),
+                "remote: pinned " + FileBrowserProbe.treeRoots(remote));
+        remote.unpin(logs);
+        expect(problems, !FileBrowserProbe.treeRoots(remote).contains("Server logs"), "remote: still pinned");
         select(local);
 
         // Every theme: each part is themed; zoom grows the bars, not the window.
@@ -774,6 +794,24 @@ public final class FileBrowserDemo {
         themes.setTheme(available.getFirst());
         local.setPreviewPaneVisible(false);
         FileBrowserProbe.select(local);
+        DemoSupport.settle(display);
+
+        // Step 6: the server filtered, with its Group column, and a pinned folder in its places.
+        select(remote);
+        FilePath serverHome = remote.getCurrentPath();
+        remote.pin(serverHome.resolve("logs"), "Server logs");
+        remote.pin(serverHome.resolve("releases"), "Releases");
+        remote.setShowHidden(true);
+        remote.setFilter("*.yml; *.sh; .*");
+        idle(remote);
+        FileBrowserProbe.select(remote, "application.yml");
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-filter-and-places");
+        remote.setFilter(null);
+        remote.setShowHidden(false);
+        remote.setPlaces(null);
+        idle(remote);
+        select(local);
         DemoSupport.settle(display);
 
         // A chevron's drop-down, with the window behind it.

@@ -313,7 +313,7 @@ class FileOperationsTest {
         browser.copy();
         Menu items = browser.createClassicMenu(browser.fileTable().table, true);
 
-        assertThat(labels(items)).containsExactly("Open", "-", "Share", "-", "Cut", "Copy", "Paste into folder", "-", "Delete", "Rename", "-",
+        assertThat(labels(items)).containsExactly("Open", "Pin to Quick access", "-", "Share", "-", "Cut", "Copy", "Paste into folder", "-", "Delete", "Rename", "-",
                 "Copy as path", "Copy name", "-", "Select all", "Invert selection", "-", "Properties");
         itemNamed(items, "Copy name").notifyListeners(SWT.Selection, new Event());
         org.eclipse.swt.dnd.Clipboard clipboard = new org.eclipse.swt.dnd.Clipboard(display);

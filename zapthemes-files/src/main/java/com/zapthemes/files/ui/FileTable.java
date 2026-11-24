@@ -203,8 +203,8 @@ final class FileTable implements ItemView {
         return instant == null ? "" : DATES.format(instant);
     }
 
-    /** Sets the columns for a filesystem with {@code capabilities}. */
-    void setColumns(Set<Capability> capabilities) {
+    /** The columns for a filesystem with {@code capabilities}, without those of {@code hidden} (Name always). */
+    static List<Column> columnsFor(Set<Capability> capabilities, Set<FileOrder.Key> hidden) {
         List<Column> list = new ArrayList<>();
         list.add(new Column(FileOrder.Key.NAME, "Name", 260, SWT.LEFT));
         list.add(new Column(FileOrder.Key.MODIFIED, "Date modified", 150, SWT.LEFT));
@@ -215,8 +215,21 @@ final class FileTable implements ItemView {
         }
         if (capabilities.contains(Capability.OWNERS)) {
             list.add(new Column(FileOrder.Key.OWNER, "Owner", 90, SWT.LEFT));
-            list.add(new Column(null, "Group", 90, SWT.LEFT));
+            list.add(new Column(FileOrder.Key.GROUP, "Group", 90, SWT.LEFT));
         }
+        list.removeIf(column -> column.key() != FileOrder.Key.NAME && hidden.contains(column.key()));
+        return list;
+    }
+
+    /** Whether {@code point} (in the table) is on the column headers. */
+    boolean onHeader(org.eclipse.swt.graphics.Point point) {
+        Rectangle area = table.getClientArea();
+        return table.getHeaderVisible() && point.y >= area.y && point.y < area.y + table.getHeaderHeight();
+    }
+
+    /** Sets the columns for a filesystem with {@code capabilities}, leaving out those of {@code hidden}. */
+    void setColumns(Set<Capability> capabilities, Set<FileOrder.Key> hidden) {
+        List<Column> list = columnsFor(capabilities, hidden);
         if (list.equals(columns)) {
             return;
         }
@@ -399,13 +412,14 @@ final class FileTable implements ItemView {
         String[] texts = new String[columns.size()];
         for (int i = 0; i < texts.length; i++) {
             Column column = columns.get(i);
-            texts[i] = column.key() == null ? nonNull(entry.group()) : switch (column.key()) {
+            texts[i] = switch (column.key()) {
                 case NAME -> browser.displayName(entry);
                 case MODIFIED -> formatDate(entry.modified());
                 case TYPE -> FileTypes.typeName(entry);
                 case SIZE -> entry.isContainer() ? "" : FileTypes.detailsSize(entry.size());
                 case PERMISSIONS -> nonNull(entry.permissions());
                 case OWNER -> nonNull(entry.owner());
+                case GROUP -> nonNull(entry.group());
             };
         }
         return texts;

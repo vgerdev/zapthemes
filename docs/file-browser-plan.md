@@ -140,7 +140,7 @@ the zoom without resizing windows.
 | 3 ✅ | **Address editing** | The editable path field, clear button, completion of folder names, and the drop-down of recent and typed locations. A history entry is a *location* (a filesystem, a path and a label), not a string, so it can name places of any filesystem: plain paths (`C:\opt`), named places ("OneDrive", "Recycle Bin" style entries an application adds), remote folders. |
 | 4 ✅ | **Drag and drop** | Drag out (`FileTransfer` for local files, an in-process `FileEntryTransfer` for virtual ones), drop in from the OS and between browsers, handed to the `FileTransferHandler`; drop highlighting on folders. |
 | 5 ✅ | **More views and panes** | Icon sizes, List, Tiles, Content; Group by; details pane; preview pane (images, text). |
-| 6 | **zapscp fit** | Permissions, Owner, Group columns; show hidden and mask filter; bookmarks into the tree; the adapter written and tested against zapscp's providers once it is merged. |
+| 6 ✅ | **zapscp fit** | Permissions, Owner, Group columns; show hidden and mask filter; bookmarks into the tree; the adapter written and tested against zapscp's providers once it is merged. |
 | 7 | **Platform icons and watching** | Platform icons and type names (if wanted); `watch` for local folders. |
 
 ## Risks
@@ -418,3 +418,59 @@ Known limits, for later steps:
 - Group headers in Details are rows of the native table, as high as the other rows.
 - Ctrl with the mouse wheel zooms the whole application, as it does elsewhere in ZapThemes, rather
   than going through the layouts as in Explorer.
+
+## Step 6 in detail
+
+- **Columns:** Permissions, Owner and Group show when the filesystem has `PERMISSIONS` and
+  `OWNERS`. Group now has its own key (`FileOrder.Key.GROUP`), so it sorts and groups like the
+  others.
+  - A right click on the column headers opens a menu with a check item per column (not Name), as
+    in Explorer; `setColumnVisible(key, visible)` does the same. A hidden column stays hidden in
+    other filesystems that have it. Sorting or grouping by a column that gets hidden goes back to
+    Name, or to no groups.
+- **Mask filter** (`setFilter("*.log; *.txt")`, `getFilter()`): `FileMask` takes zapscp's syntax
+  (masks split by `;` or `,`, `*` and `?`, no case, names not paths).
+  - Files show when a mask matches them. Folders always show, unless a mask ends in `/` (`src/`):
+    then only the folders such a mask matches.
+  - Hidden items stay hidden unless shown. The filter applies to every layout and to groups, and
+    is kept while browsing.
+  - The status bar adds "· filter: …" as zapscp's panes do. "Clear filter" (in the View menu
+    while filtered, and `COMMAND_CLEAR_FILTER`) shows everything again. Typing the masks is left to
+    the application, which zapscp does in its own dialog.
+- **Bookmarks in the tree:** the places are the bookmarks.
+  - "Pin to Quick access" on a folder (the condensed and classic menus, `COMMAND_PIN`, `pin(path,
+    label)`) adds it at the end. On a pinned folder or a place it becomes "Unpin from Quick
+    access" (`unpin(path)`).
+  - F2 or Rename on a place renames the place in place in the navigation pane (its label, not the
+    folder), as Explorer does for Quick access.
+  - `addPlacesListener` gets the new list after each change, for the application to save
+    (zapscp's `BookmarkStore`, per session).
+- **The zapscp adapter** (`PathProviderFileSystem`): a `FileSystem` over a `PathProvider`, which
+  has the methods of zapscp's `vfs.FileSystemProvider` that browsing needs (string paths, `list`,
+  `find`, `resolve`, `parent`, `fileName`, the operations), and an `Item` record with the fields of
+  zapscp's `vfs.FileEntry` plus a group.
+  - A `FilePath` is the chain of names from the provider's root: the home folder's `parent`
+    followed up to `null`. All path math goes through the provider, so POSIX servers, S3 and
+    Windows-style paths all work. `format` shows the provider's own path.
+  - Typed paths (`~`, `..`, relative ones) are resolved locally, without a server call.
+  - Recursive delete lists and deletes deepest first, without following links. Names with a
+    leading dot are hidden. Every call is `SLOW`; `PERMISSIONS` and `OWNERS` follow
+    `supportsPermissions()`.
+  - zapscp's side is one small class: a `PathProvider` that hands each call to its provider and
+    maps `FileEntry` to `Item`.
+- **Tests:**
+  - `FileMaskTest` and `PathProviderFileSystemTest` (headless). The adapter is tested against a
+    POSIX server that does its path math as zapscp's `PosixPaths` does, and against a
+    Windows-style provider.
+  - `ZapscpFitTest`, 6 tests: the Group column, the header menu, the filter (with hidden items,
+    folder masks, layouts and groups), pinning and unpinning, and renaming a place in place.
+  - The demo's smoke test checks the Group column, hiding a column, the filter and pinning on the
+    server pane. New screenshot: `filebrowser-filter-and-places`.
+
+Known limits, for later:
+
+- The adapter is tested against stand-ins, not zapscp's own providers: zapscp isn't in this
+  repository yet. Once it is, the `PathProvider` wrapper and a test over its SFTP dev server
+  belong with it.
+- Places can't be reordered by dragging yet.
+- The browser has no field of its own for typing masks; the application provides it.
