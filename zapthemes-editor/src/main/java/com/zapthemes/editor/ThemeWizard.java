@@ -83,7 +83,10 @@ public final class ThemeWizard extends Wizard {
         return new ThemeWizard(model, PaletteStore.user());
     }
 
-    /** A dialog for {@code wizard} at {@link #PAGE_SIZE}. */
+    /**
+     * A dialog for {@code wizard} at {@link #PAGE_SIZE}. {@code parent} is the window it belongs to;
+     * {@code null} makes it a window of its own, with a taskbar button, as a standalone editor wants.
+     */
     public static WizardDialog dialog(Shell parent, ThemeWizard wizard) {
         WizardDialog dialog = new WizardDialog(parent, wizard);
         dialog.setPageSize(PAGE_SIZE);
