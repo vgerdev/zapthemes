@@ -85,23 +85,38 @@ class ListSelectionPaintTest {
     }
 
     @Test
-    void movingThePointerOverTheListDoesNotRedrawIt() {
-        // Every redraw has the list box paint its white highlight first: a flash on the selected item.
+    void movingThePointerRedrawsTheRowsItCrossesButNeverTheSelectedOne() {
+        // A redraw of the selected row has the list box paint its white highlight first: a flash.
+        // The other rows are redrawn as the pointer enters and leaves them, for their hover highlight.
         Shell shell = shell();
         List list = new List(shell, SWT.SINGLE);
         list.setItems(ITEMS);
         list.select(1);
         int[] paints = { 0 };
-        list.addListener(SWT.Paint, e -> paints[0]++);
+        java.util.List<Rectangle> painted = new java.util.ArrayList<>();
+        list.addListener(SWT.Paint, e -> {
+            paints[0]++;
+            painted.add(new Rectangle(e.x, e.y, e.width, e.height));
+        });
         open(shell);
 
         paints[0] = 0;
-        for (int y = 2; y < 60; y += 4) {
+        painted.clear();
+        int height = list.getItemHeight();
+        Rectangle selected = new Rectangle(0, height, list.getClientArea().width, height);
+        for (int y = 2; y < 3 * height; y += 3) {
             org.eclipse.swt.widgets.Event move = new org.eclipse.swt.widgets.Event();
             move.x = 20;
             move.y = y;
             list.notifyListeners(SWT.MouseMove, move);
+            settle(30);
         }
+        list.notifyListeners(SWT.MouseExit, new org.eclipse.swt.widgets.Event());
+        settle();
+        assertThat(painted).as("rows the pointer crossed").isNotEmpty();
+        assertThat(painted).as("paints of the selected row").noneMatch(r -> r.intersects(selected));
+
+        paints[0] = 0;
         org.eclipse.swt.widgets.Event drag = new org.eclipse.swt.widgets.Event();
         drag.stateMask = SWT.BUTTON1;
         list.notifyListeners(SWT.MouseMove, drag);
@@ -151,7 +166,11 @@ class ListSelectionPaintTest {
     }
 
     private void settle() {
-        long end = System.currentTimeMillis() + 300;
+        settle(300);
+    }
+
+    private void settle(int millis) {
+        long end = System.currentTimeMillis() + millis;
         while (System.currentTimeMillis() < end) {
             if (!display.readAndDispatch()) {
                 display.timerExec(20, () -> { });

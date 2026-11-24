@@ -23,8 +23,9 @@ import com.zapthemes.core.ThemeManager;
  * without a paint message, so the list is redrawn after a mouse or key event that changed the
  * selection or scrolled it. Only then: every redraw has the list box paint the system highlight
  * before the theme's colors go over it, which shows as a white flash on the selected item. A
- * pointer merely moving over the list redraws nothing. Properties the theme does not set are left
- * to the platform. Installed once per List by its styler.
+ * pointer moving over the list redraws only the unselected rows it enters and leaves, where the
+ * list box paints its hover highlight; a selected row is never redrawn for it. Properties the
+ * theme does not set are left to the platform. Installed once per List by its styler.
  */
 final class ListPainter {
 
@@ -32,6 +33,9 @@ final class ListPainter {
 
     /** What the last paint showed: the selected indices, then the top index. */
     static final String PAINTED = "zapthemes.listPainter.painted";
+
+    /** The index of the row under the pointer, or -1. */
+    static final String HOVER = "zapthemes.listPainter.hover";
 
     static final boolean ACTIVE = "win32".equals(SWT.getPlatform());
 
@@ -51,6 +55,40 @@ final class ListPainter {
                 SWT.FocusIn, SWT.FocusOut, SWT.MouseVerticalWheel }) {
             list.addListener(type, ListPainter::changed);
         }
+        list.addListener(SWT.MouseExit, event -> hover((List) event.widget, -1));
+    }
+
+    /**
+     * The pointer is over row {@code index} (-1: none): redraws the rows it left and entered, so the
+     * list box paints or clears its hover highlight there, unless they are selected.
+     */
+    private static void hover(List list, int index) {
+        int previous = list.getData(HOVER) instanceof Integer row ? row : -1;
+        if (previous == index) {
+            return;
+        }
+        list.setData(HOVER, index);
+        redrawRow(list, previous);
+        redrawRow(list, index);
+    }
+
+    private static void redrawRow(List list, int index) {
+        if (index < 0 || index >= list.getItemCount() || list.isSelected(index)) {
+            return;
+        }
+        int height = list.getItemHeight();
+        Rectangle area = list.getClientArea();
+        list.redraw(area.x, area.y + (index - list.getTopIndex()) * height, area.width, height, false);
+    }
+
+    /** The row at {@code y} in the list, or -1 below the last one. */
+    private static int rowAt(List list, int y) {
+        int height = list.getItemHeight();
+        if (height <= 0 || y < 0) {
+            return -1;
+        }
+        int index = list.getTopIndex() + y / height;
+        return index < list.getItemCount() ? index : -1;
     }
 
     /**
@@ -61,6 +99,7 @@ final class ListPainter {
     private static void changed(Event event) {
         List list = (List) event.widget;
         if (event.type == SWT.MouseMove && (event.stateMask & SWT.BUTTON_MASK) == 0) {
+            hover(list, rowAt(list, event.y));
             return;
         }
         boolean focus = event.type == SWT.FocusIn || event.type == SWT.FocusOut;
