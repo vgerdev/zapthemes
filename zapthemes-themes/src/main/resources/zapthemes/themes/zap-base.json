@@ -27,7 +27,10 @@
     "List": {
       "inherit": "Text",
       "selectionBackground": "$selection",
-      "selectionForeground": "$selectionForeground"
+      "selectionForeground": "$selectionForeground",
+      "states": {
+        "hover": { "background": "$hover" }
+      }
     },
     "StyledText": {
       "inherit": "Text",

@@ -13,7 +13,9 @@ import com.zapthemes.core.ThemeManager;
 
 /**
  * The selected items of a {@link List}, painted in the theme's {@code selectionBackground} and
- * {@code selectionForeground}; also the drop-down list of a {@code CCombo}, which is a List.
+ * {@code selectionForeground}, and the item under the pointer in its {@code hover} state's
+ * {@code background} (and {@code foreground}, if set); also the drop-down list of a
+ * {@code CCombo}, which is a List.
  *
  * <p>Only on Windows, where a list box is not owner-drawn and paints its selection in the system's
  * highlight colors whatever the list's own colors are. In the explorer dark mode
@@ -23,9 +25,10 @@ import com.zapthemes.core.ThemeManager;
  * without a paint message, so the list is redrawn after a mouse or key event that changed the
  * selection or scrolled it. Only then: every redraw has the list box paint the system highlight
  * before the theme's colors go over it, which shows as a white flash on the selected item. A
- * pointer moving over the list redraws only the unselected rows it enters and leaves, where the
- * list box paints its hover highlight; a selected row is never redrawn for it. Properties the
- * theme does not set are left to the platform. Installed once per List by its styler.
+ * pointer moving over the list redraws only the unselected rows it enters and leaves, for the
+ * hover highlight (the list box has none of its own); a selected row is never redrawn for it.
+ * Properties the theme does not set are left to the platform. Installed once per List by its
+ * styler.
  */
 final class ListPainter {
 
@@ -59,17 +62,24 @@ final class ListPainter {
     }
 
     /**
-     * The pointer is over row {@code index} (-1: none): redraws the rows it left and entered, so the
-     * list box paints or clears its hover highlight there, unless they are selected.
+     * The pointer is over row {@code index} (-1: none): redraws the rows it left and entered, to
+     * paint or clear the hover highlight there, unless they are selected.
      */
     private static void hover(List list, int index) {
-        int previous = list.getData(HOVER) instanceof Integer row ? row : -1;
+        int previous = hovered(list);
         if (previous == index) {
             return;
         }
         list.setData(HOVER, index);
-        redrawRow(list, previous);
-        redrawRow(list, index);
+        if (styleOf(list).states().contains("hover")) {
+            redrawRow(list, previous);
+            redrawRow(list, index);
+        }
+    }
+
+    /** The row under the pointer, or -1. */
+    static int hovered(List list) {
+        return list.getData(HOVER) instanceof Integer row ? row : -1;
     }
 
     private static void redrawRow(List list, int index) {
@@ -125,31 +135,40 @@ final class ListPainter {
         List list = (List) event.widget;
         list.setData(PAINTED, shown(list));
         ResolvedStyle style = styleOf(list);
-        if (!style.has("selectionBackground")) {
+        if (list.getItemHeight() <= 0) {
             return;
         }
         ThemeContext context = new ThemeContext(ThemeManager.get(list.getDisplay()).resources());
-        Color fill = context.color(style, "selectionBackground");
-        Color text = style.has("selectionForeground") ? context.color(style, "selectionForeground") : list.getForeground();
+        event.gc.setFont(list.getFont());
+        int hover = hovered(list);
+        if (hover >= 0 && hover < list.getItemCount() && !list.isSelected(hover) && style.states().contains("hover")) {
+            ResolvedStyle hot = style.state("hover");
+            Color fill = hot.has("background") ? context.color(hot, "background") : null;
+            Color text = hot.has("foreground") ? context.color(hot, "foreground") : list.getForeground();
+            paintRow(event.gc, list, hover, fill, text);
+        }
+        if (style.has("selectionBackground")) {
+            Color fill = context.color(style, "selectionBackground");
+            Color text = style.has("selectionForeground") ? context.color(style, "selectionForeground") : list.getForeground();
+            for (int index : list.getSelectionIndices()) {
+                paintRow(event.gc, list, index, fill, text);
+            }
+        }
+    }
+
+    /** Paints row {@code index} in {@code fill} with its text in {@code text}; nothing without a fill. */
+    private static void paintRow(GC gc, List list, int index, Color fill, Color text) {
         int height = list.getItemHeight();
-        if (fill == null || height <= 0) {
+        Rectangle area = list.getClientArea();
+        int y = (index - list.getTopIndex()) * height;
+        if (fill == null || y + height <= area.y || y >= area.y + area.height) {
             return;
         }
-        Rectangle area = list.getClientArea();
-        int top = list.getTopIndex();
-        GC gc = event.gc;
-        gc.setFont(list.getFont());
-        for (int index : list.getSelectionIndices()) {
-            int y = (index - top) * height;
-            if (y + height <= area.y || y >= area.y + area.height) {
-                continue;
-            }
-            gc.setBackground(fill);
-            gc.fillRectangle(area.x, y, area.width, height);
-            gc.setForeground(text);
-            String item = list.getItem(index);
-            int textHeight = gc.textExtent(item, SWT.DRAW_TAB).y;
-            gc.drawText(item, area.x + TEXT_MARGIN, y + (height - textHeight) / 2, SWT.DRAW_TAB | SWT.DRAW_TRANSPARENT);
-        }
+        gc.setBackground(fill);
+        gc.fillRectangle(area.x, y, area.width, height);
+        gc.setForeground(text);
+        String item = list.getItem(index);
+        int textHeight = gc.textExtent(item, SWT.DRAW_TAB).y;
+        gc.drawText(item, area.x + TEXT_MARGIN, y + (height - textHeight) / 2, SWT.DRAW_TAB | SWT.DRAW_TRANSPARENT);
     }
 }

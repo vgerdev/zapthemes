@@ -33,13 +33,16 @@ import com.zapthemes.swt.widgets.Shell;
 class ListSelectionPaintTest {
 
     private static final RGB SELECTION = new RGB(0x00, 0x40, 0xA0);
+    private static final RGB HOVER = new RGB(0x43, 0x45, 0x4A);
+    private static final RGB BACKGROUND = new RGB(0x20, 0x20, 0x20);
 
     private static final Theme THEME = ThemeJson.read(new StringReader("""
             {
               "id": "list-selection",
               "controls": {
                 "List": { "background": "#202020", "foreground": "#EEEEEE",
-                          "selectionBackground": "#0040A0", "selectionForeground": "#FFFFFF" }
+                          "selectionBackground": "#0040A0", "selectionForeground": "#FFFFFF",
+                          "states": { "hover": { "background": "#43454A" } } }
               },
               "platform": { "win32": { "darkScrollbars": true } }
             }
@@ -87,7 +90,8 @@ class ListSelectionPaintTest {
     @Test
     void movingThePointerRedrawsTheRowsItCrossesButNeverTheSelectedOne() {
         // A redraw of the selected row has the list box paint its white highlight first: a flash.
-        // The other rows are redrawn as the pointer enters and leaves them, for their hover highlight.
+        // The other rows are redrawn as the pointer enters and leaves them, for the hover highlight
+        // in the theme's hover color (the list box has none of its own).
         Shell shell = shell();
         List list = new List(shell, SWT.SINGLE);
         list.setItems(ITEMS);
@@ -111,8 +115,13 @@ class ListSelectionPaintTest {
             list.notifyListeners(SWT.MouseMove, move);
             settle(30);
         }
+        settle();
+        ImageData last = capture(list, 2);
+        assertThat(pixel(last, last.width - 4, last.height / 2)).as("the row under the pointer").isEqualTo(HOVER);
+        assertThat(pixel(capture(list, 0), last.width - 4, last.height / 2)).as("a row it left").isEqualTo(BACKGROUND);
         list.notifyListeners(SWT.MouseExit, new org.eclipse.swt.widgets.Event());
         settle();
+        assertThat(pixel(capture(list, 2), last.width - 4, last.height / 2)).as("after the pointer left").isEqualTo(BACKGROUND);
         assertThat(painted).as("rows the pointer crossed").isNotEmpty();
         assertThat(painted).as("paints of the selected row").noneMatch(r -> r.intersects(selected));
 
