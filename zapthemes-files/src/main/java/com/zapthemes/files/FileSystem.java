@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * A tree of files that a file browser shows: the local disks ({@link LocalFileSystem}), one folder of
@@ -112,6 +113,42 @@ public interface FileSystem extends Closeable {
     /** Deletes {@code path}; a folder only if empty, unless {@code recursive}. Links are deleted, not followed. */
     default void delete(FilePath path, boolean recursive) throws IOException {
         throw new UnsupportedOperationException(displayName() + " cannot delete");
+    }
+
+    /**
+     * Moves {@code path} (a file or a whole folder) to the platform's Recycle Bin or Trash, where it
+     * can be restored. Only where {@link Capability#TRASH} says so; elsewhere a delete is
+     * {@link #delete permanent}.
+     *
+     * @throws IOException if it can't go to the trash (a drive without one, say); nothing is
+     *         deleted then
+     */
+    default void trash(FilePath path) throws IOException {
+        throw new UnsupportedOperationException(displayName() + " has no trash");
+    }
+
+    /**
+     * Watches the folder {@code folder} until the returned {@link Watch} is closed: when an item in
+     * it is created, deleted, renamed or changed, {@code listener} gets that item's path, or
+     * {@code folder} itself when the folder went away or the filesystem can't say which item
+     * changed. The listener is called on a thread of the filesystem's (never the UI thread), often
+     * several times for one change, so a browser lists the folder again a moment after the last call.
+     * Only where {@link Capability#WATCH} says so.
+     *
+     * @throws IOException if the folder can't be watched
+     */
+    default Watch watch(FilePath folder, Consumer<FilePath> listener) throws IOException {
+        throw new UnsupportedOperationException(displayName() + " cannot watch folders");
+    }
+
+    /** A {@link #watch} on a folder; {@link #close} stops it. Closing twice does nothing. */
+    interface Watch extends AutoCloseable {
+        /** A watch that never fires. */
+        Watch NONE = () -> {
+        };
+
+        @Override
+        void close();
     }
 
     /** Opens the file {@code path} for reading. */

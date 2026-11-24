@@ -147,7 +147,7 @@ final class SidePane extends Composite {
         }
         FileEntry entry = selection.getFirst();
         lines.add(new String[] { null, browser.displayName(entry) });
-        lines.add(new String[] { null, FileTypes.typeName(entry) });
+        lines.add(new String[] { null, browser.typeName(entry) });
         if (!entry.isContainer() && entry.size() >= 0) {
             lines.add(new String[] { "Size", FileTypes.shortSize(entry.size()) });
         }

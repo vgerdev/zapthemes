@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * One folder of another filesystem, shown as a filesystem of its own: its top is that folder,
@@ -180,6 +181,20 @@ public final class RootedFileSystem implements FileSystem {
             throw new IllegalArgumentException("The top of " + topName() + " can't be deleted");
         }
         base.delete(toBase(path), recursive);
+    }
+
+    @Override
+    public void trash(FilePath path) throws IOException {
+        if (path.isTop()) {
+            throw new IllegalArgumentException("The top of " + topName() + " can't be deleted");
+        }
+        base.trash(toBase(path));
+    }
+
+    /** Watches the folder of the base; changes are reported as paths of this filesystem. */
+    @Override
+    public Watch watch(FilePath folder, Consumer<FilePath> listener) throws IOException {
+        return base.watch(toBase(folder), changed -> fromBase(changed).ifPresent(listener));
     }
 
     @Override

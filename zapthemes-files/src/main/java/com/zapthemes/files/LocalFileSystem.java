@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /**
  * The local disks, through {@code java.nio.file}.
@@ -36,6 +37,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * ({@code "\\server\share\"}). Elsewhere the top is {@code /}. Hidden files are those with the
  * DOS hidden attribute on Windows, and those whose name starts with a dot elsewhere; POSIX
  * permissions, owners and groups are read where the platform has them.
+ *
+ * <p>{@link #trash} moves items to the Recycle Bin (fixed drives on Windows) or the Trash (macOS,
+ * and the freedesktop.org trash elsewhere) where the platform's library loads. {@link #watch}
+ * watches folders with a {@link java.nio.file.WatchService} (which polls on macOS, every few
+ * seconds).
  */
 public final class LocalFileSystem implements FileSystem {
 
@@ -45,6 +51,7 @@ public final class LocalFileSystem implements FileSystem {
     private final boolean posix = FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
     private final boolean caseInsensitive;
     private final Map<String, String> driveLabels = new ConcurrentHashMap<>();
+    private final LocalWatcher watcher = new LocalWatcher();
 
     private LocalFileSystem() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
@@ -74,7 +81,10 @@ public final class LocalFileSystem implements FileSystem {
     @Override
     public Set<Capability> capabilities() {
         Set<Capability> set = EnumSet.of(Capability.CREATE_DIRECTORY, Capability.RENAME, Capability.MOVE, Capability.DELETE,
-                Capability.READ, Capability.WRITE);
+                Capability.READ, Capability.WRITE, Capability.WATCH);
+        if (PlatformTrash.isAvailable()) {
+            set.add(Capability.TRASH);
+        }
         if (posix) {
             set.add(Capability.PERMISSIONS);
             set.add(Capability.OWNERS);
@@ -307,20 +317,28 @@ public final class LocalFileSystem implements FileSystem {
         if (Files.exists(to, LinkOption.NOFOLLOW_LINKS) && !(caseInsensitive && path.name().equalsIgnoreCase(newName))) {
             throw new FileAlreadyExistsException(to.toString());
         }
-        Files.move(from, to);
+        watcher.pausing(from, windows, () -> Files.move(from, to));
         return target;
     }
 
     @Override
     public FilePath move(FilePath path, FilePath targetFolder) throws IOException {
         FilePath target = targetFolder.resolve(path.name());
-        Files.move(toPath(path), toPath(target));
+        Path from = toPath(path);
+        watcher.pausing(from, windows, () -> Files.move(from, toPath(target)));
         return target;
     }
 
     @Override
     public void delete(FilePath path, boolean recursive) throws IOException {
         Path file = toPath(path);
+        watcher.pausing(file, windows, () -> {
+            deleteNow(file, recursive);
+            return null;
+        });
+    }
+
+    private static void deleteNow(Path file, boolean recursive) throws IOException {
         if (!recursive || !Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)) {
             Files.delete(file);
             return;
@@ -341,6 +359,43 @@ public final class LocalFileSystem implements FileSystem {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    /**
+     * Moves {@code path} to the Recycle Bin or Trash.
+     *
+     * @throws IOException if it can't go there (on Windows, a drive other than a fixed one has no
+     *         Recycle Bin); it is left as it was
+     */
+    @Override
+    public void trash(FilePath path) throws IOException {
+        if (!PlatformTrash.isAvailable()) {
+            throw new UnsupportedOperationException("This platform has no trash");
+        }
+        Path file = toPath(path);
+        watcher.pausing(file, windows, () -> {
+            PlatformTrash.trash(file);
+            return null;
+        });
+    }
+
+    /** Whether {@code path} can go to the trash: on Windows only items of fixed drives can. */
+    public boolean canTrash(FilePath path) {
+        return !path.isTop() && PlatformTrash.canTrash(toPath(path));
+    }
+
+    /** Watches {@code folder} with a {@link java.nio.file.WatchService}; on Windows the top ("This PC") never fires. */
+    @Override
+    public Watch watch(FilePath folder, Consumer<FilePath> listener) throws IOException {
+        if (windows && folder.isTop()) {
+            return Watch.NONE;
+        }
+        return watcher.watch(toPath(folder), folder, listener);
+    }
+
+    /** The number of folders watched (tests). */
+    int watchedCount() {
+        return watcher.watchedCount();
     }
 
     @Override

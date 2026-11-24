@@ -74,4 +74,10 @@ interface ItemView {
 
     /** The entry highlighted as where a drop goes, or null. */
     FileEntry dropTarget();
+
+    /** Where the view is scrolled to, to {@link #setScroll} back after the folder is listed again. */
+    int[] scroll();
+
+    /** Scrolls back to a position {@link #scroll} gave, as far as the items reach. */
+    void setScroll(int[] position);
 }
