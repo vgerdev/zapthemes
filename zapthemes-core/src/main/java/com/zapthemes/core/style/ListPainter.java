@@ -1,5 +1,7 @@
 package com.zapthemes.core.style;
 
+import java.util.Arrays;
+
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
@@ -18,13 +20,18 @@ import com.zapthemes.core.ThemeManager;
  * ({@code platform.win32.darkScrollbars}) that highlight is white and so is the text on it: the
  * selected item cannot be read at all. After the list box has painted, the selected items are
  * painted again, row by row, in the theme's colors. A list box also repaints an item it selects
- * without a paint message, so the list is redrawn after every mouse and key event that can change
- * the selection. Properties the theme does not set are left to the platform. Installed once per
- * List by its styler.
+ * without a paint message, so the list is redrawn after a mouse or key event that changed the
+ * selection or scrolled it. Only then: every redraw has the list box paint the system highlight
+ * before the theme's colors go over it, which shows as a white flash on the selected item. A
+ * pointer merely moving over the list redraws nothing. Properties the theme does not set are left
+ * to the platform. Installed once per List by its styler.
  */
 final class ListPainter {
 
     static final String INSTALLED = "zapthemes.listPainter";
+
+    /** What the last paint showed: the selected indices, then the top index. */
+    static final String PAINTED = "zapthemes.listPainter.painted";
 
     static final boolean ACTIVE = "win32".equals(SWT.getPlatform());
 
@@ -46,12 +53,29 @@ final class ListPainter {
         }
     }
 
-    /** Redraws after the list box has handled the event: an invalidation is painted later. */
+    /**
+     * Redraws after the list box has handled the event, if it changed what the last paint showed
+     * (focus changes always redraw: the list box repaints its selection then). An invalidation is
+     * painted later.
+     */
     private static void changed(Event event) {
         List list = (List) event.widget;
-        if (styleOf(list).has("selectionBackground")) {
+        if (event.type == SWT.MouseMove && (event.stateMask & SWT.BUTTON_MASK) == 0) {
+            return;
+        }
+        boolean focus = event.type == SWT.FocusIn || event.type == SWT.FocusOut;
+        if ((focus || !Arrays.equals(shown(list), list.getData(PAINTED) instanceof int[] painted ? painted : null))
+                && styleOf(list).has("selectionBackground")) {
             list.redraw();
         }
+    }
+
+    /** The selected indices, then the top index. */
+    static int[] shown(List list) {
+        int[] selection = list.getSelectionIndices();
+        int[] shown = Arrays.copyOf(selection, selection.length + 1);
+        shown[selection.length] = list.getTopIndex();
+        return shown;
     }
 
     private static ResolvedStyle styleOf(List list) {
@@ -60,6 +84,7 @@ final class ListPainter {
 
     private static void paint(Event event) {
         List list = (List) event.widget;
+        list.setData(PAINTED, shown(list));
         ResolvedStyle style = styleOf(list);
         if (!style.has("selectionBackground")) {
             return;

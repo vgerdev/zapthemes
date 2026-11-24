@@ -85,6 +85,40 @@ class ListSelectionPaintTest {
     }
 
     @Test
+    void movingThePointerOverTheListDoesNotRedrawIt() {
+        // Every redraw has the list box paint its white highlight first: a flash on the selected item.
+        Shell shell = shell();
+        List list = new List(shell, SWT.SINGLE);
+        list.setItems(ITEMS);
+        list.select(1);
+        int[] paints = { 0 };
+        list.addListener(SWT.Paint, e -> paints[0]++);
+        open(shell);
+
+        paints[0] = 0;
+        for (int y = 2; y < 60; y += 4) {
+            org.eclipse.swt.widgets.Event move = new org.eclipse.swt.widgets.Event();
+            move.x = 20;
+            move.y = y;
+            list.notifyListeners(SWT.MouseMove, move);
+        }
+        org.eclipse.swt.widgets.Event drag = new org.eclipse.swt.widgets.Event();
+        drag.stateMask = SWT.BUTTON1;
+        list.notifyListeners(SWT.MouseMove, drag);
+        list.notifyListeners(SWT.MouseUp, new org.eclipse.swt.widgets.Event());
+        settle();
+        assertThat(paints[0]).as("paints with nothing changed").isZero();
+
+        // A changed selection is still painted over.
+        list.select(2);
+        list.notifyListeners(SWT.MouseUp, new org.eclipse.swt.widgets.Event());
+        settle();
+        assertThat(paints[0]).as("paints after the selection changed").isPositive();
+        ImageData row = capture(list, 2);
+        assertThat(pixel(row, row.width - 4, row.height / 2)).isEqualTo(SELECTION);
+    }
+
+    @Test
     void aComboDropDownListIsAListToo() throws ReflectiveOperationException {
         Shell shell = shell();
         var combo = new com.zapthemes.swt.custom.CCombo(shell, SWT.READ_ONLY | SWT.BORDER);
