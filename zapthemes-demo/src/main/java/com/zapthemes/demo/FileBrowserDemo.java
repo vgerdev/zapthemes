@@ -30,6 +30,7 @@ import org.eclipse.swt.widgets.Display;
 import com.zapthemes.core.ThemeKeys;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.model.Theme;
+import com.zapthemes.files.Capability;
 import com.zapthemes.files.FileEntry;
 import com.zapthemes.files.FileOrder;
 import com.zapthemes.files.FilePath;
@@ -41,6 +42,8 @@ import com.zapthemes.files.RootedFileSystem;
 import com.zapthemes.files.ui.FileBrowser;
 import com.zapthemes.files.ui.FileBrowserProbe;
 import com.zapthemes.files.ui.FileView;
+import com.zapthemes.files.ui.IconProvider;
+import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Combo;
 import com.zapthemes.swt.widgets.Composite;
 import com.zapthemes.swt.widgets.Label;
@@ -54,7 +57,8 @@ import com.zapthemes.swt.widgets.TabItem;
  *
  * <p>{@code --smoke} builds a sample folder in the temporary directory, browses all three in every
  * bundled theme (breadcrumb, chevron drop-downs, history, the tree, sorting, the rooted top, a slow
- * listing and a failing one, zoom) and exits with the problems found. {@code --screenshots <dir>}
+ * listing and a failing one, zoom; platform icons, a folder changed by another program, the
+ * trash) and exits with the problems found. {@code --screenshots <dir>}
  * also saves each tab in every theme, and a chevron drop-down.
  */
 public final class FileBrowserDemo {
@@ -252,7 +256,7 @@ public final class FileBrowserDemo {
     private void open(boolean smoke) {
         shell = new Shell(display);
         shell.setText("ZapThemes file browser");
-        GridLayout layout = new GridLayout(3, false);
+        GridLayout layout = new GridLayout(4, false);
         layout.marginWidth = 8;
         layout.marginHeight = 8;
         shell.setLayout(layout);
@@ -268,12 +272,19 @@ public final class FileBrowserDemo {
                 }
             }
         });
+        // Off by default: the browser's own icons look the same on every platform.
+        Button platformIcons = new Button(shell, SWT.CHECK);
+        platformIcons.setText("Platform icons");
+        platformIcons.addListener(SWT.Selection, e -> {
+            IconProvider provider = platformIcons.getSelection() ? IconProvider.platform() : null;
+            List.of(local, rooted, remote).forEach(b -> b.setIconProvider(provider));
+        });
         Label hint = new Label(shell, SWT.NONE);
         hint.setText("Ctrl+Plus and Ctrl+Minus zoom. The Server tab lists slowly, like a remote session.");
         hint.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
 
         tabs = new TabFolder(shell, SWT.NONE);
-        tabs.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 3, 1));
+        tabs.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 4, 1));
         LocalFileSystem disks = LocalFileSystem.get();
         local = tab("This PC");
         local.setFileSystem(disks, smoke ? disks.fromPath(sample) : disks.home());
@@ -479,7 +490,8 @@ public final class FileBrowserDemo {
         idle(rooted);
         expect(problems, Files.exists(sample.resolve("notes - Copy.txt")), "rooted: the copy is on disk");
         FileBrowserProbe.select(rooted, "notes - Copy.txt", "Made by the smoke test");
-        rooted.delete();
+        // For good: a Delete would put them in the user's Recycle Bin (step 7 tries that on CI only).
+        rooted.deletePermanently();
         waitFor(() -> !names(rooted).contains("notes - Copy.txt"));
         idle(rooted);
         expect(problems, !Files.exists(sample.resolve("notes - Copy.txt")) && !Files.exists(sample.resolve("Made by the smoke test")),
@@ -640,6 +652,55 @@ public final class FileBrowserDemo {
         remote.unpin(logs);
         expect(problems, !FileBrowserProbe.treeRoots(remote).contains("Server logs"), "remote: still pinned");
         select(local);
+
+        // Step 7: platform icons and type names, a folder changed by another program, the trash.
+        select(local);
+        local.setIconProvider(IconProvider.platform());
+        for (FileView view : FileView.values()) {
+            local.setView(view);
+            idle(local);
+            paint(FileBrowserProbe.viewControl(local));
+        }
+        local.setView(FileView.DETAILS);
+        String typeName = FileBrowserProbe.typeName(local, "notes.txt");
+        expect(problems, typeName != null && !typeName.isBlank(), "local: platform type name of notes.txt " + typeName);
+        System.out.println("Platform type name of notes.txt: " + typeName + "; trash: " + disks.has(Capability.TRASH));
+        local.setIconProvider(null);
+        expect(problems, "Text document".equals(FileBrowserProbe.typeName(local, "notes.txt")), "local: own type name back");
+        select(rooted);
+        rooted.navigate(FilePath.TOP);
+        idle(rooted);
+        waitFor(() -> FilePath.TOP.equals(FileBrowserProbe.watchedFolder(rooted)));
+        expect(problems, FilePath.TOP.equals(FileBrowserProbe.watchedFolder(rooted)), "rooted: not watched");
+        FileBrowserProbe.select(rooted, "notes.txt");
+        Path written = sample.resolve("written elsewhere.txt");
+        try {
+            Files.writeString(written, "Another program wrote this.");
+            // macOS polls for changes, every few seconds.
+            waitFor(() -> names(rooted).contains("written elsewhere.txt"));
+            expect(problems, names(rooted).contains("written elsewhere.txt"), "rooted: a file written by another program isn't listed");
+            expect(problems, FileBrowserProbe.names(rooted.getSelectedEntries()).equals(List.of("notes.txt")),
+                    "rooted: the watch lost the selection " + FileBrowserProbe.names(rooted.getSelectedEntries()));
+            if (disks.has(Capability.TRASH) && System.getenv("CI") != null) {
+                // Delete puts it in the Recycle Bin or Trash, without asking.
+                rooted.setDeleteConfirmation(entries -> false);
+                FileBrowserProbe.select(rooted, "written elsewhere.txt");
+                rooted.delete();
+                waitFor(() -> !Files.exists(written));
+                expect(problems, !Files.exists(written), "rooted: not moved to the trash");
+                rooted.setDeleteConfirmation(entries -> true);
+            } else {
+                Files.delete(written);
+            }
+            waitFor(() -> !names(rooted).contains("written elsewhere.txt"));
+            expect(problems, !names(rooted).contains("written elsewhere.txt"), "rooted: a deleted file is still listed");
+            Files.setLastModifiedTime(sample, time("2024-04-08T13:45"));
+        } catch (IOException e) {
+            problems.add("rooted: watching: " + e);
+        }
+        idle(rooted);
+        select(local);
+        idle(local);
 
         // Every theme: each part is themed; zoom grows the bars, not the window.
         for (Theme theme : available) {
@@ -833,6 +894,26 @@ public final class FileBrowserDemo {
         DemoSupport.settle(display);
         DemoSupport.screenshot(shell, dir, "filebrowser-local-zoom150");
         themes.resetZoom();
+        DemoSupport.settle(display);
+
+        // Step 7: the platform's icons and type names, in Details, Large icons and Tiles, and at 150 %.
+        select(local);
+        local.setIconProvider(IconProvider.platform());
+        local.setView(FileView.DETAILS);
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-platform-icons");
+        local.setView(FileView.LARGE_ICONS);
+        settleWithThumbnails(local);
+        DemoSupport.screenshot(shell, dir, "filebrowser-platform-icons-large");
+        local.setView(FileView.TILES);
+        settleWithThumbnails(local);
+        DemoSupport.screenshot(shell, dir, "filebrowser-platform-icons-tiles");
+        local.setView(FileView.DETAILS);
+        themes.setZoom(1.5);
+        DemoSupport.settle(display);
+        DemoSupport.screenshot(shell, dir, "filebrowser-platform-icons-zoom150");
+        themes.resetZoom();
+        local.setIconProvider(null);
         DemoSupport.settle(display);
     }
 }

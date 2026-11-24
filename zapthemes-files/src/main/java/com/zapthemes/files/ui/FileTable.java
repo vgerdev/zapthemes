@@ -180,6 +180,18 @@ final class FileTable implements ItemView {
     }
 
     @Override
+    public int[] scroll() {
+        return new int[] { table.getTopIndex() };
+    }
+
+    @Override
+    public void setScroll(int[] position) {
+        if (position.length > 0 && table.getItemCount() > 0) {
+            table.setTopIndex(Math.min(position[0], table.getItemCount() - 1));
+        }
+    }
+
+    @Override
     public InlineEditor editor() {
         return editor != null && editor.isOpen() ? editor : null;
     }
@@ -415,7 +427,7 @@ final class FileTable implements ItemView {
             texts[i] = switch (column.key()) {
                 case NAME -> browser.displayName(entry);
                 case MODIFIED -> formatDate(entry.modified());
-                case TYPE -> FileTypes.typeName(entry);
+                case TYPE -> browser.typeName(entry);
                 case SIZE -> entry.isContainer() ? "" : FileTypes.detailsSize(entry.size());
                 case PERMISSIONS -> nonNull(entry.permissions());
                 case OWNER -> nonNull(entry.owner());

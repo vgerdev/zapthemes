@@ -1,8 +1,11 @@
 package com.zapthemes.files.ui;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
@@ -18,6 +21,7 @@ import org.eclipse.swt.graphics.Transform;
 import org.eclipse.swt.widgets.Display;
 
 import com.zapthemes.files.FileEntry;
+import com.zapthemes.files.FileSystem;
 import com.zapthemes.files.FileTypes;
 
 /**
@@ -26,6 +30,8 @@ import com.zapthemes.files.FileTypes;
  * and the glyphs of the navigation and status bars. No artwork from any product.
  *
  * <p>Images are cached per icon and size and belong to this object; {@link #dispose} frees them.
+ * With an {@link IconProvider} (the platform's icons, say), entries it has an icon for get that
+ * one instead, cached per its key and size.
  */
 public final class FileIcons {
 
@@ -43,9 +49,18 @@ public final class FileIcons {
 
     private final Display display;
     private final Map<String, Image> images = new HashMap<>();
+    private final Set<String> missing = new HashSet<>();
+    private IconProvider provider;
+    private Supplier<FileSystem> fileSystem = () -> null;
 
     public FileIcons(Display display) {
         this.display = display;
+    }
+
+    /** Icons of {@code provider} first, for entries of the filesystem {@code fileSystem} gives; {@code null} for only our own. */
+    void setProvider(IconProvider provider, Supplier<FileSystem> fileSystem) {
+        this.provider = provider;
+        this.fileSystem = fileSystem;
     }
 
     /** {@code icon} at {@code size} pixels (at 100 % of the screen; high-DPI screens get more pixels). */
@@ -61,6 +76,15 @@ public final class FileIcons {
 
     /** The icon of an entry, faded if it is hidden or {@code faded} (cut, waiting for a paste). */
     public Image get(FileEntry entry, int size, boolean faded) {
+        if (provider != null) {
+            String key = provider.iconKey(fileSystem.get(), entry);
+            if (key != null) {
+                Image image = provided(key, size, entry.hidden() || faded);
+                if (image != null) {
+                    return image;
+                }
+            }
+        }
         Icon icon = iconOf(FileTypes.category(entry));
         if (!entry.hidden() && !faded) {
             return get(icon, size);
@@ -72,6 +96,45 @@ public final class FileIcons {
             }
             return data;
         }));
+    }
+
+    /** The provider's icon {@code key} at {@code size}, or null if it has none that size. */
+    private Image provided(String key, int size, boolean faded) {
+        String id = "provided:" + key + "@" + size;
+        if (missing.contains(id)) {
+            return null;
+        }
+        String cacheKey = faded ? id + "/faded" : id;
+        Image image = images.get(cacheKey);
+        if (image != null) {
+            return image;
+        }
+        ImageData base = provider.iconData(key, size);
+        if (base == null || base.width != size || base.height != size) {
+            missing.add(id);
+            return null;
+        }
+        IconProvider from = provider;
+        image = new Image(display, (ImageDataProvider) zoom -> {
+            int pixels = Math.max(1, size * zoom / 100);
+            ImageData data = zoom == 100 ? base : from.iconData(key, pixels);
+            if (data == null || data.width != pixels || data.height != pixels) {
+                data = PlatformIcons.fit(base, pixels);
+            }
+            return faded ? fade((ImageData) data.clone()) : data;
+        });
+        images.put(cacheKey, image);
+        return image;
+    }
+
+    private static ImageData fade(ImageData data) {
+        if (data.alphaData == null) {
+            data = PlatformIcons.fit(data, data.width);
+        }
+        for (int i = 0; i < data.alphaData.length; i++) {
+            data.alphaData[i] = (byte) ((data.alphaData[i] & 0xFF) / 2);
+        }
+        return data;
     }
 
     /** The icon of a standard place kind ({@link com.zapthemes.files.Place#kind()}). */
@@ -119,6 +182,7 @@ public final class FileIcons {
     public void dispose() {
         images.values().forEach(Image::dispose);
         images.clear();
+        missing.clear();
     }
 
     // ------------------------------------------------------------------ glyphs

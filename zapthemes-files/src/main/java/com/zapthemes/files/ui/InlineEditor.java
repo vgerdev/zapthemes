@@ -15,6 +15,9 @@ import com.zapthemes.swt.widgets.Text;
  */
 final class InlineEditor {
 
+    /** Whether losing the focus commits (tests turn it off: on CI the test window may not be active). */
+    static boolean finishOnFocusOut = true;
+
     private final Text text;
     private final Consumer<String> commit;
     private final Runnable cancel;
@@ -39,7 +42,11 @@ final class InlineEditor {
                 finish(true);
             }
         });
-        text.addListener(SWT.FocusOut, e -> finish(true));
+        text.addListener(SWT.FocusOut, e -> {
+            if (finishOnFocusOut) {
+                finish(true);
+            }
+        });
         text.setFocus();
     }
 

@@ -96,6 +96,7 @@ public class FileBrowser extends Composite {
     private static final int ICON = 16;
 
     private final FileLoader loader = new FileLoader(this);
+    private final FolderWatcher folderWatcher = new FolderWatcher(this);
     private final NavigationBar navigationBar;
     private final SashForm sash;
     private final NavigationTree navigationTree;
@@ -152,12 +153,13 @@ public class FileBrowser extends Composite {
     private boolean detailsPane;
     private boolean previewPane;
     private Predicate<Location> locationHandler;
+    private IconProvider iconProvider;
 
     /** A browser with nothing to show yet; give it a filesystem with {@link #setFileSystem}. */
     @SuppressWarnings("this-escape")
     public FileBrowser(Composite parent, int style) {
         super(parent, style);
-        icons = new FileIcons(getDisplay());
+        icons = newIcons();
         // The browser draws its icons at the zoom itself, sharper than scaled copies.
         setData(ThemeKeys.ZOOM_IMAGES, Boolean.FALSE);
         GridLayout layout = new GridLayout(1, false);
@@ -211,6 +213,7 @@ public class FileBrowser extends Composite {
         });
         addListener(SWT.Dispose, e -> {
             ThemeManager.get(getDisplay()).removeZoomListener(zoomListener);
+            folderWatcher.stop();
             loader.close();
             icons.dispose();
         });
@@ -237,6 +240,7 @@ public class FileBrowser extends Composite {
 
     /** Shows {@code fs}, with nothing listed yet; the history stays. */
     private void switchTo(FileSystem fs) {
+        folderWatcher.stop();
         fileSystem = fs;
         current = null;
         labels = List.of();
@@ -836,8 +840,9 @@ public class FileBrowser extends Composite {
     }
 
     /**
-     * Asks whether to delete; by default a message box ("Permanently delete ...?"). Return false to
-     * keep the items.
+     * Asks whether to delete for good; by default a message box ("Permanently delete ...?"). Return
+     * false to keep the items. Items that go to the Recycle Bin or Trash ({@link Capability#TRASH})
+     * are not asked about, as in Explorer; Shift+Delete deletes them for good, after asking.
      */
     public void setDeleteConfirmation(Predicate<List<FileEntry>> confirmation) {
         actions.setDeleteConfirmation(confirmation);
@@ -873,10 +878,19 @@ public class FileBrowser extends Composite {
         actions.newFolder();
     }
 
-    /** Deletes the selected items after the confirmation (Del). */
+    /**
+     * Deletes the selected items (Del): to the Recycle Bin or Trash where the filesystem has one
+     * ({@link Capability#TRASH}), else for good after the confirmation.
+     */
     public void delete() {
         checkWidget();
-        actions.delete();
+        actions.delete(false);
+    }
+
+    /** Deletes the selected items for good, after the confirmation, even where there is a trash (Shift+Del). */
+    public void deletePermanently() {
+        checkWidget();
+        actions.delete(true);
     }
 
     /** Puts the selected items on the clipboard, to be moved by a paste (Ctrl+X). */
@@ -928,6 +942,113 @@ public class FileBrowser extends Composite {
 
     public boolean isNavigationPaneVisible() {
         return navigationTree.tree.getVisible();
+    }
+
+    // ------------------------------------------------------------------ platform icons, watching
+
+    /**
+     * Where icons and type names come from first: {@link IconProvider#platform()} for the
+     * platform's, an application's own, or {@code null} (the default) for the browser's own, which
+     * are the same on every platform. The browser's own stay for what the provider has none of.
+     */
+    public void setIconProvider(IconProvider provider) {
+        checkWidget();
+        if (provider != iconProvider) {
+            iconProvider = provider;
+            FileIcons old = icons;
+            icons = newIcons();
+            navigationTree.refreshImages();
+            fileTable.refreshRows();
+            fileGrid.refreshRows();
+            if (current != null) {
+                showEntries(selectedPaths()); // Sorted and grouped by the new type names.
+            }
+            old.dispose();
+        }
+    }
+
+    public IconProvider getIconProvider() {
+        return iconProvider;
+    }
+
+    /**
+     * Whether the folder shown is watched ({@link FileSystem#watch}, where the filesystem can) and
+     * listed again when it changes, keeping the selection and the scroll position. On by default.
+     */
+    public void setWatchFolders(boolean watch) {
+        checkWidget();
+        folderWatcher.setEnabled(watch);
+    }
+
+    public boolean isWatchFolders() {
+        return folderWatcher.isEnabled();
+    }
+
+    /** The type name of {@code entry}: the icon provider's, else the browser's own. */
+    String typeName(FileEntry entry) {
+        if (iconProvider != null) {
+            String name = iconProvider.typeName(fileSystem, entry);
+            if (name != null) {
+                return name;
+            }
+        }
+        return FileTypes.typeName(entry);
+    }
+
+    private FileIcons newIcons() {
+        FileIcons made = new FileIcons(getDisplay());
+        made.setProvider(iconProvider, () -> fileSystem);
+        return made;
+    }
+
+    FolderWatcher folderWatcher() {
+        return folderWatcher;
+    }
+
+    /** Whether a listing loads or a rename field is open: a watch's refresh waits. */
+    boolean isBusy() {
+        return loading || actions.renaming();
+    }
+
+    /**
+     * Lists {@code folder} again after a watch heard it change, if it is still the one shown:
+     * selection and scroll position stay. If it is gone, the nearest folder above it opens.
+     */
+    void relistChanged(FilePath folder) {
+        if (fileSystem == null || !Objects.equals(folder, current) || loading) {
+            return;
+        }
+        FileSystem fs = fileSystem;
+        int gen = generation.get();
+        loader.run(() -> fs.list(folder), (listed, failure) -> {
+            if (gen != generation.get() || fs != fileSystem || !Objects.equals(folder, current) || loading) {
+                return;
+            }
+            if (failure instanceof java.nio.file.NoSuchFileException || failure instanceof java.nio.file.NotDirectoryException) {
+                if (folder.parent() != null) {
+                    navigate(folder.parent(), null, Move.REFRESH);
+                }
+                return;
+            }
+            if (failure != null || new HashSet<>(listed).equals(new HashSet<>(entries))) {
+                return;
+            }
+            List<FilePath> selected = selectedPaths();
+            int[] scroll = view().scroll();
+            entries = List.copyOf(listed);
+            showEntries(selected);
+            view().setScroll(scroll);
+            // GTK may scroll a table to its selection later (once it is laid out): back again after that.
+            Runnable again = () -> {
+                if (!isDisposed() && Objects.equals(folder, current) && !loading) {
+                    view().setScroll(scroll);
+                }
+            };
+            getDisplay().asyncExec(again);
+            getDisplay().timerExec(100, again);
+            navigationTree.relist(folder);
+            actions.update();
+        });
     }
 
     // ------------------------------------------------------------------ navigation
@@ -1038,6 +1159,7 @@ public class FileBrowser extends Composite {
             labels = listing.labels();
             entries = List.copyOf(listing.entries());
             showEntries(selectName == null ? List.of() : List.of(path.resolve(selectName)));
+            folderWatcher.watch(fs, current);
             navigationBar.update(!Objects.equals(previous, current));
             if (!Objects.equals(previous, current)) {
                 navigationTree.reveal(current);
@@ -1074,7 +1196,7 @@ public class FileBrowser extends Composite {
     /** The entries shown (hidden ones left out unless shown), sorted. */
     private List<FileEntry> shownEntries() {
         List<FileEntry> shown = new ArrayList<>(entries.stream().filter(e -> (showHidden || !e.hidden()) && filter.shows(e)).toList());
-        shown.sort(FileOrder.by(sortKey, sortAscending));
+        shown.sort(FileOrder.by(sortKey, sortAscending, this::typeName));
         return shown;
     }
 
@@ -1083,7 +1205,7 @@ public class FileBrowser extends Composite {
     }
 
     private List<FileGroups.Group> groups(List<FileEntry> shown) {
-        return FileGroups.group(shown, groupKey, groupAscending, java.time.Instant.now(), java.time.ZoneId.systemDefault());
+        return FileGroups.group(shown, groupKey, groupAscending, java.time.Instant.now(), java.time.ZoneId.systemDefault(), this::typeName);
     }
 
     private List<FilePath> selectedPaths() {
@@ -1590,6 +1712,8 @@ public class FileBrowser extends Composite {
             editPath();
         } else if (none && event.keyCode == SWT.F4) {
             showRecentLocations();
+        } else if ((event.stateMask & SWT.MODIFIER_MASK) == SWT.SHIFT && event.keyCode == SWT.DEL && !actions.renaming()) {
+            deletePermanently();
         } else if (!runShortcut(event)) {
             return;
         }
@@ -1650,7 +1774,7 @@ public class FileBrowser extends Composite {
 
     private void zoomChanged() {
         FileIcons old = icons;
-        icons = new FileIcons(getDisplay());
+        icons = newIcons();
         navigationBar.closePopup();
         navigationTree.refreshImages();
         fileTable.refreshRows();

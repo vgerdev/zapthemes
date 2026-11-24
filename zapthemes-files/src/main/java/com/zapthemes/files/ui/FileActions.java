@@ -105,7 +105,7 @@ final class FileActions {
         add(PASTE, "&Paste", Glyph.PASTE, SWT.MOD1 | 'V', e -> paste(null));
         add(RENAME, "Rena&me", Glyph.RENAME, SWT.F2, e -> rename());
         add(SHARE, "&Share", Glyph.SHARE, 0, e -> share());
-        add(DELETE, "&Delete", Glyph.DELETE, SWT.DEL, e -> delete());
+        add(DELETE, "&Delete", Glyph.DELETE, SWT.DEL, e -> delete(false));
         add(SORT, "Sort", Glyph.SORT, 0, null).style(Command.Style.DROP_DOWN).description("Sort the items");
         add(VIEW, "View", Glyph.DETAILS_VIEW, 0, null).style(Command.Style.DROP_DOWN).description("Change the layout and the panes");
         add(MORE, "See more", Glyph.MORE, 0, null).style(Command.Style.DROP_DOWN);
@@ -384,22 +384,49 @@ final class FileActions {
 
     // ------------------------------------------------------------------ delete
 
-    void delete() {
+    /**
+     * Deletes the targets: to the trash where the filesystem has one (without asking, as Explorer),
+     * unless {@code permanently} (Shift+Del), else for good after the confirmation. What can't go
+     * to the trash (a network drive) is offered to be deleted for good.
+     */
+    void delete(boolean permanently) {
         update();
         if (!commands.get(DELETE).isEnabled()) {
             return;
         }
+        FileSystem fs = browser.getFileSystem();
+        boolean toTrash = !permanently && fs.has(Capability.TRASH);
         List<FileEntry> entries = browser.targets();
-        if (!confirmDelete(entries)) {
+        if (!toTrash && !confirmDelete(entries, null)) {
             return;
         }
-        FileSystem fs = browser.getFileSystem();
+        delete(fs, entries, toTrash);
+    }
+
+    private void delete(FileSystem fs, List<FileEntry> entries, boolean toTrash) {
+        int[] done = { 0 };
         browser.loader().run(() -> {
             for (FileEntry entry : entries) {
-                fs.delete(entry.path(), true);
+                if (toTrash) {
+                    fs.trash(entry.path());
+                } else {
+                    fs.delete(entry.path(), true);
+                }
+                done[0]++;
             }
             return entries.size();
-        }, (count, failure) -> {
+        }, (count, error) -> {
+            Throwable failure = error;
+            if (toTrash && failure instanceof java.io.IOException && !(failure instanceof java.nio.file.NoSuchFileException)
+                    && fs == browser.getFileSystem()) {
+                // As Explorer: what the trash can't take may be deleted for good, if the user says so.
+                List<FileEntry> rest = List.copyOf(entries.subList(Math.min(done[0], entries.size()), entries.size()));
+                if (!rest.isEmpty() && confirmDelete(rest, FileBrowser.describe(failure))) {
+                    delete(fs, rest, false);
+                    return;
+                }
+                failure = null;
+            }
             if (failure != null) {
                 browser.reportFailure("Can't delete", failure);
             }
@@ -417,15 +444,22 @@ final class FileActions {
         });
     }
 
-    private boolean confirmDelete(List<FileEntry> entries) {
+    /** Asks whether to delete {@code entries} for good; {@code reason} says why they can't go to the trash, if that is why. */
+    private boolean confirmDelete(List<FileEntry> entries, String reason) {
         if (deleteConfirmation != null) {
             return deleteConfirmation.test(entries);
         }
         MessageBox box = new MessageBox(browser.getShell(), SWT.ICON_WARNING | SWT.YES | SWT.NO);
         box.setText("Delete");
         String what = entries.size() == 1 ? "\"" + entries.getFirst().displayName() + "\"" : "these " + entries.size() + " items";
-        box.setMessage("Permanently delete " + what + "?\n\nThis can't be undone.");
+        String why = reason == null ? "" : (entries.size() == 1 ? "It" : "They") + " can't go to the " + trashName() + ": " + reason + "\n\n";
+        box.setMessage(why + "Permanently delete " + what + "?\n\nThis can't be undone.");
         return box.open() == SWT.YES;
+    }
+
+    /** "Recycle Bin" on Windows, "Trash" elsewhere. */
+    static String trashName() {
+        return SWT.getPlatform().equals("win32") ? "Recycle Bin" : "Trash";
     }
 
     // ------------------------------------------------------------------ clipboard

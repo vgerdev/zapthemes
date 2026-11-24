@@ -650,7 +650,7 @@ final class FileGrid extends Canvas implements ItemView {
                 drawIcon(gc, entry, x, r.y + (r.height - icon) / 2, icon);
                 x += icon + px(10);
                 int width = r.x + r.width - px(6) - x;
-                List<String> lines = new ArrayList<>(List.of(name, FileTypes.typeName(entry)));
+                List<String> lines = new ArrayList<>(List.of(name, browser.typeName(entry)));
                 if (!entry.isContainer() && entry.size() >= 0) {
                     lines.add(FileTypes.shortSize(entry.size()));
                 }
@@ -670,7 +670,7 @@ final class FileGrid extends Canvas implements ItemView {
                 gc.setForeground(text);
                 gc.drawText(ellipsize(gc, name, split - px(12) - x), x, top, true);
                 gc.setForeground(isSelected ? text : colors.muted());
-                gc.drawText(ellipsize(gc, FileTypes.typeName(entry), split - px(12) - x), x, top + m.line(), true);
+                gc.drawText(ellipsize(gc, browser.typeName(entry), split - px(12) - x), x, top + m.line(), true);
                 int right = r.x + r.width - px(8);
                 drawField(gc, colors, isSelected, "Date modified: ", FileTable.formatDate(entry.modified()), split, top, right - split);
                 if (!entry.isContainer() && entry.size() >= 0) {
@@ -796,8 +796,8 @@ final class FileGrid extends Canvas implements ItemView {
     }
 
     /** The tooltip of an item: its name, type, size and date, as Explorer's. */
-    private static String tip(FileEntry entry) {
-        StringBuilder text = new StringBuilder(entry.displayName()).append("\nType: ").append(FileTypes.typeName(entry));
+    private String tip(FileEntry entry) {
+        StringBuilder text = new StringBuilder(entry.displayName()).append("\nType: ").append(browser.typeName(entry));
         if (!entry.isContainer() && entry.size() >= 0) {
             text.append("\nSize: ").append(FileTypes.shortSize(entry.size()));
         }
@@ -1154,6 +1154,18 @@ final class FileGrid extends Canvas implements ItemView {
         Rectangle bounds = nameBounds(i);
         editor = InlineEditor.open(this, bounds, entry.name(), entry.isContainer(), commit, this::setFocus);
         return true;
+    }
+
+    @Override
+    public int[] scroll() {
+        return new int[] { originX, originY };
+    }
+
+    @Override
+    public void setScroll(int[] position) {
+        if (position.length == 2) {
+            scrollTo(position[0], position[1]);
+        }
     }
 
     @Override

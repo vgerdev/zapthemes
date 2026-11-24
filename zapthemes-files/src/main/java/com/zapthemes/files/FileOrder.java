@@ -70,11 +70,16 @@ public final class FileOrder {
 
     /** The order of {@code key}, ascending or not; folders (and drives) come first either way. */
     public static Comparator<FileEntry> by(Key key, boolean ascending) {
+        return by(key, ascending, FileTypes::typeName);
+    }
+
+    /** {@link #by(Key, boolean)} with the type names of {@code typeName} (a browser's, which may be the platform's). */
+    public static Comparator<FileEntry> by(Key key, boolean ascending, java.util.function.Function<FileEntry, String> typeName) {
         Comparator<FileEntry> byName = (x, y) -> compareNatural(x.displayName(), y.displayName());
         Comparator<FileEntry> column = switch (key) {
             case NAME -> byName;
             case MODIFIED -> Comparator.comparing(FileEntry::modified, Comparator.nullsFirst(Comparator.<Instant>naturalOrder()));
-            case TYPE -> Comparator.comparing(FileTypes::typeName, FileOrder::compareNatural);
+            case TYPE -> Comparator.comparing(typeName, FileOrder::compareNatural);
             case SIZE -> Comparator.comparingLong(FileEntry::size);
             case PERMISSIONS -> Comparator.comparing(FileEntry::permissions, Comparator.nullsFirst(Comparator.<String>naturalOrder()));
             case OWNER -> Comparator.comparing(FileEntry::owner, Comparator.nullsFirst(Comparator.<String>naturalOrder()));
