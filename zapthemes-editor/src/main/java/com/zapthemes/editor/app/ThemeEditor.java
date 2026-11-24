@@ -106,7 +106,9 @@ public final class ThemeEditor {
 
     private int edit(Path file) {
         ThemeWizard wizard = file != null ? ThemeWizard.edit(available, file) : new ThemeWizard(available);
-        if (ThemeWizard.dialog(parent, wizard).open() == Window.OK) {
+        // The wizard is the app's window: a top-level shell, so it has a taskbar button and comes to
+        // the front. Owned by the hidden parent it had neither, and opened unseen behind the terminal.
+        if (ThemeWizard.dialog(null, wizard).open() == Window.OK) {
             System.out.println("Saved " + wizard.result().id() + " in " + wizard.savedFile());
         }
         return 0;
