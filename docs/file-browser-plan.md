@@ -87,8 +87,10 @@ be adapted in a few lines each.
   executor per control, posts results through `asyncExec`, drops stale ones by a generation
   number, interrupts the previous call when the user moves on, and reports errors to an
   `ErrorHandler` (default: an inline message in the file view, "Access is denied").
-- **Change events** (later): `FileSystem.watch(FilePath, Consumer<FilePath>)`, optional, the local
-  one on `WatchService`; the control refreshes the open folder.
+- **Change events** (step 7): `FileSystem.watch(FilePath, Consumer<FilePath>)`, optional
+  (`Capability.WATCH`), the local one on `WatchService`; the control refreshes the open folder.
+- **Trash** (step 7): `FileSystem.trash(FilePath)`, optional (`Capability.TRASH`); the local one
+  moves items to the Recycle Bin or Trash with one native call.
 
 A zapscp adapter is then one class: `FilePath` ↔ provider string through `resolve` and `parent`,
 `FileEntry` mapped field by field, `SLOW` for every remote protocol.
@@ -141,7 +143,7 @@ the zoom without resizing windows.
 | 4 ✅ | **Drag and drop** | Drag out (`FileTransfer` for local files, an in-process `FileEntryTransfer` for virtual ones), drop in from the OS and between browsers, handed to the `FileTransferHandler`; drop highlighting on folders. |
 | 5 ✅ | **More views and panes** | Icon sizes, List, Tiles, Content; Group by; details pane; preview pane (images, text). |
 | 6 | **zapscp fit** | Permissions, Owner, Group columns; show hidden and mask filter; bookmarks into the tree; the adapter written and tested against zapscp's providers once it is merged. |
-| 7 | **Platform icons and watching** | Platform icons and type names (if wanted); `watch` for local folders. |
+| 7 ✅ | **Platform icons and watching** | Platform icons and type names (opt-in); `watch` for local folders; local deletes to the platform trash. |
 
 ## Risks
 
@@ -159,15 +161,13 @@ the zoom without resizing windows.
 
 ## Assumptions to confirm
 
-- **Delete** is permanent, after a confirmation the application can replace
-  (`setDeleteConfirmation`). Moving local files to the platform trash needs native calls on
-  Windows (no Java API without AWT); it is a step 7 item.
+- **Delete** of local files goes to the Recycle Bin or Trash since step 7, through one native call
+  per platform with the JDK's foreign function API (no AWT); Shift+Delete, and virtual
+  filesystems, delete for good after a confirmation the application can replace
+  (`setDeleteConfirmation`).
 - **Group by** (by type, date, size; collapsible group headers) came in step 5: owner-drawn headers
   in the grid, and header rows in the Details table.
 
-- Delete goes to the platform trash for local files where SWT or the JDK offers it
-  (`Desktop.moveToTrash` needs AWT, so possibly a small native call per platform), and is
-  permanent for virtual filesystems, after a confirmation the application can replace.
 - The default `FileTransferHandler` copies and moves local to local only; virtual filesystems
   need the application's handler.
 
@@ -418,3 +418,81 @@ Known limits, for later steps:
 - Group headers in Details are rows of the native table, as high as the other rows.
 - Ctrl with the mouse wheel zooms the whole application, as it does elsewhere in ZapThemes, rather
   than going through the layouts as in Explorer.
+
+## Step 7 in detail
+
+- **Icon providers** (`IconProvider`, `FileBrowser.setIconProvider`): where icons and type names
+  come from first. Off by default, so the browser looks the same everywhere; what a provider has
+  nothing for keeps the browser's own icon and type name.
+  - A provider gives a key per entry (`".txt"`), the image for a key at a size in pixels, and a
+    type name. Images are made once per key and size, and asked for again at each zoom's pixels,
+    so they are sharp at any zoom. Hidden and cut items fade, as the browser's own do.
+  - `IconProvider.platform()` uses `Program.findProgram(ext)`, cached per extension, for local
+    files (the disk, or a rooted view of it); `platformForAllFileSystems()` does it for every
+    filesystem's files, by extension. Folders and drives keep the browser's icons.
+  - Windows extracts a type's icon at any size, so the platform icons are sharp in every layout.
+    Where a platform has only small ones, they are scaled up to twice their size; beyond that the
+    browser's own icon is drawn rather than a blurred one.
+  - Type names come from `Program.getName()` on Windows ("Text Document"). Elsewhere that is the
+    application's name ("Text Editor"), so the browser's own type names stay.
+  - The Details table, every grid layout, the tooltips and the details pane use them, and so do
+    sorting and grouping by type (`FileOrder.by` and `FileGroups.group` take the type names).
+- **Watching** (`FileSystem.watch`, `Capability.WATCH`): optional and refused by default. The
+  listener gets the path of what changed, or the folder itself when it went away. Closing the
+  returned `Watch` stops it.
+  - `LocalFileSystem`: one `WatchService` and one daemon thread for all folders, started with the
+    first watch and stopped after the last. On macOS the JDK polls (every few seconds).
+  - On Windows a watched folder keeps its parents from being renamed or moved. So the
+    filesystem's own rename, move, delete and trash pause the watches below what they change,
+    then watch again what is still there, and tell the listeners of what is gone.
+  - `RootedFileSystem` passes watches through, in its own paths. `MemoryFileSystem` tells its
+    watches of its own changes (on the thread that made them), so tests can drive it.
+  - `FileBrowser` (`FolderWatcher`) watches the folder shown, starting the watch in the
+    background, and lists the folder again a moment after the last change of a burst (300 ms;
+    at least every 2 s while changes keep coming).
+    - It keeps the selection and the scroll position, and lists the folder's subfolders again in
+      the navigation pane.
+    - It waits while a listing loads or a rename field is open.
+    - When the folder shown went away, the folder above it opens.
+    - The watch moves with the browser, and stops when the browser shows another filesystem or
+      is disposed. `setWatchFolders(false)` turns it off.
+- **Trash** (`FileSystem.trash`, `Capability.TRASH`): Delete moves local items to the Recycle Bin
+  or Trash without asking, as Explorer does. Shift+Delete (`deletePermanently()`) and filesystems
+  without a trash delete for good, after the confirmation. What the trash can't take (a network
+  drive on Windows) is offered to be deleted for good.
+  - Java has no API for the trash without AWT (`Desktop.moveToTrash`), so `PlatformTrash` makes
+    one native call through the JDK's foreign function API:
+    - Windows: `SHFileOperationW` with `FOF_ALLOWUNDO`, for fixed drives only (`GetDriveTypeW`),
+      since on other drives it would delete for good without a word. It warns before deleting
+      something too big for the Recycle Bin.
+    - Linux and the BSDs: GIO's `g_file_trash`, the freedesktop.org trash.
+    - macOS: `NSFileManager trashItemAtURL:resultingItemURL:error:` through `objc_msgSend`.
+  - Where the library doesn't load, there is no `TRASH`, and deletes stay permanent. The build
+    already enables native access for SWT (`--enable-native-access=ALL-UNNAMED`); without it the
+    JDK only warns.
+- **Tests:**
+  - `WatchAndTrashTest` (headless, 8 tests): memory watches and what they hear, a watched folder
+    that goes away, rooted watches in rooted paths, refusing by default, local watches, renaming
+    the parent of a watched folder, a paused watch that goes on, and the local trash.
+  - `IconsAndWatchingTest`, 12 tests:
+    - A provider's icons and type names in every place, at every size and zoom; its fallbacks
+      and its cache; sorting and grouping by its type names; faded icons. The platform provider,
+      on local files only. Scaling with transparency.
+    - A watched folder listed again once per burst, keeping the selection and the scroll in
+      Details and in the grid; the watch moving with the browser, turned off, and stopping with
+      it; a folder that goes away; a rename in place not interrupted; a local folder.
+    - Delete to a trash without asking; Shift+Delete, and a trash that refuses, asking first.
+  - Really trashing files (in both test classes and in the demo) runs on CI only, or with
+    `ZAPTHEMES_TRASH_TEST` set, so local runs don't fill the user's Recycle Bin.
+  - The demo has a "Platform icons" check box. Its smoke test goes through every layout with the
+    platform icons, has another program write and delete a file in the rooted tab's folder, and
+    on CI deletes a file to the trash. New screenshots: platform icons in Details, Large icons,
+    Tiles and at 150 %.
+
+Known limits, for later steps:
+
+- On Windows, another program can't rename a parent of the folder a browser shows, since the watch
+  holds it open (Explorer's own watches don't). The browser's own operations pause it.
+- The navigation pane doesn't watch the folders it shows, only the one in the file view.
+- Platform icons are per extension: an `.exe` gets the generic program icon, not its own.
+- The thumbnail of a picture changed on disk stays as it was until the folder is opened again.

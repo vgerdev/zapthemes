@@ -90,6 +90,26 @@ public final class FileBrowserProbe {
         return browser.pendingCalls();
     }
 
+    /** The folder the browser watches for changes, or null. */
+    public static FilePath watchedFolder(FileBrowser browser) {
+        return browser.folderWatcher().started() ? browser.folderWatcher().folder() : null;
+    }
+
+    /** How many times a watched change listed the folder again. */
+    public static int watchRefreshes(FileBrowser browser) {
+        return browser.folderWatcher().refreshes();
+    }
+
+    /** The type name the browser shows for {@code name}: its icon provider's, or its own. */
+    public static String typeName(FileBrowser browser, String name) {
+        return browser.typeName(entry(browser, name));
+    }
+
+    /** The icon the browser shows for {@code name} at {@code size} pixels (at 100 %). */
+    public static org.eclipse.swt.graphics.Image icon(FileBrowser browser, String name, int size) {
+        return browser.icons().get(entry(browser, name), size);
+    }
+
     /** The names of {@code entries} (a convenience for checks). */
     public static List<String> names(List<FileEntry> entries) {
         return entries.stream().map(FileEntry::name).toList();

@@ -10,6 +10,13 @@ public enum Capability {
     MOVE,
     /** {@link FileSystem#delete} works. */
     DELETE,
+    /**
+     * {@link FileSystem#trash} works: deleted items go to the platform's Recycle Bin or Trash,
+     * where they can be restored.
+     */
+    TRASH,
+    /** {@link FileSystem#watch} works: the filesystem tells when a folder's items change. */
+    WATCH,
     /** {@link FileSystem#openRead} works. */
     READ,
     /** {@link FileSystem#openWrite} works. */
