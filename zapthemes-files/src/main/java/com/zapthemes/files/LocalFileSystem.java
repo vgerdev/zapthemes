@@ -168,14 +168,20 @@ public final class LocalFileSystem implements FileSystem {
             return Files.exists(file) ? Optional.of(FileEntry.builder(path, EntryKind.DRIVE).label(label(path)).build())
                     : Optional.empty();
         }
-        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+        // Not exists(): it's false too for an entry whose attributes can't be read, which entry() lists.
+        if (Files.notExists(file, LinkOption.NOFOLLOW_LINKS)) {
             return Optional.empty();
         }
         return Optional.ofNullable(entry(path, file));
     }
 
-    /** The entry of {@code file}, or {@code null} if it vanished while being read. */
-    private FileEntry entry(FilePath path, Path file) throws IOException {
+    /**
+     * The entry of {@code file}, or {@code null} if it vanished while being read. An entry whose
+     * attributes can't be read (on Windows a file named {@code nul}, made through the
+     * {@code \\?\} prefix; elsewhere one in a folder that can be read but not searched) is still
+     * listed, as Explorer does: an {@link EntryKind#OTHER} with only its name.
+     */
+    private FileEntry entry(FilePath path, Path file) {
         BasicFileAttributes own;
         try {
             // On Windows the DOS view gives the basic attributes and the hidden flag in one read.
@@ -183,6 +189,8 @@ public final class LocalFileSystem implements FileSystem {
                     : Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         } catch (NoSuchFileException e) {
             return null;
+        } catch (IOException | SecurityException e) {
+            return FileEntry.builder(path, EntryKind.OTHER).hidden(!windows && path.name().startsWith(".")).build();
         }
         boolean link = own.isSymbolicLink();
         BasicFileAttributes attributes = own;
