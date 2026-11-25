@@ -59,6 +59,7 @@ final class FileTable implements ItemView {
     private Map<FilePath, Integer> lineOf = Map.of();
     private String message;
     private Point mouseDown;
+    private final ItemPainter painter;
 
     FileTable(FileBrowser browser, Composite parent) {
         this.browser = browser;
@@ -79,7 +80,7 @@ final class FileTable implements ItemView {
         });
         table.addListener(SWT.EraseItem, this::eraseHeader);
         table.addListener(SWT.PaintItem, this::paintHeader);
-        ItemPainter.install(table, item -> {
+        painter = ItemPainter.install(table, item -> {
             FileEntry entry = entryOf((TableItem) item);
             return entry != null ? browser.icons().get(entry, browser.iconSize(), browser.isCut(entry)) : null;
         }, item -> {
@@ -97,6 +98,18 @@ final class FileTable implements ItemView {
     FileEntry entryOf(TableItem item) {
         int index = table.indexOf(item);
         return index >= 0 && index < lines.size() && lines.get(index) instanceof FileEntry entry ? entry : null;
+    }
+
+    /** The text drawn in column {@code column} of the row of {@code entry}: on one line, cut with "…" to fit (tests). */
+    String shownText(FileEntry entry, int column) {
+        TableItem item = itemOf(entry);
+        GC gc = new GC(table);
+        try {
+            gc.setFont(item.getFont(column));
+            return painter.shownText(gc, item, column);
+        } finally {
+            gc.dispose();
+        }
     }
 
     /** The group a header row {@code item} starts, or null. */
