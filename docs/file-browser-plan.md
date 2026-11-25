@@ -119,7 +119,7 @@ the zoom without resizing windows.
   top ("This PC") with its drives or root folders, expandable lazily (children listed in the
   background with a "Loading…" row), then any extra roots the application adds (Network, a remote
   session). Full-row hover and selection. It follows the current folder.
-- **File view** (`FileTable`, a virtual `Table`, Details view): Name, Date modified, Type, Size,
+- **File view** (Details view; a native `Table` until step 8, now a layout of the owner-drawn `FileGrid`): Name, Date modified, Type, Size,
   plus optional columns (Permissions, Owner, Group) when the filesystem has them. Folders first,
   click a header to sort, a sort arrow, sizes in KB, type names, icons. Enter and double-click open
   folders. Rename in place (F2, Rename, slow second click), with the name selected without its
@@ -144,6 +144,7 @@ the zoom without resizing windows.
 | 5 ✅ | **More views and panes** | Icon sizes, List, Tiles, Content; Group by; details pane; preview pane (images, text). |
 | 6 ✅ | **zapscp fit** | Permissions, Owner, Group columns; show hidden and mask filter; bookmarks into the tree; the adapter written and tested against zapscp's providers once it is merged. |
 | 7 ✅ | **Platform icons and watching** | Platform icons and type names (opt-in); `watch` for local folders; local deletes to the platform trash. |
+| 8 | **Details in the grid** | Details drawn by `FileGrid` instead of a native `Table`: rows that follow the zoom both ways, one-line cells cut with "…", themed column headers (sort arrow, hover, pressed), sizing, fitting and moving columns. |
 
 ## Risks
 
@@ -552,3 +553,50 @@ Known limits, for later steps:
 - The navigation pane doesn't watch the folders it shows, only the one in the file view.
 - Platform icons are per extension: an `.exe` gets the generic program icon, not its own.
 - The thumbnail of a picture changed on disk stays as it was until the folder is opened again.
+
+## Step 8 in detail
+
+Why: the native `Table` decides too much itself.
+
+- **Rows:** on Windows a table's rows never get shorter again. After zooming in and out they
+  stay as tall as at the larger zoom, and the list view then wraps a cell's text onto a second
+  line ("Microsoft Word / Document" in the Type column). PR #68 drew the cells' text itself to keep
+  it on one line, but couldn't shrink the rows.
+- **Headers:** a theme could color a table's header, but not its hover, the sort arrow, the
+  dividers or its height. Windows also shades the sorted column, which Explorer doesn't.
+
+What it is:
+
+- **One view:** Details is a layout of `FileGrid`, the owner-drawn view of the other layouts. It
+  keeps their selection (Ctrl, Shift, the rubber band, typing a name's first letters), hover,
+  group headers, rename in place, drag and drop, tooltips and accessibility. `FileTable` and the
+  view switching in `FileBrowser` are gone; `ItemPainter` is back to the navigation pane only.
+- **Columns** (`DetailsColumns`): Name, Date modified, Type, Size, and Permissions, Owner and Group
+  when the filesystem has them. Widths are kept at 100 % and follow the zoom. The order is kept
+  across folders and filesystems.
+- **Headers:** at the top, scrolling sideways with the rows only. Explorer's sort arrow at the top
+  of the sorted column, a divider after each column, hover and pressed colors.
+  - A click sorts, a second one reverses the order.
+  - Dragging a divider sizes the column; a double click on it fits the column to its texts (the
+    first 2000 rows).
+  - Dragging a header moves the column; a line shows where it goes.
+  - A right click opens the columns menu, as before.
+- **Rows:** as high as the icon or a line of text at the current zoom, both ways. Each cell is one
+  line, cut with "…" to fit; Size is right-aligned; texts other than the name are muted, as in
+  Explorer. Every second row is striped when the theme has a stripe.
+- **Keys:** Up and Down move by a row, Page Up and Page Down by a page, Left and Right scroll
+  sideways (Details rows are one column).
+- **Large folders:** Details finds the rows to paint and the row under the mouse by binary search,
+  so 100 000 entries stay quick.
+- **Theming:** `FileItemView` gains `alternateRowBackground`, `headerBackground` and
+  `headerForeground`. Everything it leaves out comes from the theme's `Table` rule, so themes that
+  style tables keep styling Details.
+- **Tests:** the tests that used the table now use the grid. `DetailsCellsFitTest` checks rows
+  that shrink back after zooming out, one-line cells cut with "…" (painted pixels included) and
+  long names. `FileBrowserTest` checks the rows' height going back after zooming out.
+
+Known limits, for later:
+
+- Screen readers see Details as a list of items (name, type, size and date in the description),
+  not as a table of cells.
+- Columns can't be moved with the keyboard.

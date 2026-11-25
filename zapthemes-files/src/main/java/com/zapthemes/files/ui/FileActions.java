@@ -688,7 +688,7 @@ final class FileActions {
 
     private void fillSortMenu(Menu menu, boolean withGroupBy) {
         FileOrder.Key current = browser.getSortKey();
-        for (FileTable.Column column : browser.fileTable().columns()) {
+        for (DetailsColumns.Column column : browser.fileGrid().columns()) {
             if (column.key() != null) {
                 FileOrder.Key key = column.key();
                 plain(menu, SWT.RADIO, column.title(), true, key == current, () -> browser.setSort(key, browser.isSortAscending()));
@@ -706,7 +706,7 @@ final class FileActions {
     void fillGroupBy(Menu menu) {
         FileOrder.Key current = browser.getGroupBy();
         plain(menu, SWT.RADIO, "(None)", true, current == null, () -> browser.setGroupBy(null, true));
-        for (FileTable.Column column : browser.fileTable().columns()) {
+        for (DetailsColumns.Column column : browser.fileGrid().columns()) {
             FileOrder.Key key = column.key();
             if (key != null) {
                 // Dates and sizes newest and largest first, as Explorer starts them.
@@ -828,7 +828,7 @@ final class FileActions {
 
     /** Gives {@code item} {@code glyph} in the text color, as Explorer's context menu has. */
     private org.eclipse.swt.widgets.MenuItem icon(org.eclipse.swt.widgets.MenuItem item, Glyph glyph) {
-        item.setImage(browser.icons().glyph(glyph, 16, browser.fileTable().table.getForeground().getRGB()));
+        item.setImage(browser.icons().glyph(glyph, 16, browser.fileGrid().getForeground().getRGB()));
         return item;
     }
 

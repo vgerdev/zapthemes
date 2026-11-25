@@ -10,9 +10,9 @@ import com.zapthemes.files.FileEntry;
 import com.zapthemes.files.FilePath;
 
 /**
- * What the browser needs of a file view: the Details table ({@link FileTable}) or the owner-drawn
- * layouts ({@link FileGrid}). A view sends {@code SWT.Selection} when the user changes the selection
- * and {@code SWT.DefaultSelection} when the user opens it.
+ * What the browser needs of a file view (the owner-drawn {@link FileGrid}, in every layout). A
+ * view sends {@code SWT.Selection} when the user changes the selection and
+ * {@code SWT.DefaultSelection} when the user opens it.
  */
 interface ItemView {
 

@@ -95,13 +95,8 @@ class FileOperationsTest {
     private void select(String... names) {
         List<String> wanted = List.of(names);
         List<FileEntry> rows = browser.getVisibleEntries();
-        int[] indices = new int[wanted.size()];
-        for (int i = 0; i < wanted.size(); i++) {
-            String name = wanted.get(i);
-            indices[i] = rows.indexOf(rows.stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow());
-        }
-        browser.fileTable().table.setSelection(indices);
-        browser.fileTable().table.notifyListeners(SWT.Selection, new Event());
+        browser.fileGrid().select(wanted.stream().map(name -> rows.stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow()).toList());
+        browser.fileGrid().notifyListeners(SWT.Selection, new Event());
         browser.focused(false);
     }
 
@@ -157,7 +152,7 @@ class FileOperationsTest {
         browser.rename();
 
         assertThat(browser.actions().renamesStarted()).isEqualTo(1);
-        InlineEditor editor = browser.fileTable().editor();
+        InlineEditor editor = browser.fileGrid().editor();
         // Under Xvfb the field may lose its focus (and commit unchanged) at once; check it as it opened.
         if (editor != null) {
             assertThat(editor.text().getText()).isEqualTo("notes.txt");
@@ -165,7 +160,7 @@ class FileOperationsTest {
             editor.text().setText("todo.txt");
             editor.finish(true);
         } else {
-            browser.fileTable().startRename(browser.getSelectedEntries().getFirst(), name -> { });
+            browser.fileGrid().startRename(browser.getSelectedEntries().getFirst(), name -> { });
         }
         if (editor != null) {
             waitFor(() -> names().contains("todo.txt"));
@@ -180,10 +175,10 @@ class FileOperationsTest {
         select("report.pdf");
         Event f2 = new Event();
         f2.keyCode = SWT.F2;
-        browser.fileTable().table.notifyListeners(SWT.KeyDown, f2);
+        browser.fileGrid().notifyListeners(SWT.KeyDown, f2);
         assertThat(browser.actions().renamesStarted()).isEqualTo(1);
 
-        Menu menu = browser.createContextMenu(browser.fileTable().table, true);
+        Menu menu = browser.createContextMenu(browser.fileGrid(), true);
         itemNamed(menu, "Rename").notifyListeners(SWT.Selection, new Event());
         assertThat(browser.actions().renamesStarted()).isEqualTo(2);
         menu.dispose();
@@ -276,7 +271,7 @@ class FileOperationsTest {
         org.eclipse.swt.dnd.Clipboard clipboard = new org.eclipse.swt.dnd.Clipboard(display);
         clipboard.clearContents();
         clipboard.dispose();
-        Menu menu = browser.createContextMenu(browser.fileTable().table, false);
+        Menu menu = browser.createContextMenu(browser.fileGrid(), false);
 
         // As Explorer's: Paste only when there is something to paste; icons; no shortcut on Refresh.
         assertThat(labels(menu)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "New", "-", "Properties", "-",
@@ -310,7 +305,7 @@ class FileOperationsTest {
         select("notes.txt");
         browser.copy();
         browser.setSelectedEntries(List.of());
-        Menu withPaste = browser.createContextMenu(browser.fileTable().table, false);
+        Menu withPaste = browser.createContextMenu(browser.fileGrid(), false);
         assertThat(labels(withPaste)).containsSubsequence("Refresh", "-", "Paste", "-", "New");
         withPaste.dispose();
     }
@@ -318,7 +313,7 @@ class FileOperationsTest {
     @Test
     void theItemMenuActsOnTheSelection() {
         select("notes.txt");
-        Menu menu = browser.createContextMenu(browser.fileTable().table, true);
+        Menu menu = browser.createContextMenu(browser.fileGrid(), true);
 
         assertThat(labels(menu)).containsExactly("Open", "-", "Cut", "Copy", "Rename", "Delete", "-", "Copy as path", "Share", "-", "Properties",
                 "-", "Show more options");
@@ -338,7 +333,7 @@ class FileOperationsTest {
         browser.addMenuContributor((menu, kind, selection) -> contributed.add(kind.name()));
         select("projects");
         browser.copy();
-        Menu items = browser.createClassicMenu(browser.fileTable().table, true);
+        Menu items = browser.createClassicMenu(browser.fileGrid(), true);
 
         assertThat(labels(items)).containsExactly("Open", "Pin to Quick access", "-", "Share", "-", "Cut", "Copy", "Paste into folder", "-", "Delete", "Rename", "-",
                 "Copy as path", "Copy name", "-", "Select all", "Invert selection", "-", "Properties");
@@ -348,7 +343,7 @@ class FileOperationsTest {
         clipboard.dispose();
         items.dispose();
 
-        Menu background = browser.createClassicMenu(browser.fileTable().table, false);
+        Menu background = browser.createClassicMenu(browser.fileGrid(), false);
         assertThat(labels(background)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Select all",
                 "Hidden items", "File name extensions", "-", "Copy folder path", "-", "Properties");
         assertThat(itemNamed(background, "File name extensions").getSelection()).isTrue();
@@ -356,7 +351,7 @@ class FileOperationsTest {
         assertThat(contributed).containsExactly("ITEMS", "NEW", "BACKGROUND");
 
         // In the condensed menu, the last item opens the classic one; disabled without a way to show it.
-        Menu condensed = browser.createContextMenu(browser.fileTable().table, false);
+        Menu condensed = browser.createContextMenu(browser.fileGrid(), false);
         assertThat(itemNamed(condensed, "Show more options").getEnabled()).isFalse();
         condensed.dispose();
     }
@@ -371,7 +366,7 @@ class FileOperationsTest {
         sort.dispose();
 
         browser.setShowExtensions(false);
-        assertThat(browser.fileTable().texts(browser.getVisibleEntries().get(1))[0]).isEqualTo("notes");
+        assertThat(browser.fileGrid().texts(browser.getVisibleEntries().get(1))[0]).isEqualTo("notes");
         browser.setShowExtensions(true);
 
         browser.setNavigationPaneVisible(false);
@@ -406,7 +401,7 @@ class FileOperationsTest {
         Event selectAll = new Event();
         selectAll.keyCode = 'a';
         selectAll.stateMask = SWT.MOD1;
-        browser.fileTable().table.notifyListeners(SWT.KeyDown, selectAll);
+        browser.fileGrid().notifyListeners(SWT.KeyDown, selectAll);
 
         assertThat(browser.getSelectedEntries()).hasSize(3);
     }
