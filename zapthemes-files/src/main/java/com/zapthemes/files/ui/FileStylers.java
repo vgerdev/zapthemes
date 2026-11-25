@@ -45,7 +45,7 @@ public final class FileStylers implements StylerProvider, CatalogProvider {
         PropertySpec disabled = PropertySpec.color("disabledForeground", "disabled", "Disabled buttons; derived when not set");
         PropertySpec border = PropertySpec.color("borderColor", "border", "The address bar's outline and the drop-downs' outline; derived when not set");
         catalog.type(TypeSpec.of("FileBrowser", GROUP, TypeSpec.Base.COMPOSITE)
-                .described("An Explorer-style file browser: its frame, around the bars, the folder tree (a Tree), the Details view (a Table) and the other layouts (FileItemView)"));
+                .described("An Explorer-style file browser: its frame, around the bars, the folder tree (a Tree) and the file view in every layout (FileItemView)"));
         catalog.type(TypeSpec.of("FileNavigationBar", GROUP, TypeSpec.Base.COMPOSITE)
                 .with(hover, pressed, disabled, border,
                         PropertySpec.color("fieldBackground", "surface", "The address bar; derived when not set"),
@@ -72,8 +72,11 @@ public final class FileStylers implements StylerProvider, CatalogProvider {
                 .with(PropertySpec.color("selectionBackground", "selection", "Selected items; the Details view's Table rule when not set"),
                         PropertySpec.color("selectionForeground", null, "The text of selected items; the Table rule's when not set"),
                         PropertySpec.color("hoverBackground", "hover", "An item under the mouse, and a folder a drop goes into; the Table rule's when not set"),
-                        PropertySpec.color("mutedForeground", "muted", "Secondary text (types, sizes, labels); derived when not set"))
-                .described("The file browser's icon, List, Tiles and Content layouts, and its details and preview panes; "
-                        + "background and foreground come from the Details view's Table rule when not set"));
+                        PropertySpec.color("mutedForeground", "muted", "Secondary text (types, sizes, labels, Details cells but the name); derived when not set"),
+                        PropertySpec.color("alternateRowBackground", "stripe", "Every second Details row; the Table rule's when not set, none without one"),
+                        PropertySpec.color("headerBackground", "raised", "The Details column headers; the Table rule's when not set"),
+                        PropertySpec.color("headerForeground", null, "The Details column titles; the Table rule's when not set"))
+                .described("The file browser's file view in every layout (icons, List, Details, Tiles, Content), and its details and preview panes; "
+                        + "what it leaves out comes from the theme's Table rule"));
     }
 }

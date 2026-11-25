@@ -23,18 +23,11 @@ import com.zapthemes.core.style.ThemeContext;
  * native image list of a table or tree keeps the size of its first image, so icons set as images
  * would not follow the zoom. Rows are made tall enough for the icon at the current zoom; the native
  * background, selection and hover stay.
- * <p>
- * In a table it draws the other columns' text too, as Explorer does: on one line, cut with "…" to
- * fit the column. The Windows list view would wrap a cell's text onto a second line in rows tall
- * enough for one (its rows never shrink, so they stay tall after zooming out), and wouldn't cut the
- * names drawn here at all. The items keep their full texts.
  */
 final class ItemPainter {
 
     private static final int GAP = 6;
     private static final int PAD = 2;
-    /** Space at either side of the text of a column other than the first, as the native list view leaves. */
-    private static final int CELL_PAD = 6;
 
     private final Control control;
     private final Function<Item, Image> imageOf;
@@ -55,8 +48,8 @@ final class ItemPainter {
     }
 
     /** As {@link #install(Control, Function)}, with the text from {@code textOf} instead of the item's. */
-    static ItemPainter install(Control control, Function<Item, Image> imageOf, Function<Item, String> textOf) {
-        return new ItemPainter(control, imageOf, textOf);
+    static void install(Control control, Function<Item, Image> imageOf, Function<Item, String> textOf) {
+        new ItemPainter(control, imageOf, textOf);
     }
 
     private int px(int pixels) {
@@ -68,11 +61,7 @@ final class ItemPainter {
     }
 
     private static org.eclipse.swt.graphics.Font font(Item item) {
-        return font(item, 0);
-    }
-
-    private static org.eclipse.swt.graphics.Font font(Item item, int column) {
-        return item instanceof TableItem row ? row.getFont(column) : item instanceof TreeItem node ? node.getFont(column) : null;
+        return item instanceof TableItem row ? row.getFont(0) : item instanceof TreeItem node ? node.getFont(0) : null;
     }
 
     private static final boolean GTK = "gtk".equals(SWT.getPlatform());
@@ -118,39 +107,13 @@ final class ItemPainter {
     }
 
     private void erase(Event event) {
-        if (event.index == 0 || event.item instanceof TableItem) {
+        if (event.index == 0) {
             event.detail &= ~SWT.FOREGROUND;
         }
     }
 
-    /**
-     * The text drawn in column {@code column} of the table row {@code item}: its text, on one line,
-     * cut with "…" to fit the column. With {@code gc}'s font set to the cell's.
-     */
-    String shownText(GC gc, TableItem item, int column) {
-        String text = column == 0 ? textOf.apply(item) : item.getText(column);
-        return FileGrid.ellipsize(gc, oneLine(text), textWidth(item, column));
-    }
-
-    /** The width the text of {@code column} of the table row {@code item} has. */
-    private int textWidth(TableItem item, int column) {
-        int width = item.getParent().getColumnCount() == 0 ? item.getParent().getClientArea().width : item.getParent().getColumn(column).getWidth();
-        if (column != 0) {
-            return width - 2 * px(CELL_PAD);
-        }
-        Image image = imageOf.apply(item);
-        return width - px(PAD) - (image != null ? image.getBounds().width + px(GAP) : 0) - px(PAD);
-    }
-
-    private static String oneLine(String text) {
-        return text.indexOf('\n') < 0 && text.indexOf('\r') < 0 ? text : text.replaceAll("\\R", " ");
-    }
-
     private void paint(Event event) {
         if (event.index != 0) {
-            if (event.item instanceof TableItem row) {
-                paintCell(event, row);
-            }
             return;
         }
         Item item = (Item) event.item;
@@ -162,33 +125,9 @@ final class ItemPainter {
             gc.drawImage(image, x, event.y + (event.height - bounds.height) / 2);
             x += bounds.width + px(GAP);
         }
+        String text = textOf.apply(item);
         // GTK hands over the GC with the font of whatever it drew last.
         gc.setFont(font(item));
-        String text = item instanceof TableItem row ? shownText(gc, row, 0) : textOf.apply(item);
-        drawText(event, item, text, x);
-    }
-
-    /** The text of a column other than the first, aligned as the column is. */
-    private void paintCell(Event event, TableItem item) {
-        GC gc = event.gc;
-        gc.setFont(font(item, event.index));
-        String text = shownText(gc, item, event.index);
-        if (text.isEmpty()) {
-            return;
-        }
-        Rectangle cell = item.getBounds(event.index);
-        int width = gc.textExtent(text).x;
-        int align = item.getParent().getColumn(event.index).getAlignment();
-        int x = switch (align) {
-            case SWT.RIGHT -> cell.x + cell.width - px(CELL_PAD) - width;
-            case SWT.CENTER -> cell.x + (cell.width - width) / 2;
-            default -> cell.x + px(CELL_PAD);
-        };
-        drawText(event, item, text, x);
-    }
-
-    private void drawText(Event event, Item item, String text, int x) {
-        GC gc = event.gc;
         if (selected(item)) {
             // The theme paints selected rows itself (its selectionBackground): its text color goes with it.
             ThemeManager manager = ThemeManager.get(control.getDisplay());

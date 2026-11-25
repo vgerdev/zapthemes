@@ -19,7 +19,6 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
-import org.eclipse.swt.widgets.TableItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -177,11 +176,10 @@ class ViewsAndPanesTest {
             assertThat(browser.getView()).isEqualTo(view);
             assertThat(names()).as(view.label()).containsExactly("Documents", "projects", "notes.txt", "photo.png", "report2.pdf", "report10.pdf");
             assertThat(selected()).as(view.label()).containsExactly("notes.txt", "photo.png");
-            assertThat(FileBrowserProbe.viewControl(browser) == browser.fileTable().table).isEqualTo(view == FileView.DETAILS);
+            // One owner-drawn view for every layout.
+            assertThat(FileBrowserProbe.viewControl(browser)).isSameAs(browser.fileGrid());
             assertThat(FileBrowserProbe.viewControl(browser).isVisible()).isTrue();
-            // The other view stays hidden (Windows shows a hidden table again when its redraw is turned on).
-            assertThat(browser.fileTable().table.getVisible()).isEqualTo(view == FileView.DETAILS);
-            assertThat(browser.fileGrid().getVisible()).isEqualTo(view != FileView.DETAILS);
+            assertThat(browser.fileGrid().headerHeight() > 0).as(view.label()).isEqualTo(view == FileView.DETAILS);
         }
         assertThat(FileBrowserProbe.status(browser)).startsWith("6 items").contains("2 items selected");
     }
@@ -404,16 +402,13 @@ class ViewsAndPanesTest {
         assertThat(FileBrowserProbe.groupHeaders(browser)).containsExactly("File folder (2)", "PDF document (2)", "PNG image (1)",
                 "Text document (1)");
         assertThat(names()).containsExactly("Documents", "projects", "report2.pdf", "report10.pdf", "photo.png", "notes.txt");
-        assertThat(browser.fileTable().table.getItemCount()).isEqualTo(6 + 4);
+        // Group headers between the rows, under the column headers.
+        Rectangle pdfs = browser.fileGrid().headerBounds("PDF document");
+        assertThat(pdfs.y).isGreaterThanOrEqualTo(browser.fileGrid().headerHeight());
 
-        // A click on a header row selects its group; the header itself is never selected.
-        TableItem header = browser.fileTable().headerItem("PDF document");
-        Event click = new Event();
-        click.item = header;
-        browser.fileTable().table.setSelection(header);
-        browser.fileTable().table.notifyListeners(SWT.Selection, click);
+        // A click on a header selects its group.
+        mouse(SWT.MouseDown, pdfs.x + pdfs.width / 2, pdfs.y + pdfs.height / 2, 0);
         assertThat(selected()).containsExactly("report2.pdf", "report10.pdf");
-        assertThat(browser.fileTable().table.isSelected(browser.fileTable().table.indexOf(header))).isFalse();
 
         // Collapsed, a group keeps its header and count; the status bar still counts everything.
         FileBrowserProbe.toggleGroup(browser, "File folder");

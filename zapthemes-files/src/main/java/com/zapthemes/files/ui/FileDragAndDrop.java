@@ -23,8 +23,6 @@ import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Item;
-import org.eclipse.swt.widgets.Table;
-import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
 
@@ -69,16 +67,12 @@ final class FileDragAndDrop {
 
     FileDragAndDrop(FileBrowser browser) {
         this.browser = browser;
-        Table table = browser.fileTable().table;
         Tree tree = browser.navigationTree().tree;
         FileGrid grid = browser.fileGrid();
-        dragSource(table, false);
         dragSource(grid, false);
         dragSource(tree, true);
-        dropTarget(table);
         dropTarget(grid);
         dropTarget(tree);
-        table.addListener(SWT.EraseItem, this::paintDropItem);
         tree.addListener(SWT.EraseItem, this::paintDropItem);
     }
 
@@ -249,7 +243,7 @@ final class FileDragAndDrop {
         highlight(operation != DND.DROP_NONE && intoItem(event.item) ? (Item) event.item : null);
     }
 
-    /** The grid a drag is over, or null (the table or the tree). */
+    /** The grid a drag is over, or null (the tree). */
     private static FileGrid gridOf(DropTargetEvent event) {
         return event.widget instanceof DropTarget t && t.getControl() instanceof FileGrid grid ? grid : null;
     }
@@ -265,7 +259,13 @@ final class FileDragAndDrop {
         if (grid == null) {
             return folderAt(event.item);
         }
-        FileEntry entry = gridEntry(grid, event);
+        Point point = grid.toControl(event.x, event.y);
+        return folderInView(point.x, point.y);
+    }
+
+    /** Where a drop at {@code (x, y)} of the file view goes: into the folder there, else (a file, empty space) into the folder shown. */
+    FilePath folderInView(int x, int y) {
+        FileEntry entry = browser.fileGrid().entryAt(x, y);
         return checked(entry != null && entry.isContainer() ? entry.path() : browser.getCurrentPath());
     }
 
@@ -282,24 +282,18 @@ final class FileDragAndDrop {
 
     /** Whether a drop on {@code item} goes into it (a folder), rather than into the folder shown. */
     private boolean intoItem(org.eclipse.swt.widgets.Widget item) {
-        if (item instanceof TableItem row) {
-            FileEntry entry = browser.fileTable().entryOf(row);
-            return entry != null && entry.isContainer();
-        }
         return item instanceof TreeItem node && browser.navigationTree().folderOf(node) != null;
     }
 
     /**
-     * Where a drop on {@code item} goes: the folder of that row or tree item, else (a file, empty
-     * space) the folder shown; null where nothing can go (the drives of "This PC", a separator).
+     * Where a drop on {@code item} of the navigation pane goes: that tree item's folder, else (no
+     * item) the folder shown; null where nothing can go (the drives of "This PC", a separator).
      */
     FilePath folderAt(org.eclipse.swt.widgets.Widget item) {
         FilePath folder;
         if (item instanceof TreeItem node) {
             folder = browser.navigationTree().folderOf(node);
-        } else if (item instanceof TableItem && intoItem(item)) {
-            folder = browser.fileTable().entryOf((TableItem) item).path();
-        } else if (item == null || item instanceof TableItem) {
+        } else if (item == null) {
             folder = browser.getCurrentPath();
         } else {
             folder = null;
@@ -464,7 +458,7 @@ final class FileDragAndDrop {
         return dropItem != null && !dropItem.isDisposed() ? dropItem : null;
     }
 
-    /** Highlights {@code item} (a folder row or tree item) as where a drop goes, or nothing. */
+    /** Highlights {@code item} (a folder of the navigation pane) as where a drop goes, or nothing. */
     void highlight(Item item) {
         if (item == null) {
             browser.fileGrid().setDropTarget(null);
@@ -481,8 +475,8 @@ final class FileDragAndDrop {
         dropItemBackground = null;
         if (item != null) {
             // As the item's color too: Windows paints the other cells' text over it, GTK the name.
-            dropItemBackground = item instanceof TableItem row ? row.getBackground() : ((TreeItem) item).getBackground();
-            setBackground(item, dropColor(item instanceof TableItem row ? row.getParent() : ((TreeItem) item).getParent()));
+            dropItemBackground = ((TreeItem) item).getBackground();
+            setBackground(item, dropColor(((TreeItem) item).getParent()));
         }
         redraw(previous);
         redraw(item);
@@ -491,19 +485,13 @@ final class FileDragAndDrop {
     private Color dropItemBackground;
 
     private static void setBackground(Item item, Color color) {
-        if (item instanceof TableItem row) {
-            row.setBackground(color);
-        } else if (item instanceof TreeItem node) {
+        if (item instanceof TreeItem node) {
             node.setBackground(color);
         }
     }
 
     private static void redraw(Item item) {
-        if (item instanceof TableItem row && !row.isDisposed()) {
-            Rectangle bounds = row.getBounds();
-            Table table = row.getParent();
-            table.redraw(0, bounds.y, table.getClientArea().width, bounds.height, false);
-        } else if (item instanceof TreeItem node && !node.isDisposed()) {
+        if (item instanceof TreeItem node && !node.isDisposed()) {
             Rectangle bounds = node.getBounds();
             Tree tree = node.getParent();
             tree.redraw(0, bounds.y, tree.getClientArea().width, bounds.height, false);
@@ -515,10 +503,10 @@ final class FileDragAndDrop {
         if (event.item == null || event.item != dropItem || (event.detail & SWT.SELECTED) != 0) {
             return;
         }
-        Control control = (Control) event.widget;
+        Tree control = (Tree) event.widget;
         Color fill = dropColor(control);
-        int columns = control instanceof Table table ? table.getColumnCount() : ((Tree) control).getColumnCount();
-        Rectangle area = control instanceof Table table ? table.getClientArea() : ((Tree) control).getClientArea();
+        int columns = control.getColumnCount();
+        Rectangle area = control.getClientArea();
         int width = columns == 0 || event.index == columns - 1 ? Math.max(event.width, area.x + area.width - event.x) : event.width;
         event.gc.setBackground(fill);
         event.gc.fillRectangle(event.x, event.y, width, event.height);

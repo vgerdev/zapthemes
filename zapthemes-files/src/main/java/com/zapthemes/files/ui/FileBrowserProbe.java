@@ -28,13 +28,13 @@ public final class FileBrowserProbe {
 
     /** The Details view's texts for the entry named {@code name}, or an empty array. */
     public static String[] row(FileBrowser browser, String name) {
-        FileTable table = browser.fileTable();
-        return browser.getVisibleEntries().stream().filter(e -> e.name().equals(name)).findFirst().map(table::texts).orElse(new String[0]);
+        return browser.getVisibleEntries().stream().filter(e -> e.name().equals(name)).findFirst()
+                .map(browser.fileGrid()::texts).orElse(new String[0]);
     }
 
     /** The Details view's column titles. */
     public static List<String> columns(FileBrowser browser) {
-        return browser.fileTable().columns().stream().map(FileTable.Column::title).toList();
+        return browser.fileGrid().columns().stream().map(DetailsColumns.Column::title).toList();
     }
 
     /** The navigation pane's selected folder, or null. */
@@ -244,8 +244,7 @@ public final class FileBrowserProbe {
     public static int drop(FileBrowser source, List<String> names, FileBrowser target, String onto, int operation) {
         List<FileEntry> entries = source.getVisibleEntries().stream().filter(e -> names.contains(e.name())).toList();
         FileDragAndDrop dnd = target.dragAndDrop();
-        FilePath into = target.getView() == FileView.DETAILS ? dnd.folderAt(onto == null ? null : rowItem(target, onto))
-                : folderInGrid(target, onto);
+        FilePath into = folderInGrid(target, onto);
         FileEntryTransfer.Dragged dragged = new FileEntryTransfer.Dragged(source.getFileSystem(), entries);
         int done = dnd.operation(dragged, into, operation);
         FileDragAndDrop.setDragFrom(source);
@@ -264,21 +263,31 @@ public final class FileBrowserProbe {
 
     /** The text drawn in column {@code column} of the Details row named {@code name}: one line, cut with "…" to fit. */
     public static String shownText(FileBrowser browser, String name, int column) {
-        return browser.fileTable().shownText(entry(browser, name), column);
+        return browser.fileGrid().shownText(entry(browser, name), browser.fileGrid().columns().get(column).key());
     }
 
-    /** The height of the Details table's rows. */
+    /** The height of the Details rows. */
     public static int rowHeight(FileBrowser browser) {
-        return browser.fileTable().table.getItemHeight();
+        return browser.fileGrid().rowHeight();
+    }
+
+    /** The bounds of column {@code column}'s cell in the Details row named {@code name}, in the view, or null. */
+    public static org.eclipse.swt.graphics.Rectangle cellBounds(FileBrowser browser, String name, int column) {
+        return browser.fileGrid().cellBounds(entry(browser, name), browser.fileGrid().columns().get(column).key());
+    }
+
+    /** The width of Details column {@code column}, in pixels. */
+    public static int columnWidth(FileBrowser browser, int column) {
+        return browser.fileGrid().columnWidth(column);
+    }
+
+    /** Sets the width of Details column {@code column}, in pixels, as a drag on its divider does. */
+    public static void setColumnWidth(FileBrowser browser, int column, int pixels) {
+        browser.fileGrid().setColumnWidth(column, pixels);
     }
 
     private static FileEntry entry(FileBrowser browser, String name) {
         return browser.getVisibleEntries().stream().filter(e -> e.name().equals(name)).findFirst().orElse(null);
-    }
-
-    private static org.eclipse.swt.widgets.TableItem rowItem(FileBrowser browser, String name) {
-        FileEntry entry = entry(browser, name);
-        return entry == null ? null : browser.fileTable().itemOf(entry);
     }
 
     /** Where a drop on the grid's item {@code onto} (null: empty space) goes. */

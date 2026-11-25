@@ -152,7 +152,7 @@ final class SidePane extends Composite {
             lines.add(new String[] { "Size", FileTypes.shortSize(entry.size()) });
         }
         if (entry.modified() != null) {
-            lines.add(new String[] { "Date modified", FileTable.formatDate(entry.modified()) });
+            lines.add(new String[] { "Date modified", DetailsColumns.formatDate(entry.modified()) });
         }
         if (entry.permissions() != null) {
             lines.add(new String[] { "Permissions", entry.permissions() });
