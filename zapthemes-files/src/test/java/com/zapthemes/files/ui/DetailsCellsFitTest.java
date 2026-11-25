@@ -127,7 +127,8 @@ class DetailsCellsFitTest {
     @Test
     void rowsAreAsHighAsTheZoomNeedsBothWays() {
         int row = FileBrowserProbe.rowHeight(browser);
-        assertThat(row).isLessThan(2 * extent(WORD).y);
+        // One line: as high as the icon or the text, whichever is higher, with a little room (macOS text is smaller than the icon).
+        assertThat(row).isLessThan(2 * Math.max(extent(WORD).y, browser.iconSize()));
         ThemeManager.get(display).setZoom(1.5);
         idle();
         assertThat(FileBrowserProbe.rowHeight(browser)).isGreaterThan(row);
