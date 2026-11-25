@@ -8,7 +8,7 @@ public final class FileOrder {
 
     /** What entries are sorted by. */
     public enum Key {
-        NAME, MODIFIED, TYPE, SIZE, PERMISSIONS, OWNER
+        NAME, MODIFIED, TYPE, SIZE, PERMISSIONS, OWNER, GROUP
     }
 
     private FileOrder() {
@@ -83,6 +83,7 @@ public final class FileOrder {
             case SIZE -> Comparator.comparingLong(FileEntry::size);
             case PERMISSIONS -> Comparator.comparing(FileEntry::permissions, Comparator.nullsFirst(Comparator.<String>naturalOrder()));
             case OWNER -> Comparator.comparing(FileEntry::owner, Comparator.nullsFirst(Comparator.<String>naturalOrder()));
+            case GROUP -> Comparator.comparing(FileEntry::group, Comparator.nullsFirst(Comparator.<String>naturalOrder()));
         };
         if (key != Key.NAME) {
             column = column.thenComparing(byName);
