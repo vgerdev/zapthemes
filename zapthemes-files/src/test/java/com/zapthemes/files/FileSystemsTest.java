@@ -14,12 +14,14 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -208,6 +210,43 @@ class FileSystemsTest {
             assertThat(file.permissions()).hasSize(9);
             assertThat(file.owner()).isNotBlank();
         }
+    }
+
+    @Test
+    void localListsEntriesWhoseAttributesCantBeRead() throws Exception {
+        LocalFileSystem fs = LocalFileSystem.get();
+        Path dir = Files.createDirectory(temp.resolve("odd"));
+        Files.writeString(dir.resolve("plain.txt"), "x");
+        if (WINDOWS) {
+            // A reserved name, made through the \\?\ prefix (java.nio refuses it): its attributes
+            // can't be read ("The parameter is incorrect"), as with a "nul" file in %TEMP%.
+            String nul = "\\\\?\\" + dir.toAbsolutePath() + "\\nul";
+            assertThat(new ProcessBuilder("cmd", "/c", "type nul > \"" + nul + "\"").start().waitFor()).isZero();
+            try {
+                assertOddListed(fs, fs.fromPath(dir), "nul");
+            } finally {
+                new ProcessBuilder("cmd", "/c", "del \"" + nul + "\"").start().waitFor();
+            }
+        } else {
+            // A folder that can be read but not searched: its names list, their attributes don't.
+            Files.writeString(dir.resolve("locked"), "x");
+            Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("r--------"));
+            try {
+                Assumptions.assumeTrue(!Files.isReadable(dir.resolve("plain.txt")), "running as root");
+                assertOddListed(fs, fs.fromPath(dir), "locked");
+            } finally {
+                Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwx------"));
+            }
+        }
+    }
+
+    private static void assertOddListed(LocalFileSystem fs, FilePath dir, String name) throws IOException {
+        List<FileEntry> entries = fs.list(dir);
+        assertThat(names(entries)).contains(name);
+        FileEntry odd = entries.stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow();
+        assertThat(odd.kind()).isEqualTo(EntryKind.OTHER);
+        assertThat(odd.modified()).isNull();
+        assertThat(fs.stat(dir.resolve(name)).orElseThrow().kind()).isEqualTo(EntryKind.OTHER);
     }
 
     @Test
