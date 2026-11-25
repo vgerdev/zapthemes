@@ -474,7 +474,13 @@ public final class FileBrowserDemo {
         rooted.navigate(FilePath.TOP);
         idle(rooted);
         List<String> background = FileBrowserProbe.contextMenu(rooted, false);
-        expect(problems, background.equals(List.of("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Properties", "-",
+        // Paste shows only when the clipboard holds something to paste, as in Explorer.
+        List<String> withoutPaste = new java.util.ArrayList<>(background);
+        int paste = withoutPaste.indexOf("Paste");
+        if (paste >= 0) {
+            withoutPaste.subList(paste, paste + 2).clear();
+        }
+        expect(problems, withoutPaste.equals(List.of("View", "Sort by", "Group by", "Refresh", "-", "New", "-", "Properties", "-",
                 "Show more options")), "rooted: background menu " + background);
         List<String> classic = FileBrowserProbe.contextMenu(rooted, false, true);
         expect(problems, classic.contains("Copy folder path") && classic.contains("Hidden items"), "rooted: classic menu " + classic);
