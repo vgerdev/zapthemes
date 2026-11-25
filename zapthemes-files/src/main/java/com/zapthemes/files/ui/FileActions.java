@@ -69,6 +69,8 @@ final class FileActions {
     static final String SHOW_HIDDEN = "files.showHidden";
     static final String SHOW_EXTENSIONS = "files.showExtensions";
     static final String SHOW_NAVIGATION_PANE = "files.showNavigationPane";
+    static final String PIN = "files.pin";
+    static final String CLEAR_FILTER = "files.clearFilter";
 
     /** What the clipboard holds from a browser of this process. */
     private record Held(FileSystem fs, List<FileEntry> entries, boolean cut, String text) {
@@ -103,7 +105,7 @@ final class FileActions {
         add(PASTE, "&Paste", Glyph.PASTE, SWT.MOD1 | 'V', e -> paste(null));
         add(RENAME, "Rena&me", Glyph.RENAME, SWT.F2, e -> rename());
         add(SHARE, "&Share", Glyph.SHARE, 0, e -> share());
-        add(DELETE, "&Delete", Glyph.DELETE, SWT.DEL, e -> delete());
+        add(DELETE, "&Delete", Glyph.DELETE, SWT.DEL, e -> delete(false));
         add(SORT, "Sort", Glyph.SORT, 0, null).style(Command.Style.DROP_DOWN).description("Sort the items");
         add(VIEW, "View", Glyph.DETAILS_VIEW, 0, null).style(Command.Style.DROP_DOWN).description("Change the layout and the panes");
         add(MORE, "See more", Glyph.MORE, 0, null).style(Command.Style.DROP_DOWN);
@@ -133,6 +135,9 @@ final class FileActions {
         add(SHOW_NAVIGATION_PANE, "&Navigation pane", null, 0,
                 e -> browser.setNavigationPaneVisible(commands.get(SHOW_NAVIGATION_PANE).isChecked())).style(Command.Style.TOGGLE)
                 .setChecked(true);
+        add(PIN, "&Pin to Quick access", Glyph.PIN, 0, e -> togglePin())
+                .description("Show the folder in the navigation pane's places, or stop showing it");
+        add(CLEAR_FILTER, "Clear &filter", null, 0, e -> browser.setFilter(null)).description("Show every item again");
     }
 
     private Command add(String id, String label, Glyph glyph, int shortcut, Consumer<CommandEvent> run) {
@@ -227,7 +232,16 @@ final class FileActions {
         commands.get(COPY_NAME).setEnabled(any);
         commands.get(COPY_FOLDER_PATH).setEnabled(fs != null && browser.getCurrentPath() != null);
         commands.get(PASTE).setEnabled(create && pasteAvailable && (fs.has(Capability.WRITE) || fs.has(Capability.CREATE_DIRECTORY)));
-        commands.get(RENAME).setEnabled(selection.size() == 1 && !drives && fs.has(Capability.RENAME));
+        boolean place = browser.navigationTreeHasFocus() && browser.navigationTree().selectedPlace() != null;
+        commands.get(RENAME).setEnabled(place || selection.size() == 1 && !drives && fs.has(Capability.RENAME));
+        FileEntry folder = selection.size() == 1 && selection.getFirst().isContainer() ? selection.getFirst() : null;
+        boolean pinned = place || folder != null && browser.isPinned(folder.path());
+        commands.get(PIN).setEnabled(place || folder != null);
+        String pinLabel = pinned ? "Unpin from &Quick access" : "&Pin to Quick access";
+        if (!pinLabel.equals(commands.get(PIN).label())) {
+            commands.get(PIN).label(pinLabel);
+        }
+        commands.get(CLEAR_FILTER).setEnabled(!browser.getFilter().isEmpty());
         commands.get(DELETE).setEnabled(any && !drives && fs.has(Capability.DELETE));
         commands.get(SHARE).setEnabled(any && shareHandler != null);
         commands.get(PROPERTIES).setEnabled(propertiesHandler != null && fs != null);
@@ -303,12 +317,38 @@ final class FileActions {
         });
     }
 
+    // ------------------------------------------------------------------ places
+
+    /** Pins the selected folder to the places, or unpins it (or the selected place). */
+    private void togglePin() {
+        update();
+        if (!commands.get(PIN).isEnabled()) {
+            return;
+        }
+        com.zapthemes.files.Place place = browser.navigationTreeHasFocus() ? browser.navigationTree().selectedPlace() : null;
+        FileEntry folder = place == null ? browser.targets().getFirst() : null;
+        FilePath path = place != null ? place.path() : folder.path();
+        if (browser.isPinned(path)) {
+            browser.unpin(path);
+        } else {
+            browser.pin(path, folder.displayName());
+        }
+    }
+
     // ------------------------------------------------------------------ rename
 
     /** Opens the name of the one selected item for editing, in the file view or the navigation pane. */
     void rename() {
         update();
         if (!commands.get(RENAME).isEnabled()) {
+            return;
+        }
+        com.zapthemes.files.Place place = browser.navigationTreeHasFocus() ? browser.navigationTree().selectedPlace() : null;
+        if (place != null) {
+            // A pinned place: its label is renamed, as Explorer renames a Quick access shortcut, not the folder.
+            if (browser.navigationTree().startRenamePlace(label -> browser.renamePlace(place, label))) {
+                renames++;
+            }
             return;
         }
         FileEntry entry = browser.targets().getFirst();
@@ -344,22 +384,49 @@ final class FileActions {
 
     // ------------------------------------------------------------------ delete
 
-    void delete() {
+    /**
+     * Deletes the targets: to the trash where the filesystem has one (without asking, as Explorer),
+     * unless {@code permanently} (Shift+Del), else for good after the confirmation. What can't go
+     * to the trash (a network drive) is offered to be deleted for good.
+     */
+    void delete(boolean permanently) {
         update();
         if (!commands.get(DELETE).isEnabled()) {
             return;
         }
+        FileSystem fs = browser.getFileSystem();
+        boolean toTrash = !permanently && fs.has(Capability.TRASH);
         List<FileEntry> entries = browser.targets();
-        if (!confirmDelete(entries)) {
+        if (!toTrash && !confirmDelete(entries, null)) {
             return;
         }
-        FileSystem fs = browser.getFileSystem();
+        delete(fs, entries, toTrash);
+    }
+
+    private void delete(FileSystem fs, List<FileEntry> entries, boolean toTrash) {
+        int[] done = { 0 };
         browser.loader().run(() -> {
             for (FileEntry entry : entries) {
-                fs.delete(entry.path(), true);
+                if (toTrash) {
+                    fs.trash(entry.path());
+                } else {
+                    fs.delete(entry.path(), true);
+                }
+                done[0]++;
             }
             return entries.size();
-        }, (count, failure) -> {
+        }, (count, error) -> {
+            Throwable failure = error;
+            if (toTrash && failure instanceof java.io.IOException && !(failure instanceof java.nio.file.NoSuchFileException)
+                    && fs == browser.getFileSystem()) {
+                // As Explorer: what the trash can't take may be deleted for good, if the user says so.
+                List<FileEntry> rest = List.copyOf(entries.subList(Math.min(done[0], entries.size()), entries.size()));
+                if (!rest.isEmpty() && confirmDelete(rest, FileBrowser.describe(failure))) {
+                    delete(fs, rest, false);
+                    return;
+                }
+                failure = null;
+            }
             if (failure != null) {
                 browser.reportFailure("Can't delete", failure);
             }
@@ -377,15 +444,22 @@ final class FileActions {
         });
     }
 
-    private boolean confirmDelete(List<FileEntry> entries) {
+    /** Asks whether to delete {@code entries} for good; {@code reason} says why they can't go to the trash, if that is why. */
+    private boolean confirmDelete(List<FileEntry> entries, String reason) {
         if (deleteConfirmation != null) {
             return deleteConfirmation.test(entries);
         }
         MessageBox box = new MessageBox(browser.getShell(), SWT.ICON_WARNING | SWT.YES | SWT.NO);
         box.setText("Delete");
         String what = entries.size() == 1 ? "\"" + entries.getFirst().displayName() + "\"" : "these " + entries.size() + " items";
-        box.setMessage("Permanently delete " + what + "?\n\nThis can't be undone.");
+        String why = reason == null ? "" : (entries.size() == 1 ? "It" : "They") + " can't go to the " + trashName() + ": " + reason + "\n\n";
+        box.setMessage(why + "Permanently delete " + what + "?\n\nThis can't be undone.");
         return box.open() == SWT.YES;
+    }
+
+    /** "Recycle Bin" on Windows, "Trash" elsewhere. */
+    static String trashName() {
+        return SWT.getPlatform().equals("win32") ? "Recycle Bin" : "Trash";
     }
 
     // ------------------------------------------------------------------ clipboard
@@ -654,6 +728,10 @@ final class FileActions {
         item(show, SHOW_NAVIGATION_PANE, SWT.CHECK);
         item(show, SHOW_EXTENSIONS, SWT.CHECK);
         item(show, SHOW_HIDDEN, SWT.CHECK);
+        if (commands.get(CLEAR_FILTER).isEnabled()) {
+            separator(menu);
+            item(menu, CLEAR_FILTER, SWT.PUSH);
+        }
     }
 
     void fillMoreMenu(Menu menu) {
@@ -679,6 +757,9 @@ final class FileActions {
         if (onItems && !selection.isEmpty()) {
             MenuItem open = item(menu, OPEN, SWT.PUSH);
             menu.setDefaultItem(open);
+            if (commands.get(PIN).isEnabled()) {
+                item(menu, PIN, SWT.PUSH);
+            }
             separator(menu);
             item(menu, CUT, SWT.PUSH);
             item(menu, COPY, SWT.PUSH);
@@ -718,6 +799,9 @@ final class FileActions {
         if (onItems && !selection.isEmpty()) {
             MenuItem open = item(menu, OPEN, SWT.PUSH);
             menu.setDefaultItem(open);
+            if (commands.get(PIN).isEnabled()) {
+                item(menu, PIN, SWT.PUSH);
+            }
             separator(menu);
             item(menu, SHARE, SWT.PUSH);
             separator(menu);

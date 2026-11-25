@@ -262,6 +262,41 @@ final class NavigationTree {
                 .label(node.place != null ? node.place.label() : selection[0].getText()).build();
     }
 
+    /** The selected place, or null when something else (or nothing) is selected. */
+    Place selectedPlace() {
+        org.eclipse.swt.widgets.TreeItem[] selection = tree.getSelection();
+        return selection.length == 1 && selection[0].getData() instanceof Node node ? node.place : null;
+    }
+
+    /** Opens a field over the selected place's label (renaming the bookmark, not the folder); false if no place is selected. */
+    boolean startRenamePlace(java.util.function.Consumer<String> commit) {
+        Place place = selectedPlace();
+        if (place == null) {
+            return false;
+        }
+        org.eclipse.swt.widgets.TreeItem item = tree.getSelection()[0];
+        Rectangle bounds = item.getBounds();
+        int offset = px(2 + 6) + browser.iconSize();
+        // Short of the pin at the right.
+        int width = Math.max(px(80), tree.getClientArea().width - bounds.x - offset - browser.iconSize() - px(14));
+        editor = InlineEditor.open(tree, new Rectangle(bounds.x + offset, bounds.y, width, bounds.height), place.label(), true, commit,
+                () -> tree.setFocus());
+        return true;
+    }
+
+    /** Selects the place at {@code index} of the browser's places (after they change). */
+    void selectPlace(int index) {
+        // A reveal of the folder shown that is still under way would take the selection away.
+        revealGeneration++;
+        int i = 0;
+        for (org.eclipse.swt.widgets.TreeItem item : tree.getItems()) {
+            if (item.getData() instanceof Node node && node.place != null && i++ == index) {
+                tree.setSelection(item);
+                return;
+            }
+        }
+    }
+
     private InlineEditor editor;
 
     /** Opens a field over the selected folder's name; false for places, the top, or nothing selected. */

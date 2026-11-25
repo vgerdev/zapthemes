@@ -20,6 +20,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 /**
  * A tree of folders and files in memory: a virtual filesystem for tests and demos, and an example of
@@ -62,6 +64,7 @@ public final class MemoryFileSystem implements FileSystem {
     private final boolean posix;
     private final Map<FilePath, IOException> failures = new ConcurrentHashMap<>();
     private final Instant created;
+    private final Map<FilePath, List<Consumer<FilePath>>> watches = new ConcurrentHashMap<>();
 
     private MemoryFileSystem(Builder builder) {
         this.name = builder.name;
@@ -104,7 +107,7 @@ public final class MemoryFileSystem implements FileSystem {
     @Override
     public Set<Capability> capabilities() {
         Set<Capability> set = EnumSet.of(Capability.CREATE_DIRECTORY, Capability.RENAME, Capability.MOVE, Capability.DELETE,
-                Capability.READ, Capability.WRITE);
+                Capability.READ, Capability.WRITE, Capability.WATCH);
         if (posix) {
             set.add(Capability.PERMISSIONS);
             set.add(Capability.OWNERS);
@@ -168,6 +171,7 @@ public final class MemoryFileSystem implements FileSystem {
             folder.children.put(childName, new Node(true, Instant.now()));
             folder.modified = Instant.now();
         }
+        changed(parent.resolve(childName));
         return parent.resolve(childName);
     }
 
@@ -187,6 +191,8 @@ public final class MemoryFileSystem implements FileSystem {
             parent.children.remove(path.name());
             parent.children.put(newName, node);
         }
+        changed(path);
+        changed(path.parent().resolve(newName));
         return path.parent().resolve(newName);
     }
 
@@ -212,6 +218,8 @@ public final class MemoryFileSystem implements FileSystem {
             from.children.remove(path.name());
             to.children.put(path.name(), node);
         }
+        changed(path);
+        changed(targetFolder.resolve(path.name()));
         return targetFolder.resolve(path.name());
     }
 
@@ -232,6 +240,7 @@ public final class MemoryFileSystem implements FileSystem {
             }
             parent.children.remove(path.name());
         }
+        changed(path);
     }
 
     @Override
@@ -267,8 +276,42 @@ public final class MemoryFileSystem implements FileSystem {
                     node.size = node.content.length;
                     parent.children.put(path.name(), node);
                 }
+                changed(path);
             }
         };
+    }
+
+    /**
+     * Watches {@code folder}: the listener hears of every change this filesystem makes in it (on the
+     * thread that made it), and of the folder itself when it is deleted or moved away. Nothing
+     * else changes a memory filesystem, so tests drive a watch with its own calls.
+     */
+    @Override
+    public Watch watch(FilePath folder, Consumer<FilePath> listener) throws IOException {
+        enter(folder);
+        synchronized (this) {
+            folder(folder);
+        }
+        watches.computeIfAbsent(folder, k -> new CopyOnWriteArrayList<>()).add(listener);
+        return () -> watches.computeIfPresent(folder, (k, listeners) -> {
+            listeners.remove(listener);
+            return listeners.isEmpty() ? null : listeners;
+        });
+    }
+
+    /** The number of folders watched (tests). */
+    public int watchedCount() {
+        return watches.size();
+    }
+
+    /** Tells the watches of {@code path}'s folder, and of folders at or below it (gone with it), that it changed. */
+    private void changed(FilePath path) {
+        watches.forEach((folder, listeners) -> {
+            if (folder.equals(path.parent()) || folder.startsWith(path)) {
+                FilePath what = folder.startsWith(path) ? folder : path;
+                listeners.forEach(listener -> listener.accept(what));
+            }
+        });
     }
 
     /** Waits the delay and throws an injected failure. */

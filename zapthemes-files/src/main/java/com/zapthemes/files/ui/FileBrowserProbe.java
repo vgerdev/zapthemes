@@ -90,6 +90,26 @@ public final class FileBrowserProbe {
         return browser.pendingCalls();
     }
 
+    /** The folder the browser watches for changes, or null. */
+    public static FilePath watchedFolder(FileBrowser browser) {
+        return browser.folderWatcher().started() ? browser.folderWatcher().folder() : null;
+    }
+
+    /** How many times a watched change listed the folder again. */
+    public static int watchRefreshes(FileBrowser browser) {
+        return browser.folderWatcher().refreshes();
+    }
+
+    /** The type name the browser shows for {@code name}: its icon provider's, or its own. */
+    public static String typeName(FileBrowser browser, String name) {
+        return browser.typeName(entry(browser, name));
+    }
+
+    /** The icon the browser shows for {@code name} at {@code size} pixels (at 100 %). */
+    public static org.eclipse.swt.graphics.Image icon(FileBrowser browser, String name, int size) {
+        return browser.icons().get(entry(browser, name), size);
+    }
+
     /** The names of {@code entries} (a convenience for checks). */
     public static List<String> names(List<FileEntry> entries) {
         return entries.stream().map(FileEntry::name).toList();
@@ -125,6 +145,37 @@ public final class FileBrowserProbe {
         browser.focused(false);
     }
 
+    /** The labels of the column headers' menu, with "[x]" before those shown. */
+    public static List<String> columnsMenu(FileBrowser browser) {
+        org.eclipse.swt.widgets.Menu menu = browser.createColumnsMenu();
+        try {
+            return java.util.Arrays.stream(menu.getItems()).map(i -> (i.getSelection() ? "[x] " : "[ ] ") + i.getText()).toList();
+        } finally {
+            menu.dispose();
+        }
+    }
+
+    /** Picks {@code label} in the column headers' menu, toggling that column. */
+    public static void toggleColumn(FileBrowser browser, String label) {
+        org.eclipse.swt.widgets.Menu menu = browser.createColumnsMenu();
+        try {
+            for (org.eclipse.swt.widgets.MenuItem item : menu.getItems()) {
+                if (item.getText().equals(label)) {
+                    item.setSelection(!item.getSelection());
+                    item.notifyListeners(org.eclipse.swt.SWT.Selection, new org.eclipse.swt.widgets.Event());
+                }
+            }
+        } finally {
+            menu.dispose();
+        }
+    }
+
+    /** Selects the place at {@code index} in the navigation pane, giving the pane the focus. */
+    public static void selectPlace(FileBrowser browser, int index) {
+        browser.navigationTree().selectPlace(index);
+        browser.focused(true);
+    }
+
     /** How many in-place renames have started. */
     public static int renamesStarted(FileBrowser browser) {
         return browser.actions().renamesStarted();
@@ -141,6 +192,8 @@ public final class FileBrowserProbe {
                 editor.text().setText(name);
             }
             editor.finish(name != null);
+        } else if (name != null && browser.navigationTreeHasFocus() && browser.navigationTree().selectedPlace() != null) {
+            browser.renamePlace(browser.navigationTree().selectedPlace(), name);
         } else if (name != null && browser.getSelectedEntries().size() == 1) {
             browser.actions().commitRename(browser.getSelectedEntries().getFirst(), name);
         }

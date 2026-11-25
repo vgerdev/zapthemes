@@ -45,13 +45,20 @@ public final class FileGroups {
      * grouped as at {@code now} in {@code zone}.
      */
     public static List<Group> group(List<FileEntry> entries, FileOrder.Key key, boolean ascending, Instant now, ZoneId zone) {
+        return group(entries, key, ascending, now, zone, FileTypes::typeName);
+    }
+
+    /** {@link #group(List, FileOrder.Key, boolean, Instant, ZoneId)} with the type names of {@code typeName}. */
+    public static List<Group> group(List<FileEntry> entries, FileOrder.Key key, boolean ascending, Instant now, ZoneId zone,
+            Function<FileEntry, String> typeName) {
         Function<FileEntry, String> labelOf = switch (key) {
             case NAME -> FileGroups::nameGroup;
             case MODIFIED -> e -> dateGroup(e.modified(), now, zone);
-            case TYPE -> FileTypes::typeName;
+            case TYPE -> typeName;
             case SIZE -> e -> e.isContainer() ? UNSPECIFIED : sizeGroup(e.size());
             case PERMISSIONS -> e -> e.permissions() == null || e.permissions().isEmpty() ? UNSPECIFIED : e.permissions();
             case OWNER -> e -> e.owner() == null || e.owner().isEmpty() ? UNSPECIFIED : e.owner();
+            case GROUP -> e -> e.group() == null || e.group().isEmpty() ? UNSPECIFIED : e.group();
         };
         Map<String, List<FileEntry>> groups = new LinkedHashMap<>();
         for (FileEntry entry : entries) {
