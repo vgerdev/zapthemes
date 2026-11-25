@@ -140,6 +140,7 @@ Link
   linkForeground = #2D6AE6FF
 List
   background = #FFFFFFFF
+  hover:background = #DFE1E5FF
   selectionBackground = #CFDEFCFF
   selectionForeground = #1F2328FF
 NatTable
@@ -588,6 +589,7 @@ Link
   linkForeground = #5992FEFF
 List
   background = #2B2D30FF
+  hover:background = #43454AFF
   selectionBackground = #2E436EFF
   selectionForeground = #DFE1E5FF
 NatTable
@@ -1016,6 +1018,7 @@ Legend
 Link
   linkForeground = #00FFFFFF
 List
+  hover:background = #3A3A3AFF
   selectionBackground = #0037DAFF
   selectionForeground = #FFFFFFFF
 NatTable

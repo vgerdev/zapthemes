@@ -119,7 +119,8 @@ final class CoreCatalog implements CatalogProvider {
         // Also a CCombo's drop-down list, which is a List.
         catalog.type(TypeSpec.of("List", SWT, Base.CONTROL)
                 .with(color("selectionBackground", "selection", "Selected items (painted over the native ones on Windows)"),
-                        color("selectionForeground", "selectionForeground", "Text of selected items (Windows)")));
+                        color("selectionForeground", "selectionForeground", "Text of selected items (Windows)"))
+                .withStates("hover"));
 
         catalog.styleClass(ClassSpec.of("primary", "The default action", "Button", "FlatButton"));
         catalog.styleClass(ClassSpec.of("muted", "Secondary text", "Label"));
