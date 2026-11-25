@@ -262,6 +262,16 @@ public final class FileBrowserProbe {
         browser.view().setDropTarget(entry);
     }
 
+    /** The text drawn in column {@code column} of the Details row named {@code name}: one line, cut with "…" to fit. */
+    public static String shownText(FileBrowser browser, String name, int column) {
+        return browser.fileTable().shownText(entry(browser, name), column);
+    }
+
+    /** The height of the Details table's rows. */
+    public static int rowHeight(FileBrowser browser) {
+        return browser.fileTable().table.getItemHeight();
+    }
+
     private static FileEntry entry(FileBrowser browser, String name) {
         return browser.getVisibleEntries().stream().filter(e -> e.name().equals(name)).findFirst().orElse(null);
     }
