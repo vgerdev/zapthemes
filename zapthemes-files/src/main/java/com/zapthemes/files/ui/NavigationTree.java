@@ -64,7 +64,13 @@ final class NavigationTree {
                 e.detail &= ~(SWT.SELECTED | SWT.HOT | SWT.FOCUSED);
             }
         });
-        tree.addListener(SWT.PaintItem, this::paintItem);
+        if (WIN32) {
+            // Windows clips each row's PaintItem to the widest item's text, short of the pane's right
+            // edge: the pins and the separator line are drawn over the whole tree after its rows.
+            tree.addListener(SWT.Paint, this::paintMarks);
+        } else {
+            tree.addListener(SWT.PaintItem, this::paintItem);
+        }
         ItemPainter.install(tree, item -> item.getData() instanceof Node node ? image(node) : null);
     }
 
@@ -413,20 +419,58 @@ final class NavigationTree {
         return java.util.Arrays.stream(tree.getItems()).map(item -> item.getData() == SEPARATOR ? "---" : item.getText()).toList();
     }
 
-    private void paintItem(Event event) {
-        Object data = event.item.getData();
-        GC gc = event.gc;
+    private static final boolean WIN32 = "win32".equals(SWT.getPlatform());
+
+    /** Draws the pins and the separator of the top-level rows in view (Windows). */
+    private void paintMarks(Event event) {
         Rectangle area = tree.getClientArea();
+        for (org.eclipse.swt.widgets.TreeItem item : tree.getItems()) {
+            Object data = item.getData();
+            if (data != SEPARATOR && !(data instanceof Node node && node.place != null)) {
+                continue;
+            }
+            Rectangle bounds = item.getBounds();
+            if (bounds.y + bounds.height < event.y || bounds.y > event.y + event.height) {
+                continue;
+            }
+            paintMark(event.gc, data, area, bounds.y, bounds.height);
+        }
+    }
+
+    private void paintItem(Event event) {
+        paintMark(event.gc, event.item.getData(), tree.getClientArea(), event.y, event.height);
+    }
+
+    /** Draws the mark of a row at {@code y}, {@code height} high: the separator's line, or a place's pin at the right. */
+    private void paintMark(GC gc, Object data, Rectangle area, int y, int height) {
         if (data == SEPARATOR) {
             Color line = new Color(BarColors.blend(tree.getForeground().getRGB(), tree.getBackground().getRGB(), 0.2));
             gc.setForeground(line);
-            int y = event.y + event.height / 2;
-            gc.drawLine(area.x + px(8), y, area.x + area.width - px(8), y);
+            int middle = y + height / 2;
+            gc.drawLine(area.x + px(8), middle, area.x + area.width - px(8), middle);
         } else if (data instanceof Node node && node.place != null) {
-            int size = px(12);
-            Color pin = new Color(BarColors.blend(tree.getForeground().getRGB(), tree.getBackground().getRGB(), 0.6));
-            FileIcons.draw(gc, Glyph.PIN, area.x + area.width - size - px(10), event.y + (event.height - size) / 2, size, pin);
+            Rectangle pin = pinBounds(area, y, height);
+            Color color = new Color(BarColors.blend(tree.getForeground().getRGB(), tree.getBackground().getRGB(), 0.6));
+            FileIcons.draw(gc, Glyph.PIN, pin.x, pin.y, pin.width, color);
         }
+    }
+
+    /** Where a place's pin goes in a row at {@code y}, {@code height} high: at the right of {@code area}. */
+    private Rectangle pinBounds(Rectangle area, int y, int height) {
+        int size = px(12);
+        return new Rectangle(area.x + area.width - size - px(10), y + (height - size) / 2, size, size);
+    }
+
+    /** Where the pin of the place at {@code index} is drawn (tests). */
+    Rectangle pinBounds(int index) {
+        int i = 0;
+        for (org.eclipse.swt.widgets.TreeItem item : tree.getItems()) {
+            if (item.getData() instanceof Node node && node.place != null && i++ == index) {
+                Rectangle bounds = item.getBounds();
+                return pinBounds(tree.getClientArea(), bounds.y, bounds.height);
+            }
+        }
+        return null;
     }
 
     private int px(int pixels) {
