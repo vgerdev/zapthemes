@@ -853,7 +853,10 @@ public class FileBrowser extends Composite {
         actions.setShareHandler(handler);
     }
 
-    /** Turns Properties (Alt+Enter) on: called with the selected items, or the folder shown. Off without one. */
+    /**
+     * What Properties (Alt+Enter) does: called with the selected items, or the folder shown. Without
+     * one, Properties shows the details pane, which lists the properties of the same items.
+     */
     public void setPropertiesHandler(Consumer<List<FileEntry>> handler) {
         actions.setPropertiesHandler(handler);
     }

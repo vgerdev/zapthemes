@@ -44,7 +44,9 @@ public final class FileIcons {
     /** One-color glyphs, drawn in the foreground color. */
     public enum Glyph {
         BACK, FORWARD, UP, REFRESH, CHEVRON_RIGHT, CHEVRON_DOWN, OVERFLOW, CLOSE, PIN, DETAILS_VIEW, LARGE_ICONS_VIEW, NEW, CUT, COPY, PASTE,
-        RENAME, SHARE, DELETE, SORT, MORE, DETAILS_PANE
+        RENAME, SHARE, DELETE, SORT, MORE, DETAILS_PANE,
+        /** Explorer's context menu: View, Group by, Properties, Show more options, Copy as path. */
+        GRID, GROUP, PROPERTIES, MORE_OPTIONS, COPY_PATH
     }
 
     private final Display display;
@@ -135,6 +137,13 @@ public final class FileIcons {
             data.alphaData[i] = (byte) ((data.alphaData[i] & 0xFF) / 2);
         }
         return data;
+    }
+
+    /** {@code glyph} at {@code size} pixels in {@code color}, as an image (menu items). */
+    public Image glyph(Glyph glyph, int size, RGB color) {
+        return images.computeIfAbsent("glyph:" + glyph + "@" + size + "#" + color,
+                key -> new Image(display, (ImageDataProvider) zoom -> render(Math.max(1, size * zoom / 100),
+                        gc -> draw(gc, glyph, 0, 0, 16, new Color(color)))));
     }
 
     /** The icon of a standard place kind ({@link com.zapthemes.files.Place#kind()}). */
@@ -239,6 +248,20 @@ public final class FileIcons {
             case SORT -> d.line(5, 2, 5, 14).line(2.5f, 11.5f, 5, 14, 7.5f, 11.5f).line(11, 14, 11, 2).line(8.5f, 4.5f, 11, 2, 13.5f, 4.5f);
             case MORE -> d.dot(3.5f, 8, 1.2f).dot(8, 8, 1.2f).dot(12.5f, 8, 1.2f);
             case DETAILS_PANE -> d.closed(1.5f, 2.5f, 14.5f, 2.5f, 14.5f, 13.5f, 1.5f, 13.5f).line(10, 2.5f, 10, 13.5f);
+            case GRID -> d.closed(2.5f, 2.5f, 7, 2.5f, 7, 7, 2.5f, 7).closed(9, 2.5f, 13.5f, 2.5f, 13.5f, 7, 9, 7)
+                    .closed(2.5f, 9, 7, 9, 7, 13.5f, 2.5f, 13.5f).closed(9, 9, 13.5f, 9, 13.5f, 13.5f, 9, 13.5f);
+            case GROUP -> d.line(2.5f, 3, 13.5f, 3).line(5, 6, 13.5f, 6).line(2.5f, 10, 13.5f, 10).line(5, 13, 13.5f, 13);
+            case PROPERTIES -> {
+                // A wrench: a handle and an open ring.
+                Path head = new Path(gc.getDevice());
+                head.addArc(8, 2, 6, 6, 110, 290);
+                gc.drawPath(head);
+                head.dispose();
+                d.line(2.8f, 13.2f, 8.8f, 7.2f);
+            }
+            case MORE_OPTIONS -> d.line(7, 3, 2.5f, 3, 2.5f, 13.5f, 13, 13.5f, 13, 9).line(9.5f, 2.5f, 13.5f, 2.5f, 13.5f, 6.5f)
+                    .line(13.5f, 2.5f, 7.5f, 8.5f);
+            case COPY_PATH -> d.closed(3.5f, 1.5f, 9.5f, 1.5f, 12.5f, 4.5f, 12.5f, 14.5f, 3.5f, 14.5f).line(6, 12, 10, 6);
         }
         gc.setTransform(saved);
         transform.dispose();
