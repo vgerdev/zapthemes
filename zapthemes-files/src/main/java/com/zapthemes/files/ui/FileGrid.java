@@ -2,6 +2,7 @@ package com.zapthemes.files.ui;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,14 +32,23 @@ import org.eclipse.swt.widgets.ScrollBar;
 import com.zapthemes.core.ThemeManager;
 import com.zapthemes.core.style.ResolvedStyle;
 import com.zapthemes.core.style.ThemeContext;
+import com.zapthemes.files.Capability;
 import com.zapthemes.files.FileEntry;
+import com.zapthemes.files.FileOrder;
 import com.zapthemes.files.FilePath;
 import com.zapthemes.files.FileTypes;
 
 /**
- * The owner-drawn layouts of the file view: Extra large, Large, Medium and Small icons, List,
- * Tiles and Content ({@link FileView}). Items flow in rows (List: in columns), under group
- * headers when grouped; image files show their picture in the larger layouts.
+ * The file view, owner drawn in every layout ({@link FileView}): Extra large, Large, Medium and
+ * Small icons, List, Tiles, Content and Details. Items flow in rows (List: in columns; Details: one
+ * per row, under column headers), under group headers when grouped; image files show their picture
+ * in the larger layouts.
+ *
+ * <p>Details has a header per column ({@link DetailsColumns}): a click sorts by it, a second one
+ * reverses the order, dragging a divider sizes the column (a double click fits it to its texts),
+ * and dragging a header moves the column. Every cell is one line, cut with "…" to fit its column;
+ * rows are as high as the zoom needs, both ways. The header stays at the top and scrolls sideways
+ * with the rows.
  *
  * <p>Selection as in Explorer: a click selects, Ctrl toggles, Shift selects a range; a drag on
  * empty space draws a rubber band; the arrow keys move by the layout, Home, End, Page Up and Page
@@ -47,7 +57,9 @@ import com.zapthemes.files.FileTypes;
  *
  * <p>Theme type {@code FileItemView}: {@code background}, {@code foreground},
  * {@code selectionBackground}, {@code selectionForeground}, {@code hoverBackground},
- * {@code mutedForeground}; keys it leaves out come from the Details view's {@code Table} rule.
+ * {@code mutedForeground}, {@code alternateRowBackground}, {@code headerBackground},
+ * {@code headerForeground}; keys it leaves out come from the theme's {@code Table} rule, so a
+ * theme that styles tables styles the file view too.
  */
 final class FileGrid extends Canvas implements ItemView {
 
@@ -55,6 +67,12 @@ final class FileGrid extends Canvas implements ItemView {
     private static final int GAP = 4;
     private static final int HEADER = 30;
     private static final int CHEVRON = 16;
+    /** Space at either side of a Details cell's text. */
+    private static final int CELL_PAD = 6;
+    /** How near a header divider the mouse sizes the column. */
+    private static final int DIVIDER = 4;
+    /** The narrowest a Details column gets, at 100 %. */
+    private static final int MIN_COLUMN = 24;
 
     private final FileBrowser browser;
     private FileView view = FileView.LARGE_ICONS;
@@ -78,6 +96,19 @@ final class FileGrid extends Canvas implements ItemView {
     private int hover = -1;
     private int hoverHeader = -1;
     private FileEntry dropTarget;
+
+    // Details: the columns in their order, their widths at 100 %, and the header's height.
+    private List<DetailsColumns.Column> columns = List.of();
+    private final List<FileOrder.Key> order = new ArrayList<>();
+    private final Map<FileOrder.Key, Integer> widths = new EnumMap<>(FileOrder.Key.class);
+    private int headerHeight;
+    private int hoverColumn = -1;
+    private int pressedColumn = -1;
+    private int resizing = -1;
+    private int resizeFrom;
+    private int resizeWidth;
+    private int moving = -1;
+    private int movingX;
 
     // Mouse.
     private Point bandStart;
@@ -105,7 +136,10 @@ final class FileGrid extends Canvas implements ItemView {
         addListener(SWT.MouseMove, this::mouseMove);
         addListener(SWT.MouseUp, this::mouseUp);
         addListener(SWT.MouseDoubleClick, this::doubleClick);
-        addListener(SWT.MouseExit, e -> setHover(-1, -1));
+        addListener(SWT.MouseExit, e -> {
+            setHover(-1, -1);
+            setHoverColumn(-1);
+        });
         addListener(SWT.MouseVerticalWheel, this::wheel);
         addListener(SWT.KeyDown, this::keyDown);
         addListener(SWT.Traverse, e -> {
@@ -132,7 +166,7 @@ final class FileGrid extends Canvas implements ItemView {
 
     // ------------------------------------------------------------------ content
 
-    /** Shows the entries in {@code view} (any but Details). */
+    /** Shows the entries in {@code view}. */
     void setView(FileView view) {
         if (view != this.view) {
             this.view = view;
@@ -276,6 +310,177 @@ final class FileGrid extends Canvas implements ItemView {
         return null;
     }
 
+    // ------------------------------------------------------------------ Details columns
+
+    /** Sets the Details columns for a filesystem with {@code capabilities}, leaving out those of {@code hidden}; moved columns keep their place. */
+    void setColumns(Set<Capability> capabilities, Set<FileOrder.Key> hidden) {
+        List<DetailsColumns.Column> list = new ArrayList<>(DetailsColumns.columnsFor(capabilities, hidden));
+        list.sort(java.util.Comparator.comparingInt(c -> {
+            int at = order.indexOf(c.key());
+            return at < 0 ? Integer.MAX_VALUE : at;
+        }));
+        if (!list.equals(columns)) {
+            columns = List.copyOf(list);
+            relayout();
+        }
+    }
+
+    /** The texts of {@code entry}, column by column, as Details shows them before cutting them to fit. */
+    String[] texts(FileEntry entry) {
+        return columns.stream().map(c -> DetailsColumns.text(browser, entry, c.key())).toArray(String[]::new);
+    }
+
+    /** The Details columns, in the order shown. */
+    List<DetailsColumns.Column> columns() {
+        return columns;
+    }
+
+    /** Shows the sort arrow on the column the browser sorts by. */
+    void showSort() {
+        if (view == FileView.DETAILS) {
+            redraw(0, 0, getClientArea().width, headerHeight, false);
+        }
+    }
+
+    /** The width of column {@code c}, in pixels at the current zoom. */
+    int columnWidth(int c) {
+        DetailsColumns.Column column = columns.get(c);
+        return px(widths.getOrDefault(column.key(), column.width()));
+    }
+
+    /** Sets the width of column {@code c} in pixels at the current zoom (tests; a drag on a divider). */
+    void setColumnWidth(int c, int pixels) {
+        int percent = Math.max(1, px(100));
+        widths.put(columns.get(c).key(), Math.max(MIN_COLUMN, (int) Math.round(pixels * 100.0 / percent)));
+        relayout();
+    }
+
+    /** Moves column {@code from} to place {@code to} (tests; a drag on a header). */
+    void moveColumn(int from, int to) {
+        List<DetailsColumns.Column> list = new ArrayList<>(columns);
+        DetailsColumns.Column column = list.remove(from);
+        list.add(Math.max(0, Math.min(to, list.size())), column);
+        columns = List.copyOf(list);
+        order.clear();
+        columns.forEach(c -> order.add(c.key()));
+        relayout();
+    }
+
+    /** Where column {@code c} starts, in content coordinates. */
+    private int columnX(int c) {
+        int x = 0;
+        for (int i = 0; i < c; i++) {
+            x += columnWidth(i);
+        }
+        return x;
+    }
+
+    private int columnsWidth() {
+        return columnX(columns.size());
+    }
+
+    /** The index of the column of {@code key}, or -1. */
+    int columnOf(FileOrder.Key key) {
+        for (int c = 0; c < columns.size(); c++) {
+            if (columns.get(c).key() == key) {
+                return c;
+            }
+        }
+        return -1;
+    }
+
+    /** The column at {@code x} of the control, or -1. */
+    private int columnAt(int x) {
+        int cx = x + originX;
+        int left = 0;
+        for (int c = 0; c < columns.size(); c++) {
+            int right = left + columnWidth(c);
+            if (cx >= left && cx < right) {
+                return c;
+            }
+            left = right;
+        }
+        return -1;
+    }
+
+    /** The column whose right divider is near {@code x} of the control, or -1. */
+    private int dividerAt(int x) {
+        int cx = x + originX;
+        int right = 0;
+        for (int c = 0; c < columns.size(); c++) {
+            right += columnWidth(c);
+            if (Math.abs(cx - right) <= px(DIVIDER)) {
+                return c;
+            }
+        }
+        return -1;
+    }
+
+    /** Whether {@code point} of the control is on the Details column headers. */
+    boolean onHeader(Point point) {
+        return view == FileView.DETAILS && point.y >= 0 && point.y < headerHeight;
+    }
+
+    /** The height of the Details column headers, 0 in the other layouts. */
+    int headerHeight() {
+        return headerHeight;
+    }
+
+    /** The height of a Details row (tests). */
+    int rowHeight() {
+        return view == FileView.DETAILS ? metrics().cellHeight() : 0;
+    }
+
+    /** The bounds of column {@code key}'s cell in {@code entry}'s row, in the control, or null (tests). */
+    Rectangle cellBounds(FileEntry entry, FileOrder.Key key) {
+        Integer i = indexOf.get(entry.path());
+        int c = columnOf(key);
+        if (i == null || c < 0 || view != FileView.DETAILS) {
+            return null;
+        }
+        Rectangle r = toControl(cells[i]);
+        return new Rectangle(r.x + columnX(c), r.y, columnWidth(c), r.height);
+    }
+
+    /** The text drawn in column {@code key} of {@code entry}'s row: one line, cut with "…" to fit (tests). */
+    String shownText(FileEntry entry, FileOrder.Key key) {
+        int c = columnOf(key);
+        GC gc = new GC(this);
+        try {
+            gc.setFont(getFont());
+            return ellipsize(gc, oneLine(DetailsColumns.text(browser, entry, key)), textWidth(c));
+        } finally {
+            gc.dispose();
+        }
+    }
+
+    /** The width the text of column {@code c} has in a row. */
+    private int textWidth(int c) {
+        int width = columnWidth(c) - 2 * px(CELL_PAD);
+        return columns.get(c).key() == FileOrder.Key.NAME ? width - px(FileView.DETAILS.iconSize()) - px(6) : width;
+    }
+
+    private static String oneLine(String text) {
+        return text.indexOf('\n') < 0 && text.indexOf('\r') < 0 ? text : text.replaceAll("\\R", " ");
+    }
+
+    /** Fits column {@code c} to its widest text (of the first rows), as a double click on its divider does. */
+    void fitColumn(int c) {
+        GC gc = new GC(this);
+        try {
+            gc.setFont(getFont());
+            FileOrder.Key key = columns.get(c).key();
+            int widest = gc.textExtent(columns.get(c).title()).x + px(12);
+            for (int i = 0; i < Math.min(rows.size(), 2000); i++) {
+                widest = Math.max(widest, gc.textExtent(oneLine(DetailsColumns.text(browser, rows.get(i), key))).x);
+            }
+            int extra = key == FileOrder.Key.NAME ? px(FileView.DETAILS.iconSize()) + px(6) : 0;
+            setColumnWidth(c, widest + extra + 2 * px(CELL_PAD) + px(2));
+        } finally {
+            gc.dispose();
+        }
+    }
+
     // ------------------------------------------------------------------ layout
 
     private record Metrics(int icon, int cellWidth, int cellHeight, int line, int pad) {
@@ -295,7 +500,8 @@ final class FileGrid extends Canvas implements ItemView {
                 case SMALL_ICONS -> new Metrics(icon, px(220), Math.max(icon, line) + px(6), line, pad);
                 case LIST -> new Metrics(icon, listWidth(gc, icon), Math.max(icon, line) + px(6), line, pad);
                 case TILES -> new Metrics(icon, px(260), Math.max(icon, 3 * line) + 2 * px(8), line, pad);
-                case CONTENT, DETAILS -> new Metrics(icon, 0, Math.max(icon, 2 * line) + 2 * px(8), line, px(8));
+                case CONTENT -> new Metrics(icon, 0, Math.max(icon, 2 * line) + 2 * px(8), line, px(8));
+                case DETAILS -> new Metrics(icon, 0, Math.max(icon, line) + px(6), line, px(4));
             };
         } finally {
             gc.dispose();
@@ -312,20 +518,32 @@ final class FileGrid extends Canvas implements ItemView {
     }
 
     /** Lays the items out for the client area, showing the scroll bars that are needed. */
+    private boolean relayouting;
+
     private void relayout() {
-        if (isDisposed()) {
+        // Showing or hiding a scroll bar resizes the view, which would lay it out again from within.
+        if (isDisposed() || relayouting) {
             return;
         }
+        relayouting = true;
+        try {
+            layOut();
+        } finally {
+            relayouting = false;
+        }
+    }
+
+    private void layOut() {
         Rectangle area = getClientArea();
         boolean sideways = view == FileView.LIST && sections.stream().allMatch(s -> s.label() == null);
         ScrollBar vertical = getVerticalBar();
         ScrollBar horizontal = getHorizontalBar();
-        // Twice at most: a scroll bar that appears takes room.
-        for (int pass = 0; pass < 2; pass++) {
+        // A few times at most: a scroll bar that appears takes room (Details may need both).
+        for (int pass = 0; pass < 3; pass++) {
             area = getClientArea();
             layoutFor(area.width, area.height, sideways);
             boolean needV = !sideways && contentHeight > area.height;
-            boolean needH = sideways && contentWidth > area.width;
+            boolean needH = (sideways || view == FileView.DETAILS) && contentWidth > area.width;
             if (vertical.getVisible() == needV && horizontal.getVisible() == needH) {
                 break;
             }
@@ -333,6 +551,7 @@ final class FileGrid extends Canvas implements ItemView {
             horizontal.setVisible(needH);
         }
         area = getClientArea();
+        layoutFor(area.width, area.height, sideways);
         configure(vertical, contentHeight, area.height, px(40));
         configure(horizontal, contentWidth, area.width, px(40));
         originY = vertical.getVisible() ? Math.max(0, Math.min(originY, contentHeight - area.height)) : 0;
@@ -356,6 +575,11 @@ final class FileGrid extends Canvas implements ItemView {
         int cellHeight = m.cellHeight();
         cells = new Rectangle[rows.size()];
         headers.clear();
+        headerHeight = 0;
+        if (view == FileView.DETAILS) {
+            layoutDetails(m, width);
+            return;
+        }
         int index = 0;
         int y = margin;
         int widest = 0;
@@ -399,6 +623,42 @@ final class FileGrid extends Canvas implements ItemView {
         contentHeight = y + margin;
     }
 
+    /** Details: the column headers at the top, then a row per entry, as wide as the columns or the view. */
+    private void layoutDetails(Metrics m, int width) {
+        headerHeight = m.line() + px(12);
+        int rowWidth = Math.max(columnsWidth(), width);
+        int y = headerHeight;
+        int index = 0;
+        for (Section section : sections) {
+            if (section.label() != null) {
+                y += px(GAP);
+                headers.add(new Rectangle(px(4), y, Math.max(1, width - px(8)), px(HEADER)));
+                y += px(HEADER) + px(GAP);
+            }
+            for (int i = 0; i < section.entries().size(); i++) {
+                cells[index++] = new Rectangle(0, y, rowWidth, m.cellHeight());
+                y += m.cellHeight();
+            }
+        }
+        contentWidth = rowWidth;
+        contentHeight = y + px(4);
+    }
+
+    /** Details: the first row ending below {@code y} (content coordinates), by binary search; rows are in order. */
+    private int firstRowFrom(int y) {
+        int low = 0;
+        int high = cells.length;
+        while (low < high) {
+            int mid = (low + high) >>> 1;
+            if (cells[mid].y + cells[mid].height <= y) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        return low;
+    }
+
     private Rectangle toControl(Rectangle content) {
         return new Rectangle(content.x - originX, content.y - originY, content.width, content.height);
     }
@@ -426,6 +686,16 @@ final class FileGrid extends Canvas implements ItemView {
         Rectangle area = getClientArea();
         int x = originX;
         int y = originY;
+        if (view == FileView.DETAILS) {
+            // Below the column headers; rows are as wide as the view, so no sideways scroll.
+            if (cell.y < y + headerHeight) {
+                y = cell.y - headerHeight;
+            } else if (cell.y + cell.height > y + area.height) {
+                y = cell.y + cell.height - area.height;
+            }
+            scrollTo(x, y);
+            return;
+        }
         if (cell.y < y) {
             y = cell.y - px(MARGIN);
         } else if (cell.y + cell.height > y + area.height) {
@@ -442,6 +712,13 @@ final class FileGrid extends Canvas implements ItemView {
     private int indexAt(int x, int y) {
         int cx = x + originX;
         int cy = y + originY;
+        if (view == FileView.DETAILS) {
+            if (y < headerHeight) {
+                return -1;
+            }
+            int i = firstRowFrom(cy);
+            return i < cells.length && cells[i].contains(cx, cy) ? i : -1;
+        }
         for (int i = 0; i < cells.length; i++) {
             if (cells[i].contains(cx, cy)) {
                 return i;
@@ -451,6 +728,9 @@ final class FileGrid extends Canvas implements ItemView {
     }
 
     private int headerAt(int x, int y) {
+        if (y < headerHeight) {
+            return -1;
+        }
         int cx = x + originX;
         int cy = y + originY;
         for (int i = 0; i < headers.size(); i++) {
@@ -475,24 +755,24 @@ final class FileGrid extends Canvas implements ItemView {
 
     /** The colors the view paints with. */
     record Colors(Color background, Color foreground, Color selection, Color selectionText, Color hover, Color muted, Color line,
-            Color focus) {
+            Color focus, Color headerBackground, Color headerForeground, Color stripe) {
     }
 
     Colors colors() {
         ThemeManager manager = ThemeManager.get(getDisplay());
         ThemeContext context = new ThemeContext(manager.resources());
         ResolvedStyle own = manager.styleOf(this);
-        Control table = browser.fileTable().table;
-        ResolvedStyle details = manager.styleOf(table);
-        if (getDisplay().getHighContrast()) {
-            var d = getDisplay();
+        // The theme's Table rule: what styles tables styles the file view too.
+        ResolvedStyle details = manager.ruleOf(this, "Table");
+        var d = getDisplay();
+        if (d.getHighContrast()) {
             Color bg = d.getSystemColor(SWT.COLOR_LIST_BACKGROUND);
             Color fg = d.getSystemColor(SWT.COLOR_LIST_FOREGROUND);
             Color sel = d.getSystemColor(SWT.COLOR_LIST_SELECTION);
-            return new Colors(bg, fg, sel, d.getSystemColor(SWT.COLOR_LIST_SELECTION_TEXT), sel, fg, fg, fg);
+            return new Colors(bg, fg, sel, d.getSystemColor(SWT.COLOR_LIST_SELECTION_TEXT), sel, fg, fg, fg, bg, fg, null);
         }
-        Color background = own.has("background") ? context.color(own, "background") : table.getBackground();
-        Color foreground = own.has("foreground") ? context.color(own, "foreground") : table.getForeground();
+        Color background = pick(context, own, details, "background", d.getSystemColor(SWT.COLOR_LIST_BACKGROUND));
+        Color foreground = pick(context, own, details, "foreground", d.getSystemColor(SWT.COLOR_LIST_FOREGROUND));
         RGB bg = background.getRGB();
         RGB fg = foreground.getRGB();
         RGB system = getDisplay().getSystemColor(SWT.COLOR_LIST_SELECTION).getRGB();
@@ -513,7 +793,8 @@ final class FileGrid extends Canvas implements ItemView {
         }
         Color muted = own.has("mutedForeground") ? context.color(own, "mutedForeground") : new Color(BarColors.blend(fg, bg, 0.65));
         return new Colors(background, foreground, selection, selectionText, hover, muted, new Color(BarColors.blend(fg, bg, 0.18)),
-                new Color(BarColors.blend(system, bg, 0.8)));
+                new Color(BarColors.blend(system, bg, 0.8)), pick(context, own, details, "headerBackground", background),
+                pick(context, own, details, "headerForeground", foreground), pick(context, own, details, "alternateRowBackground", null));
     }
 
     private static Color pick(ThemeContext context, ResolvedStyle own, ResolvedStyle details, String key, Color fallback) {
@@ -534,15 +815,24 @@ final class FileGrid extends Canvas implements ItemView {
         gc.setTextAntialias(SWT.ON);
         gc.setInterpolation(SWT.HIGH);
         gc.setFont(getFont());
+        boolean details = view == FileView.DETAILS;
         String text = message();
         if (text != null) {
+            if (details) {
+                paintColumnHeaders(gc, colors, area);
+            }
             gc.setForeground(colors.muted());
             int width = gc.textExtent(text).x;
-            gc.drawText(text, Math.max(0, (area.width - width) / 2), px(16), true);
+            gc.drawText(text, Math.max(0, (area.width - width) / 2), headerHeight + px(16), true);
             return;
         }
         Rectangle damage = new Rectangle(event.x + originX, event.y + originY, event.width, event.height);
         Metrics m = metrics();
+        if (details) {
+            // The rows scroll under the column headers.
+            Rectangle body = new Rectangle(0, headerHeight, area.width, Math.max(0, area.height - headerHeight));
+            gc.setClipping(body.intersection(new Rectangle(event.x, event.y, event.width, event.height)));
+        }
         int h = 0;
         for (Section section : sections) {
             if (section.label() != null) {
@@ -553,7 +843,10 @@ final class FileGrid extends Canvas implements ItemView {
                 h++;
             }
         }
-        for (int i = 0; i < cells.length; i++) {
+        for (int i = details ? firstRowFrom(damage.y) : 0; i < cells.length; i++) {
+            if (details && cells[i].y >= damage.y + damage.height) {
+                break;
+            }
             if (cells[i].intersects(damage)) {
                 paintItem(gc, colors, m, i, toControl(cells[i]));
             }
@@ -567,6 +860,58 @@ final class FileGrid extends Canvas implements ItemView {
             gc.setForeground(colors.focus());
             gc.drawRectangle(r.x, r.y, r.width - 1, r.height - 1);
         }
+        if (details) {
+            gc.setClipping((Rectangle) null);
+            paintColumnHeaders(gc, colors, area);
+        }
+    }
+
+    /** The Details column headers: titles, the sort arrow, dividers; hover and pressed; where a moved column goes. */
+    private void paintColumnHeaders(GC gc, Colors colors, Rectangle area) {
+        gc.setBackground(colors.headerBackground());
+        gc.fillRectangle(0, 0, area.width, headerHeight);
+        int sorted = columnOf(browser.getSortKey());
+        for (int c = 0; c < columns.size(); c++) {
+            int x = columnX(c) - originX;
+            int w = columnWidth(c);
+            if (x >= area.width || x + w <= 0) {
+                continue;
+            }
+            boolean pressed = c == pressedColumn && moving < 0;
+            if (pressed || c == hoverColumn && resizing < 0 && moving < 0) {
+                gc.setBackground(pressed ? colors.selection() : colors.hover());
+                gc.fillRectangle(x, 0, w, headerHeight);
+            }
+            DetailsColumns.Column column = columns.get(c);
+            String title = ellipsize(gc, column.title(), w - 2 * px(CELL_PAD));
+            Point extent = gc.textExtent(title);
+            int tx = column.align() == SWT.RIGHT ? x + w - px(CELL_PAD) - extent.x : x + px(CELL_PAD);
+            gc.setForeground(colors.headerForeground());
+            gc.drawText(title, tx, (headerHeight - extent.y) / 2, true);
+            if (c == sorted) {
+                drawSortArrow(gc, x + w / 2, px(2), browser.isSortAscending(), colors.muted());
+            }
+            gc.setForeground(colors.line());
+            gc.drawLine(x + w - 1, px(6), x + w - 1, headerHeight - px(6));
+        }
+        if (moving >= 0) {
+            int at = columnX(dropColumn(movingX)) - originX;
+            gc.setBackground(colors.focus());
+            gc.fillRectangle(at - px(1), 0, Math.max(2, px(2)), headerHeight);
+        }
+    }
+
+    /** Explorer's sort arrow: a small chevron at the top of the sorted column's header, up for ascending. */
+    private void drawSortArrow(GC gc, int center, int top, boolean ascending, Color color) {
+        int d = px(4);
+        gc.setForeground(color);
+        gc.setLineWidth(Math.max(1, px(1)));
+        if (ascending) {
+            gc.drawPolyline(new int[] { center - d, top + d, center, top, center + d, top + d });
+        } else {
+            gc.drawPolyline(new int[] { center - d, top, center, top + d, center + d, top });
+        }
+        gc.setLineWidth(1);
     }
 
     /** "Today (3)": a group header's text. */
@@ -614,6 +959,10 @@ final class FileGrid extends Canvas implements ItemView {
         boolean isDrop = entry.equals(dropTarget);
         int arc = px(4);
         Rectangle box = new Rectangle(r.x + px(1), r.y + px(1), r.width - px(2), r.height - px(2));
+        if (view == FileView.DETAILS && colors.stripe() != null && i % 2 == 1) {
+            gc.setBackground(colors.stripe());
+            gc.fillRectangle(r);
+        }
         if (isSelected || isDrop || i == hover) {
             gc.setBackground(isSelected ? colors.selection() : colors.hover());
             gc.fillRoundRectangle(box.x, box.y, box.width, box.height, arc, arc);
@@ -661,7 +1010,33 @@ final class FileGrid extends Canvas implements ItemView {
                     top += m.line();
                 }
             }
-            case CONTENT, DETAILS -> {
+            case DETAILS -> {
+                int visible = getClientArea().width;
+                for (int c = 0; c < columns.size(); c++) {
+                    int x = r.x + columnX(c);
+                    int w = columnWidth(c);
+                    if (x >= visible || x + w <= 0) {
+                        continue;
+                    }
+                    DetailsColumns.Column column = columns.get(c);
+                    boolean isName = column.key() == FileOrder.Key.NAME;
+                    int tx = x + px(CELL_PAD);
+                    if (isName) {
+                        drawIcon(gc, entry, tx, r.y + (r.height - icon) / 2, icon);
+                        tx += icon + px(6);
+                    }
+                    String value = ellipsize(gc, oneLine(DetailsColumns.text(browser, entry, column.key())), textWidth(c));
+                    if (value.isEmpty()) {
+                        continue;
+                    }
+                    if (column.align() == SWT.RIGHT) {
+                        tx = x + w - px(CELL_PAD) - gc.textExtent(value).x;
+                    }
+                    gc.setForeground(isName || isSelected ? text : colors.muted());
+                    gc.drawText(value, tx, r.y + (r.height - m.line()) / 2, true);
+                }
+            }
+            case CONTENT -> {
                 int x = r.x + px(8);
                 drawIcon(gc, entry, x, r.y + (r.height - icon) / 2, icon);
                 x += icon + px(12);
@@ -672,7 +1047,7 @@ final class FileGrid extends Canvas implements ItemView {
                 gc.setForeground(isSelected ? text : colors.muted());
                 gc.drawText(ellipsize(gc, browser.typeName(entry), split - px(12) - x), x, top + m.line(), true);
                 int right = r.x + r.width - px(8);
-                drawField(gc, colors, isSelected, "Date modified: ", FileTable.formatDate(entry.modified()), split, top, right - split);
+                drawField(gc, colors, isSelected, "Date modified: ", DetailsColumns.formatDate(entry.modified()), split, top, right - split);
                 if (!entry.isContainer() && entry.size() >= 0) {
                     drawField(gc, colors, isSelected, "Size: ", FileTypes.shortSize(entry.size()), split, top + m.line(), right - split);
                 }
@@ -786,6 +1161,55 @@ final class FileGrid extends Canvas implements ItemView {
 
     // ------------------------------------------------------------------ mouse
 
+    private void setHoverColumn(int column) {
+        if (column != hoverColumn) {
+            hoverColumn = column;
+            if (view == FileView.DETAILS) {
+                redraw(0, 0, getClientArea().width, headerHeight, false);
+            }
+        }
+    }
+
+    private int pressX;
+
+    /** A press on the Details column headers: on a divider it sizes the column, elsewhere it may sort or move it. */
+    private void headerMouseDown(Event event) {
+        if (event.button != 1) {
+            return;
+        }
+        int divider = dividerAt(event.x);
+        if (divider >= 0) {
+            resizing = divider;
+            resizeFrom = event.x;
+            resizeWidth = columnWidth(divider);
+            return;
+        }
+        pressedColumn = columnAt(event.x);
+        pressX = event.x;
+        redraw(0, 0, getClientArea().width, headerHeight, false);
+    }
+
+    /** Where a column dropped at {@code x} of the control goes: the nearest boundary between columns. */
+    private int dropColumn(int x) {
+        int cx = x + originX;
+        int best = 0;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int k = 0; k <= columns.size(); k++) {
+            int d = Math.abs(cx - columnX(k));
+            if (d < bestDistance) {
+                best = k;
+                bestDistance = d;
+            }
+        }
+        return best;
+    }
+
+    /** Sorts by column {@code c}, the other way round if it is sorted by already. */
+    private void sortBy(int c) {
+        FileOrder.Key key = columns.get(c).key();
+        browser.setSort(key, key == browser.getSortKey() ? !browser.isSortAscending() : true);
+    }
+
     private void setHover(int item, int header) {
         if (item != hover || header != hoverHeader) {
             hover = item;
@@ -802,7 +1226,7 @@ final class FileGrid extends Canvas implements ItemView {
             text.append("\nSize: ").append(FileTypes.shortSize(entry.size()));
         }
         if (entry.modified() != null) {
-            text.append("\nDate modified: ").append(FileTable.formatDate(entry.modified()));
+            text.append("\nDate modified: ").append(DetailsColumns.formatDate(entry.modified()));
         }
         return text.toString();
     }
@@ -810,6 +1234,10 @@ final class FileGrid extends Canvas implements ItemView {
     private void mouseDown(Event event) {
         setFocus();
         int generation = ++slowClickGeneration;
+        if (onHeader(new Point(event.x, event.y))) {
+            headerMouseDown(event);
+            return;
+        }
         boolean ctrl = (event.stateMask & SWT.MOD1) != 0;
         boolean shift = (event.stateMask & SWT.SHIFT) != 0;
         int header = headerAt(event.x, event.y);
@@ -881,6 +1309,31 @@ final class FileGrid extends Canvas implements ItemView {
     }
 
     private void mouseMove(Event event) {
+        if (resizing >= 0) {
+            if ((event.stateMask & SWT.BUTTON1) != 0) {
+                setColumnWidth(resizing, resizeWidth + event.x - resizeFrom);
+            }
+            return;
+        }
+        if (pressedColumn >= 0 && (event.stateMask & SWT.BUTTON1) != 0) {
+            if (moving < 0 && Math.abs(event.x - pressX) > px(6)) {
+                moving = pressedColumn;
+            }
+            if (moving >= 0) {
+                movingX = event.x;
+                redraw(0, 0, getClientArea().width, headerHeight, false);
+            }
+            return;
+        }
+        if (view == FileView.DETAILS) {
+            boolean header = onHeader(new Point(event.x, event.y));
+            setCursor(header && dividerAt(event.x) >= 0 ? getDisplay().getSystemCursor(SWT.CURSOR_SIZEWE) : null);
+            setHoverColumn(header ? columnAt(event.x) : -1);
+            if (header) {
+                setHover(-1, -1);
+                return;
+            }
+        }
         if (bandStart != null && (event.stateMask & SWT.BUTTON1) != 0) {
             Point now = new Point(event.x + originX, event.y + originY);
             band = new Rectangle(Math.min(bandStart.x, now.x), Math.min(bandStart.y, now.y), Math.abs(now.x - bandStart.x),
@@ -911,6 +1364,23 @@ final class FileGrid extends Canvas implements ItemView {
     }
 
     private void mouseUp(Event event) {
+        if (resizing >= 0) {
+            resizing = -1;
+            return;
+        }
+        if (pressedColumn >= 0) {
+            int c = pressedColumn;
+            pressedColumn = -1;
+            if (moving >= 0) {
+                int to = dropColumn(event.x);
+                moving = -1;
+                moveColumn(c, to > c ? to - 1 : to);
+            } else if (event.button == 1 && columnAt(event.x) == c && onHeader(new Point(event.x, event.y))) {
+                sortBy(c);
+            }
+            redraw();
+            return;
+        }
         if (band != null || bandStart != null) {
             band = null;
             bandStart = null;
@@ -933,6 +1403,13 @@ final class FileGrid extends Canvas implements ItemView {
 
     private void doubleClick(Event event) {
         slowClickGeneration++;
+        if (onHeader(new Point(event.x, event.y))) {
+            int divider = dividerAt(event.x);
+            if (divider >= 0) {
+                fitColumn(divider);
+            }
+            return;
+        }
         if (event.button == 1 && indexAt(event.x, event.y) >= 0) {
             notifyListeners(SWT.DefaultSelection, new Event());
         }
@@ -994,13 +1471,21 @@ final class FileGrid extends Canvas implements ItemView {
             return;
         }
         int from = focus < 0 ? 0 : focus;
+        boolean details = view == FileView.DETAILS;
+        if (details && (event.keyCode == SWT.ARROW_LEFT || event.keyCode == SWT.ARROW_RIGHT)) {
+            // Details rows are one column: the arrows scroll sideways, as a list view's do.
+            scrollTo(originX + (event.keyCode == SWT.ARROW_LEFT ? -px(40) : px(40)), originY);
+            event.doit = false;
+            return;
+        }
+        int page = details ? Math.max(1, (getClientArea().height - headerHeight) / Math.max(1, metrics().cellHeight()) - 1) : 0;
         int to = switch (event.keyCode) {
             case SWT.ARROW_LEFT -> beside(from, -1);
             case SWT.ARROW_RIGHT -> beside(from, 1);
-            case SWT.ARROW_UP -> above(from, -1, 1);
-            case SWT.ARROW_DOWN -> above(from, 1, 1);
-            case SWT.PAGE_UP -> above(from, -1, Math.max(1, getClientArea().height));
-            case SWT.PAGE_DOWN -> above(from, 1, Math.max(1, getClientArea().height));
+            case SWT.ARROW_UP -> details ? Math.max(0, from - 1) : above(from, -1, 1);
+            case SWT.ARROW_DOWN -> details ? Math.min(rows.size() - 1, from + 1) : above(from, 1, 1);
+            case SWT.PAGE_UP -> details ? Math.max(0, from - page) : above(from, -1, Math.max(1, getClientArea().height));
+            case SWT.PAGE_DOWN -> details ? Math.min(rows.size() - 1, from + page) : above(from, 1, Math.max(1, getClientArea().height));
             case SWT.HOME -> 0;
             case SWT.END -> rows.size() - 1;
             default -> -2;
@@ -1136,7 +1621,12 @@ final class FileGrid extends Canvas implements ItemView {
                 int x = r.x + px(8) + m.icon() + px(8);
                 yield new Rectangle(x, r.y + (r.height - 3 * m.line()) / 2 - px(3), r.x + r.width - x - px(4), m.line() + px(6));
             }
-            case CONTENT, DETAILS -> {
+            case DETAILS -> {
+                int c = Math.max(0, columnOf(FileOrder.Key.NAME));
+                int x = r.x + columnX(c) + px(CELL_PAD) + m.icon() + px(4);
+                yield new Rectangle(x, r.y, Math.max(px(40), r.x + columnX(c) + columnWidth(c) - x - px(2)), r.height);
+            }
+            case CONTENT -> {
                 int x = r.x + px(8) + m.icon() + px(10);
                 yield new Rectangle(x, r.y + (r.height - 2 * m.line()) / 2 - px(3), r.x + r.width * 55 / 100 - x, m.line() + px(6));
             }

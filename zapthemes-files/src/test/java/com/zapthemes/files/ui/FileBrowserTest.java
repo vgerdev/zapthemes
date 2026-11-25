@@ -114,9 +114,9 @@ class FileBrowserTest {
         assertThat(names()).containsExactly("Documents", "projects", "notes.txt", "report2.pdf", "report10.pdf");
         assertThat(browser.crumbLabels()).containsExactly("server", "home", "me");
         assertThat(browser.statusBar().getText()).isEqualTo("5 items");
-        assertThat(browser.fileTable().texts(browser.getVisibleEntries().get(4))).containsExactly("report10.pdf",
-                browser.fileTable().texts(browser.getVisibleEntries().get(4))[1], "PDF document", "5 KB");
-        assertThat(browser.fileTable().message()).isNull();
+        assertThat(browser.fileGrid().texts(browser.getVisibleEntries().get(4))).containsExactly("report10.pdf",
+                browser.fileGrid().texts(browser.getVisibleEntries().get(4))[1], "PDF document", "5 KB");
+        assertThat(browser.fileGrid().message()).isNull();
     }
 
     @Test
@@ -137,8 +137,8 @@ class FileBrowserTest {
         browser.setSort(FileOrder.Key.SIZE, false);
 
         assertThat(names()).containsExactly("projects", "Documents", "report2.pdf", "report10.pdf", "notes.txt");
-        assertThat(browser.fileTable().table.getSortDirection()).isEqualTo(org.eclipse.swt.SWT.DOWN);
-        assertThat(browser.fileTable().table.getSortColumn().getText()).isEqualTo("Size");
+        assertThat(browser.isSortAscending()).isFalse();
+        assertThat(browser.fileGrid().columns().get(browser.fileGrid().columnOf(FileOrder.Key.SIZE)).title()).isEqualTo("Size");
     }
 
     @Test
@@ -265,7 +265,7 @@ class FileBrowserTest {
         browser.setFileSystem(server(Duration.ofMillis(150)));
         assertThat(browser.isLoading()).isTrue();
         assertThat(browser.statusBar().getText()).isEqualTo("Loading…");
-        assertThat(browser.fileTable().message()).isEqualTo("Loading…");
+        assertThat(browser.fileGrid().message()).isEqualTo("Loading…");
         idle();
 
         browser.navigate(FilePath.of("etc"));
@@ -350,7 +350,7 @@ class FileBrowserTest {
         Point size = shell.getSize();
         int bar = browser.navigationBar().getSize().y;
         int icon = browser.iconSize();
-        int row = browser.fileTable().table.getItemHeight();
+        int row = FileBrowserProbe.rowHeight(browser);
 
         manager.setZoom(1.5);
         DemoWait.settle(display);
@@ -358,8 +358,12 @@ class FileBrowserTest {
         assertThat(shell.getSize()).isEqualTo(size);
         assertThat(browser.navigationBar().getSize().y).isGreaterThan(bar);
         assertThat(browser.iconSize()).isEqualTo(icon * 3 / 2);
-        assertThat(browser.fileTable().table.getItemHeight()).isGreaterThan(row);
+        assertThat(FileBrowserProbe.rowHeight(browser)).isGreaterThan(row);
         assertThat(browser.icons().get(FileIcons.Icon.FOLDER, browser.iconSize()).getBounds().width).isEqualTo(browser.iconSize());
+        // And the rows are as high as before once zoomed out again (a native table's would stay tall).
+        manager.resetZoom();
+        DemoWait.settle(display);
+        assertThat(FileBrowserProbe.rowHeight(browser)).isEqualTo(row);
     }
 
     @Test
@@ -367,7 +371,7 @@ class FileBrowserTest {
         assertThat(browser.getData(ThemeKeys.THEME_CONTROL_TYPE)).isEqualTo("FileBrowser");
         assertThat(browser.navigationBar().getData(ThemeKeys.THEME_CONTROL_TYPE)).isEqualTo("FileNavigationBar");
         assertThat(browser.statusBar().getData(ThemeKeys.THEME_CONTROL_TYPE)).isEqualTo("FileStatusBar");
-        assertThat(browser.fileTable().table.getData(ThemeKeys.THEME_CONTROL_TYPE)).isEqualTo("Table");
+        assertThat(browser.fileGrid().getData(ThemeKeys.THEME_CONTROL_TYPE)).isEqualTo("FileItemView");
         assertThat(browser.navigationTree().tree.getData(ThemeKeys.THEME_CONTROL_TYPE)).isEqualTo("Tree");
     }
 
