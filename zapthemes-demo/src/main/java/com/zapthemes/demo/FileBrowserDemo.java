@@ -272,7 +272,9 @@ public final class FileBrowserDemo {
                 }
             }
         });
-        // Off by default: the browser's own icons look the same on every platform.
+        // On when the demo is run, so local files look as they do in the platform's file manager
+        // (Explorer's icons and type names on Windows). The smoke test and screenshots start with
+        // the browser's own icons, which look the same everywhere, and turn these on themselves.
         Button platformIcons = new Button(shell, SWT.CHECK);
         platformIcons.setText("Platform icons");
         platformIcons.addListener(SWT.Selection, e -> {
@@ -292,6 +294,10 @@ public final class FileBrowserDemo {
         rooted.setFileSystem(new RootedFileSystem(disks, disks.fromPath(sample), "Projects"));
         remote = tab("Server (slow)");
         remote.setFileSystem(server);
+        if (!smoke) {
+            platformIcons.setSelection(true);
+            List.of(local, rooted, remote).forEach(b -> b.setIconProvider(IconProvider.platform()));
+        }
         // One list of recent locations for the three tabs, with two named ones; a location of
         // another tab's filesystem opens in that tab.
         LocationHistory recent = new LocationHistory();

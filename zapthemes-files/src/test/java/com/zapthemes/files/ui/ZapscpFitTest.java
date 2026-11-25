@@ -257,4 +257,35 @@ class ZapscpFitTest {
         browser.renamePlace(browser.getPlaces().get(1), "Sources");
         assertThat(saved).hasSize(1);
     }
+
+    /** Windows clips each row's own painting to the widest name: the pins at the pane's right edge are drawn all the same. */
+    @Test
+    void pinsShowAtTheRightOfThePane() {
+        browser.setPlaces(List.of(Place.folder(HOME.resolve("logs"))));
+        idle();
+        org.eclipse.swt.widgets.Tree tree = browser.navigationTree().tree;
+        org.eclipse.swt.graphics.Rectangle pin = browser.navigationTree().pinBounds(0);
+        assertThat(pin).isNotNull();
+        assertThat(pin.x).as("near the right edge").isGreaterThan(tree.getClientArea().width / 2);
+        org.eclipse.swt.graphics.Point size = tree.getSize();
+        org.eclipse.swt.graphics.Image image = new org.eclipse.swt.graphics.Image(display, size.x, size.y);
+        org.eclipse.swt.graphics.GC gc = new org.eclipse.swt.graphics.GC(image);
+        try {
+            tree.print(gc);
+        } finally {
+            gc.dispose();
+        }
+        org.eclipse.swt.graphics.ImageData data = image.getImageData();
+        image.dispose();
+        org.eclipse.swt.graphics.RGB background = data.palette.getRGB(data.getPixel(pin.x + pin.width + 4, pin.y + pin.height / 2));
+        int differing = 0;
+        for (int y = pin.y; y < pin.y + pin.height; y++) {
+            for (int x = pin.x; x < pin.x + pin.width; x++) {
+                if (!data.palette.getRGB(data.getPixel(x, y)).equals(background)) {
+                    differing++;
+                }
+            }
+        }
+        assertThat(differing).as("pixels of the pin").isGreaterThan(5);
+    }
 }
