@@ -268,21 +268,46 @@ class FileOperationsTest {
                 new com.zapthemes.swt.widgets.MenuItem(menu, SWT.PUSH).setText("Open terminal here");
             }
         });
+        org.eclipse.swt.dnd.Clipboard clipboard = new org.eclipse.swt.dnd.Clipboard(display);
+        clipboard.clearContents();
+        clipboard.dispose();
         Menu menu = browser.createContextMenu(browser.fileGrid(), false);
 
-        assertThat(labels(menu)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Properties", "-",
+        // As Explorer's: Paste only when there is something to paste; icons; no shortcut on Refresh.
+        assertThat(labels(menu)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "New", "-", "Properties", "-",
                 "Open terminal here", "-", "Show more options");
+        for (String label : List.of("View", "Sort by", "Group by", "Refresh", "New", "Properties", "Show more options")) {
+            assertThat(itemNamed(menu, label).getImage()).as(label).isNotNull();
+        }
+        assertThat(itemNamed(menu, "Refresh").getText()).doesNotContain("\t");
+        assertThat(itemNamed(menu, "Show more options").getText()).doesNotContain("\t");
+        assertThat(itemNamed(menu, "Properties").getEnabled()).isTrue();
         Menu view = itemNamed(menu, "View").getMenu();
         assertThat(labels(view)).containsExactly("Extra large icons", "Large icons", "Medium icons", "Small icons", "List", "Details", "Tiles",
-                "Content", "-", "Details pane", "Preview pane", "-", "Show");
+                "Content");
         assertThat(itemNamed(view, "Details").getSelection()).isTrue();
         assertThat(itemNamed(view, "Large icons").getEnabled()).isTrue();
         assertThat(itemNamed(view, "Large icons").getSelection()).isFalse();
         Menu sort = itemNamed(menu, "Sort by").getMenu();
-        assertThat(labels(sort)).startsWith("Name", "Date modified", "Type", "Size", "-", "Ascending", "Descending");
+        assertThat(labels(sort)).startsWith("Name", "Date modified", "Type", "Size", "-", "Ascending", "Descending").doesNotContain("Group by");
         assertThat(itemNamed(sort, "Name").getSelection()).isTrue();
-        assertThat(labels(itemNamed(menu, "New").getMenu())).containsExactly("Folder", "-", "Text document");
+        Menu created = itemNamed(menu, "New").getMenu();
+        assertThat(labels(created)).containsExactly("Folder", "-", "Text document");
+        assertThat(itemNamed(created, "Folder").getImage()).isNotNull();
+        assertThat(itemNamed(created, "Text document").getImage()).isNotNull();
         menu.dispose();
+
+        // Properties without a handler of the application's shows the details pane.
+        browser.setDetailsPaneVisible(false);
+        browser.getCommand(FileActions.PROPERTIES).run(new com.zapthemes.widgets.command.CommandEvent(browser.getCommand(FileActions.PROPERTIES), browser));
+        assertThat(browser.isDetailsPaneVisible()).isTrue();
+
+        select("notes.txt");
+        browser.copy();
+        browser.setSelectedEntries(List.of());
+        Menu withPaste = browser.createContextMenu(browser.fileGrid(), false);
+        assertThat(labels(withPaste)).containsSubsequence("Refresh", "-", "Paste", "-", "New");
+        withPaste.dispose();
     }
 
     @Test
@@ -297,6 +322,8 @@ class FileOperationsTest {
             assertThat(menu.getDefaultItem().getText()).startsWith("&Open");
         }
         assertThat(itemNamed(menu, "Share").getEnabled()).isFalse();
+        assertThat(itemNamed(menu, "Cut").getImage()).isNotNull();
+        assertThat(itemNamed(menu, "Properties").getImage()).isNotNull();
         menu.dispose();
     }
 
@@ -325,7 +352,7 @@ class FileOperationsTest {
 
         // In the condensed menu, the last item opens the classic one; disabled without a way to show it.
         Menu condensed = browser.createContextMenu(browser.fileGrid(), false);
-        assertThat(itemNamed(condensed, "Show more options").getText()).endsWith("\tShift+F10");
+        assertThat(itemNamed(condensed, "Show more options").getEnabled()).isFalse();
         condensed.dispose();
     }
 

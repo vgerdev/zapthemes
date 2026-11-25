@@ -244,7 +244,7 @@ final class FileActions {
         commands.get(CLEAR_FILTER).setEnabled(!browser.getFilter().isEmpty());
         commands.get(DELETE).setEnabled(any && !drives && fs.has(Capability.DELETE));
         commands.get(SHARE).setEnabled(any && shareHandler != null);
-        commands.get(PROPERTIES).setEnabled(propertiesHandler != null && fs != null);
+        commands.get(PROPERTIES).setEnabled(fs != null);
         commands.get(OPEN).setEnabled(any);
         commands.get(SHOW_HIDDEN).setChecked(browser.isShowHidden());
         commands.get(SHOW_EXTENSIONS).setChecked(browser.isShowExtensions());
@@ -610,7 +610,10 @@ final class FileActions {
     }
 
     private void properties() {
-        if (propertiesHandler != null) {
+        if (propertiesHandler == null) {
+            // The details pane shows the selection's properties, or the folder's.
+            browser.setDetailsPaneVisible(true);
+        } else {
             List<FileEntry> selection = browser.targets();
             propertiesHandler.accept(selection.isEmpty() && browser.currentEntry() != null ? List.of(browser.currentEntry()) : selection);
         }
@@ -680,6 +683,10 @@ final class FileActions {
     }
 
     void fillSortMenu(Menu menu) {
+        fillSortMenu(menu, true);
+    }
+
+    private void fillSortMenu(Menu menu, boolean withGroupBy) {
         FileOrder.Key current = browser.getSortKey();
         for (DetailsColumns.Column column : browser.fileGrid().columns()) {
             if (column.key() != null) {
@@ -690,8 +697,10 @@ final class FileActions {
         separator(menu);
         plain(menu, SWT.RADIO, "Ascending", true, browser.isSortAscending(), () -> browser.setSort(browser.getSortKey(), true));
         plain(menu, SWT.RADIO, "Descending", true, !browser.isSortAscending(), () -> browser.setSort(browser.getSortKey(), false));
-        separator(menu);
-        fillGroupBy(cascade(menu, "Group by", true));
+        if (withGroupBy) {
+            separator(menu);
+            fillGroupBy(cascade(menu, "Group by", true));
+        }
     }
 
     void fillGroupBy(Menu menu) {
@@ -715,11 +724,7 @@ final class FileActions {
     }
 
     void fillViewMenu(Menu menu) {
-        update();
-        FileView shown = browser.getView();
-        for (FileView view : FileView.values()) {
-            plain(menu, SWT.RADIO, view.label() + "\tCtrl+Shift+" + (view.ordinal() + 1), true, view == shown, () -> browser.setView(view));
-        }
+        fillLayouts(menu);
         separator(menu);
         item(menu, DETAILS_PANE, SWT.CHECK).setText("Details pane\tAlt+Shift+P");
         item(menu, PREVIEW_PANE, SWT.CHECK).setText("Preview pane\tAlt+P");
@@ -731,6 +736,14 @@ final class FileActions {
         if (commands.get(CLEAR_FILTER).isEnabled()) {
             separator(menu);
             item(menu, CLEAR_FILTER, SWT.PUSH);
+        }
+    }
+
+    private void fillLayouts(Menu menu) {
+        update();
+        FileView shown = browser.getView();
+        for (FileView view : FileView.values()) {
+            plain(menu, SWT.RADIO, view.label() + "\tCtrl+Shift+" + (view.ordinal() + 1), true, view == shown, () -> browser.setView(view));
         }
     }
 
@@ -748,8 +761,10 @@ final class FileActions {
 
     /**
      * The context menu, condensed as in Windows 11: of the selected items, or of the folder shown
-     * ({@code onItems} false). It ends in "Show more options", which runs {@code showMore} (the
-     * browser opens the classic menu with it).
+     * ({@code onItems} false). As Explorer's, its items have icons, Paste shows only when there is
+     * something to paste, and the View and Sort by submenus hold only the layouts and the sort
+     * order. It ends in "Show more options", which runs {@code showMore} (the browser opens the
+     * classic menu with it).
      */
     void fillContextMenu(Menu menu, boolean onItems, Runnable showMore) {
         checkClipboard();
@@ -758,35 +773,69 @@ final class FileActions {
             MenuItem open = item(menu, OPEN, SWT.PUSH);
             menu.setDefaultItem(open);
             if (commands.get(PIN).isEnabled()) {
-                item(menu, PIN, SWT.PUSH);
+                icon(item(menu, PIN, SWT.PUSH), Glyph.PIN);
             }
             separator(menu);
-            item(menu, CUT, SWT.PUSH);
-            item(menu, COPY, SWT.PUSH);
+            icon(item(menu, CUT, SWT.PUSH), Glyph.CUT);
+            icon(item(menu, COPY, SWT.PUSH), Glyph.COPY);
+            int pasteAt = menu.getItemCount();
             pasteInto(menu, selection);
-            item(menu, RENAME, SWT.PUSH);
-            item(menu, DELETE, SWT.PUSH);
+            if (menu.getItemCount() > pasteAt) {
+                icon(menu.getItem(pasteAt), Glyph.PASTE);
+            }
+            icon(item(menu, RENAME, SWT.PUSH), Glyph.RENAME);
+            icon(item(menu, DELETE, SWT.PUSH), Glyph.DELETE);
             separator(menu);
-            item(menu, COPY_PATH, SWT.PUSH);
-            item(menu, SHARE, SWT.PUSH);
+            icon(item(menu, COPY_PATH, SWT.PUSH), Glyph.COPY_PATH);
+            icon(item(menu, SHARE, SWT.PUSH), Glyph.SHARE);
             separator(menu);
-            item(menu, PROPERTIES, SWT.PUSH);
+            icon(item(menu, PROPERTIES, SWT.PUSH), Glyph.PROPERTIES);
             contribute(menu, FileBrowser.MenuKind.ITEMS, selection);
         } else {
-            fillViewMenu(cascade(menu, "&View", true));
-            fillSortMenu(cascade(menu, "&Sort by", true));
-            fillGroupBy(cascade(menu, "&Group by", true));
-            item(menu, REFRESH, SWT.PUSH);
+            fillLayouts(cascade(menu, "&View", true, Glyph.GRID));
+            fillSortMenu(cascade(menu, "&Sort by", true, Glyph.SORT), false);
+            fillGroupBy(cascade(menu, "&Group by", true, Glyph.GROUP));
+            // Explorer's condensed menu shows no shortcut for Refresh, nor in New; they still work.
+            icon(bare(item(menu, REFRESH, SWT.PUSH), REFRESH), Glyph.REFRESH);
             separator(menu);
-            item(menu, PASTE, SWT.PUSH);
+            if (pasteAvailable) {
+                icon(item(menu, PASTE, SWT.PUSH), Glyph.PASTE);
+                separator(menu);
+            }
+            Menu created = cascade(menu, "Ne&w", commands.get(NEW).isEnabled(), Glyph.NEW);
+            fillNewMenu(created);
+            for (org.eclipse.swt.widgets.MenuItem item : created.getItems()) {
+                if (NEW_FOLDER.equals(item.getData())) {
+                    bare(item, NEW_FOLDER).setImage(browser.icons().get(FileIcons.Icon.FOLDER, 16));
+                } else if (NEW_TEXT.equals(item.getData())) {
+                    // The icon .txt files have here: the system's with platform icons.
+                    item.setImage(browser.icons().get(FileEntry.builder(FilePath.of("New Text Document.txt"), EntryKind.FILE).build(), 16));
+                }
+            }
             separator(menu);
-            fillNewMenu(cascade(menu, "Ne&w", commands.get(NEW).isEnabled()));
-            separator(menu);
-            item(menu, PROPERTIES, SWT.PUSH);
+            icon(item(menu, PROPERTIES, SWT.PUSH), Glyph.PROPERTIES);
             contribute(menu, FileBrowser.MenuKind.BACKGROUND, List.of());
         }
         separator(menu);
-        plain(menu, SWT.PUSH, "Show more &options\tShift+F10", showMore != null, false, showMore);
+        icon(plain(menu, SWT.PUSH, "Show more &options", showMore != null, false, showMore), Glyph.MORE_OPTIONS);
+    }
+
+    /** {@code item} without its shortcut text; the shortcut still works. */
+    private org.eclipse.swt.widgets.MenuItem bare(org.eclipse.swt.widgets.MenuItem item, String id) {
+        item.setText(commands.get(id).label());
+        return item;
+    }
+
+    /** Gives {@code item} {@code glyph} in the text color, as Explorer's context menu has. */
+    private org.eclipse.swt.widgets.MenuItem icon(org.eclipse.swt.widgets.MenuItem item, Glyph glyph) {
+        item.setImage(browser.icons().glyph(glyph, 16, browser.fileGrid().getForeground().getRGB()));
+        return item;
+    }
+
+    private Menu cascade(Menu menu, String text, boolean enabled, Glyph glyph) {
+        Menu sub = cascade(menu, text, enabled);
+        icon(sub.getParentItem(), glyph);
+        return sub;
     }
 
     /**
