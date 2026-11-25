@@ -43,13 +43,13 @@ import com.zapthemes.files.ui.FileBrowser;
 import com.zapthemes.files.ui.FileBrowserProbe;
 import com.zapthemes.files.ui.FileView;
 import com.zapthemes.files.ui.IconProvider;
+import com.zapthemes.swt.custom.CTabFolder;
+import com.zapthemes.swt.custom.CTabItem;
 import com.zapthemes.swt.widgets.Button;
 import com.zapthemes.swt.widgets.Combo;
 import com.zapthemes.swt.widgets.Composite;
 import com.zapthemes.swt.widgets.Label;
 import com.zapthemes.swt.widgets.Shell;
-import com.zapthemes.swt.widgets.TabFolder;
-import com.zapthemes.swt.widgets.TabItem;
 
 /**
  * The Explorer-style file browser over three filesystems, one per tab: the local disks, a folder
@@ -69,7 +69,7 @@ public final class FileBrowserDemo {
     private final Path sample;
     private final MemoryFileSystem server;
     private Shell shell;
-    private TabFolder tabs;
+    private CTabFolder tabs;
     private FileBrowser local;
     private FileBrowser rooted;
     private FileBrowser remote;
@@ -285,7 +285,8 @@ public final class FileBrowserDemo {
         hint.setText("Ctrl+Plus and Ctrl+Minus zoom. The Server tab lists slowly, like a remote session.");
         hint.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
 
-        tabs = new TabFolder(shell, SWT.NONE);
+        // CTabFolder, which the theme colors; the native TabFolder stays light on Windows.
+        tabs = new CTabFolder(shell, SWT.BORDER);
         tabs.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 4, 1));
         LocalFileSystem disks = LocalFileSystem.get();
         local = tab("This PC");
@@ -323,12 +324,15 @@ public final class FileBrowserDemo {
     }
 
     private FileBrowser tab(String title) {
-        TabItem item = new TabItem(tabs, SWT.NONE);
+        CTabItem item = new CTabItem(tabs, SWT.NONE);
         item.setText(title);
         Composite page = new Composite(tabs, SWT.NONE);
         page.setLayout(new FillLayout());
         FileBrowser browser = new FileBrowser(page, SWT.NONE);
         item.setControl(page);
+        if (tabs.getSelection() == null) {
+            tabs.setSelection(item);
+        }
         return browser;
     }
 
@@ -357,20 +361,12 @@ public final class FileBrowserDemo {
     }
 
     private void select(FileBrowser browser) {
-        for (TabItem item : tabsOf()) {
+        for (org.eclipse.swt.custom.CTabItem item : tabs.getItems()) {
             if (item.getControl() == browser.getParent()) {
                 tabs.setSelection(item);
             }
         }
         DemoSupport.settle(display);
-    }
-
-    private List<TabItem> tabsOf() {
-        List<TabItem> list = new ArrayList<>();
-        for (org.eclipse.swt.widgets.TabItem item : tabs.getItems()) {
-            list.add((TabItem) item);
-        }
-        return list;
     }
 
     private int smokeTest() {
