@@ -102,10 +102,6 @@ class DragAndDropTest {
         return browser.getVisibleEntries().stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow();
     }
 
-    private TableItem row(String name) {
-        return browser.fileTable().table.getItem(browser.fileTable().rows().indexOf(entry(name)));
-    }
-
     private Dragged dragged(String... names) {
         return new Dragged(fs, List.of(names).stream().map(this::entry).toList());
     }
@@ -128,8 +124,11 @@ class DragAndDropTest {
     @Test
     void whereADropGoes() {
         // A folder row: into it; a file row or empty space: into the folder shown.
-        assertThat(dnd().folderAt(row("projects"))).isEqualTo(ME.resolve("projects"));
-        assertThat(dnd().folderAt(row("notes.txt"))).isEqualTo(ME);
+        org.eclipse.swt.graphics.Rectangle folder = FileBrowserProbe.cellBounds(browser, "projects", 0);
+        org.eclipse.swt.graphics.Rectangle file = FileBrowserProbe.cellBounds(browser, "notes.txt", 2);
+        assertThat(dnd().folderInView(folder.x + 4, folder.y + folder.height / 2)).isEqualTo(ME.resolve("projects"));
+        assertThat(dnd().folderInView(file.x + 4, file.y + file.height / 2)).isEqualTo(ME);
+        assertThat(dnd().folderInView(4, browser.fileGrid().getClientArea().height - 2)).isEqualTo(ME);
         assertThat(dnd().folderAt(null)).isEqualTo(ME);
         // In the navigation pane: the folder of the item.
         listInTree(ME);
@@ -236,33 +235,42 @@ class DragAndDropTest {
 
     @Test
     void theFolderUnderTheMouseIsHighlighted() {
-        TableItem projects = row("projects");
-        dnd().highlight(projects);
-        assertThat(dnd().dropItem()).isSameAs(projects);
-        // Painted as a row under the mouse, not left to the platform.
+        FileBrowserProbe.highlightDrop(browser, "projects");
+        assertThat(browser.fileGrid().dropTarget()).isEqualTo(entry("projects"));
+        // In the navigation pane, painted as a row under the mouse, not left to the platform.
+        TreeItem item = browser.navigationTree().itemOf(ME);
+        dnd().highlight(item);
+        assertThat(dnd().dropItem()).isSameAs(item);
+        assertThat(browser.fileGrid().dropTarget()).isEqualTo(entry("projects"));
         Event erase = new Event();
-        erase.item = projects;
-        erase.gc = new org.eclipse.swt.graphics.GC(browser.fileTable().table);
+        erase.item = item;
+        erase.gc = new org.eclipse.swt.graphics.GC(browser.navigationTree().tree);
         erase.detail = SWT.BACKGROUND | SWT.FOREGROUND;
         erase.index = 0;
         erase.width = 100;
         erase.height = 20;
         try {
-            browser.fileTable().table.notifyListeners(SWT.EraseItem, erase);
+            browser.navigationTree().tree.notifyListeners(SWT.EraseItem, erase);
         } finally {
             erase.gc.dispose();
         }
         assertThat(erase.detail & SWT.BACKGROUND).isZero();
         dnd().highlight(null);
         assertThat(dnd().dropItem()).isNull();
+        assertThat(browser.fileGrid().dropTarget()).isNull();
     }
 
     @Test
     void whatCanBeDragged() {
-        browser.fileTable().table.setSelection(browser.fileTable().rows().indexOf(entry("notes.txt")));
-        assertThat(dnd().draggable(false, 0, 0)).extracting(FileEntry::name).containsExactly("notes.txt");
-        browser.fileTable().table.deselectAll();
-        assertThat(dnd().draggable(false, 0, 0)).isEmpty();
+        browser.fileGrid().select(List.of(entry("notes.txt")));
+        org.eclipse.swt.graphics.Rectangle cell = FileBrowserProbe.cellBounds(browser, "notes.txt", 0);
+        int x = cell.x + cell.width / 2;
+        int y = cell.y + cell.height / 2;
+        assertThat(dnd().draggable(false, x, y)).extracting(FileEntry::name).containsExactly("notes.txt");
+        // Not from the column headers, nor from a row that isn't selected.
+        assertThat(dnd().draggable(false, x, 2)).isEmpty();
+        browser.fileGrid().select(List.of());
+        assertThat(dnd().draggable(false, x, y)).isEmpty();
         // The tree's places and its top stay put; its folders can be dragged.
         listInTree(ME);
         TreeItem top = browser.navigationTree().tree.getItem(browser.navigationTree().tree.getItemCount() - 1);

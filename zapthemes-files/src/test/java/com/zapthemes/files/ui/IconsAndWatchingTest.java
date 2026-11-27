@@ -200,7 +200,7 @@ class IconsAndWatchingTest {
         // Once per key and size: every row and paint shares one image.
         int asked = provider.made.size();
         FileBrowserProbe.icon(browser, "notes.txt", 32);
-        browser.fileTable().refreshRows();
+        browser.fileGrid().refreshRows();
         idle();
         assertThat(provider.made).hasSize(asked);
 
@@ -331,11 +331,10 @@ class IconsAndWatchingTest {
         waitFor(() -> ME.equals(FileBrowserProbe.watchedFolder(browser)));
         assertThat(server.watchedCount()).isEqualTo(1);
         FileBrowserProbe.select(browser, "folder 40", "folder 41");
-        browser.fileTable().table.setTopIndex(30);
-        // GTK scrolls once the table is laid out, and may settle elsewhere: what it settles on is kept.
-        pause(300);
+        browser.fileGrid().setScroll(new int[] { 0, 30 * FileBrowserProbe.rowHeight(browser) });
         idle();
-        int top = browser.fileTable().table.getTopIndex();
+        int[] top = browser.fileGrid().scroll();
+        assertThat(top[1]).isPositive();
         int refreshes = FileBrowserProbe.watchRefreshes(browser);
 
         // Another client makes a burst of changes: one listing, a moment after the last.
@@ -354,9 +353,7 @@ class IconsAndWatchingTest {
         assertThat(other.isAlive()).isFalse();
         assertThat(FileBrowserProbe.watchRefreshes(browser)).isEqualTo(refreshes + 1);
         assertThat(selected()).containsExactly("folder 40", "folder 41");
-        // GTK may scroll in two steps.
-        pause(200);
-        assertThat(browser.fileTable().table.getTopIndex()).isEqualTo(top);
+        assertThat(browser.fileGrid().scroll()).isEqualTo(top);
 
         // The same in the grid.
         browser.setView(FileView.LIST);
@@ -559,7 +556,7 @@ class IconsAndWatchingTest {
         Event shiftDelete = new Event();
         shiftDelete.keyCode = SWT.DEL;
         shiftDelete.stateMask = SWT.SHIFT;
-        browser.fileTable().table.notifyListeners(SWT.KeyDown, shiftDelete);
+        browser.fileGrid().notifyListeners(SWT.KeyDown, shiftDelete);
         waitFor(() -> !names().contains("report2.pdf"));
         idle();
         assertThat(asked).containsExactly(1);

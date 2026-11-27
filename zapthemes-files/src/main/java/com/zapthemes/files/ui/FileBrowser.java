@@ -74,8 +74,8 @@ import com.zapthemes.widgets.command.CommandEvent;
  * filesystem; Back and Forward follow the browser across them.
  *
  * <p>Theme types: {@code FileBrowser} (the frame), {@code FileNavigationBar}, {@code FileCommandBar}, {@code FileStatusBar};
- * {@code FileItemView} (the layouts other than Details, and the details and preview panes); the
- * navigation pane is a {@code Tree} and the Details view a {@code Table}.
+ * {@code FileItemView} (every layout, Details included, and the details and preview panes; what it
+ * leaves out comes from the theme's {@code Table} rule); the navigation pane is a {@code Tree}.
  */
 public class FileBrowser extends Composite {
 
@@ -102,7 +102,6 @@ public class FileBrowser extends Composite {
     private final NavigationTree navigationTree;
     private final Composite views;
     private final StackLayout viewStack = new StackLayout();
-    private final FileTable fileTable;
     private final FileGrid fileGrid;
     private final SidePane sidePane;
     private final Thumbnails thumbnails;
@@ -177,9 +176,9 @@ public class FileBrowser extends Composite {
         navigationTree = new NavigationTree(this, sash);
         views = new com.zapthemes.swt.widgets.Composite(sash, SWT.NONE);
         views.setLayout(viewStack);
-        fileTable = new FileTable(this, views);
         fileGrid = new FileGrid(this, views);
-        viewStack.topControl = fileTable.table;
+        fileGrid.setView(view);
+        viewStack.topControl = fileGrid;
         sidePane = new SidePane(this, sash);
         sidePane.setVisible(false);
         sash.setWeights(24, 56, 20);
@@ -187,18 +186,16 @@ public class FileBrowser extends Composite {
         statusBar = new StatusBar(this);
         statusBar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
-        for (Control control : new Control[] { fileTable.table, fileGrid }) {
-            control.addListener(SWT.Selection, e -> selectionChanged());
-            control.addListener(SWT.DefaultSelection, e -> openSelection());
-            control.addListener(SWT.FocusIn, e -> focused(false));
-            control.addListener(SWT.MenuDetect, this::viewMenu);
-        }
-        for (Control control : new Control[] { navigationBar, commandBar, navigationTree.tree, fileTable.table, fileGrid, statusBar }) {
+        fileGrid.addListener(SWT.Selection, e -> selectionChanged());
+        fileGrid.addListener(SWT.DefaultSelection, e -> openSelection());
+        fileGrid.addListener(SWT.FocusIn, e -> focused(false));
+        fileGrid.addListener(SWT.MenuDetect, this::viewMenu);
+        for (Control control : new Control[] { navigationBar, commandBar, navigationTree.tree, fileGrid, statusBar }) {
             control.addListener(SWT.KeyDown, this::keyDown);
         }
         navigationTree.tree.addListener(SWT.FocusIn, e -> focused(true));
         navigationTree.tree.addListener(SWT.Selection, e -> actions.update());
-        for (Control control : new Control[] { fileTable.table, fileGrid, navigationTree.tree }) {
+        for (Control control : new Control[] { fileGrid, navigationTree.tree }) {
             control.addListener(SWT.MouseDown, e -> shiftRightClick = e.button == 3 && (e.stateMask & SWT.SHIFT) != 0);
             control.addListener(SWT.KeyDown, e -> shiftKeyDown = (e.stateMask & SWT.SHIFT) != 0 || e.keyCode == SWT.SHIFT);
             control.addListener(SWT.KeyUp, e -> shiftKeyDown = false);
@@ -207,7 +204,6 @@ public class FileBrowser extends Composite {
         dragAndDrop = new FileDragAndDrop(this);
         ThemeManager.get(getDisplay()).addZoomListener(zoomListener);
         ThemeManager.get(getDisplay()).addThemeChangeListener(this, (previous, next) -> {
-            fileTable.restripe();
             fileGrid.redraw();
             sidePane.fontChanged();
         });
@@ -536,12 +532,12 @@ public class FileBrowser extends Composite {
 
     /** The columns the filesystem shown has, shown or not: Name, Date modified, Type, Size, then Permissions, Owner and Group if it has them. */
     List<FileOrder.Key> availableColumns() {
-        return fileSystem == null ? List.of() : FileTable.columnsFor(fileSystem.capabilities(), Set.of()).stream()
-                .map(FileTable.Column::key).toList();
+        return fileSystem == null ? List.of() : DetailsColumns.columnsFor(fileSystem.capabilities(), Set.of()).stream()
+                .map(DetailsColumns.Column::key).toList();
     }
 
     private void columnsChanged() {
-        fileTable.setColumns(fileSystem.capabilities(), hiddenColumns);
+        fileGrid.setColumns(fileSystem.capabilities(), hiddenColumns);
         if (groupKey != null && !groupKeys().contains(groupKey)) {
             groupKey = null;
         }
@@ -549,7 +545,7 @@ public class FileBrowser extends Composite {
             sortKey = FileOrder.Key.NAME;
             sortAscending = true;
         }
-        fileTable.showSort(sortKey, sortAscending);
+        fileGrid.showSort();
     }
 
     /** Whether hidden files are shown; off by default. */
@@ -595,7 +591,7 @@ public class FileBrowser extends Composite {
         Objects.requireNonNull(key, "key");
         sortKey = key;
         sortAscending = ascending;
-        fileTable.showSort(key, ascending);
+        fileGrid.showSort();
         showEntries(selectedPaths());
     }
 
@@ -654,23 +650,9 @@ public class FileBrowser extends Composite {
             return;
         }
         List<FilePath> select = selectedPaths();
-        boolean focus = view().control().isFocusControl();
-        ItemView before = view();
         this.view = view;
-        if (view != FileView.DETAILS) {
-            fileGrid.setView(view);
-        }
-        ItemView after = view();
-        if (after != before) {
-            // Emptied while it still shows: on Windows turning a hidden table's redraw back on shows it again.
-            before.setSections(List.of(), List.of());
-            viewStack.topControl = after.control();
-            views.layout();
-        }
+        fileGrid.setView(view);
         showEntries(select);
-        if (focus) {
-            after.control().setFocus();
-        }
         statusBar.redraw();
         commandBar.redraw();
         actions.update();
@@ -853,7 +835,10 @@ public class FileBrowser extends Composite {
         actions.setShareHandler(handler);
     }
 
-    /** Turns Properties (Alt+Enter) on: called with the selected items, or the folder shown. Off without one. */
+    /**
+     * What Properties (Alt+Enter) does: called with the selected items, or the folder shown. Without
+     * one, Properties shows the details pane, which lists the properties of the same items.
+     */
     public void setPropertiesHandler(Consumer<List<FileEntry>> handler) {
         actions.setPropertiesHandler(handler);
     }
@@ -921,7 +906,6 @@ public class FileBrowser extends Composite {
         checkWidget();
         if (show != showExtensions) {
             showExtensions = show;
-            fileTable.restripe();
             fileGrid.refreshRows();
             sidePane.update(getSelectedEntries());
             actions.update();
@@ -958,7 +942,6 @@ public class FileBrowser extends Composite {
             FileIcons old = icons;
             icons = newIcons();
             navigationTree.refreshImages();
-            fileTable.refreshRows();
             fileGrid.refreshRows();
             if (current != null) {
                 showEntries(selectedPaths()); // Sorted and grouped by the new type names.
@@ -1228,7 +1211,7 @@ public class FileBrowser extends Composite {
 
     /** The keys the items can be sorted by here: the columns'. */
     List<FileOrder.Key> sortKeys() {
-        return fileTable.columns().stream().map(FileTable.Column::key).filter(Objects::nonNull).toList();
+        return fileGrid.columns().stream().map(DetailsColumns.Column::key).filter(Objects::nonNull).toList();
     }
 
     /** The keys the items can be grouped by here. */
@@ -1398,17 +1381,13 @@ public class FileBrowser extends Composite {
         return navigationTree;
     }
 
-    FileTable fileTable() {
-        return fileTable;
-    }
-
     FileGrid fileGrid() {
         return fileGrid;
     }
 
     /** The file view shown: the Details table or the grid of the other layouts. */
     ItemView view() {
-        return view == FileView.DETAILS ? fileTable : fileGrid;
+        return fileGrid;
     }
 
     SidePane sidePane() {
@@ -1534,7 +1513,7 @@ public class FileBrowser extends Composite {
         boolean onItems;
         if (event.detail == SWT.MENU_MOUSE) {
             org.eclipse.swt.graphics.Point point = control.toControl(event.x, event.y);
-            if (control == fileTable.table && fileTable.onHeader(point)) {
+            if (fileGrid.onHeader(point)) {
                 showColumnsMenu(event.x, event.y);
                 event.doit = false;
                 return;
@@ -1611,8 +1590,8 @@ public class FileBrowser extends Composite {
 
     /** A filled menu of the column headers, not shown (tests). */
     org.eclipse.swt.widgets.Menu createColumnsMenu() {
-        org.eclipse.swt.widgets.Menu menu = new com.zapthemes.swt.widgets.Menu(fileTable.table);
-        for (FileTable.Column column : FileTable.columnsFor(fileSystem.capabilities(), Set.of())) {
+        org.eclipse.swt.widgets.Menu menu = new com.zapthemes.swt.widgets.Menu(fileGrid);
+        for (DetailsColumns.Column column : DetailsColumns.columnsFor(fileSystem.capabilities(), Set.of())) {
             if (column.key() == FileOrder.Key.NAME) {
                 continue;
             }
@@ -1777,7 +1756,6 @@ public class FileBrowser extends Composite {
         icons = newIcons();
         navigationBar.closePopup();
         navigationTree.refreshImages();
-        fileTable.refreshRows();
         fileGrid.refreshRows();
         sidePane.fontChanged();
         navigationBar.redraw();

@@ -95,13 +95,8 @@ class FileOperationsTest {
     private void select(String... names) {
         List<String> wanted = List.of(names);
         List<FileEntry> rows = browser.getVisibleEntries();
-        int[] indices = new int[wanted.size()];
-        for (int i = 0; i < wanted.size(); i++) {
-            String name = wanted.get(i);
-            indices[i] = rows.indexOf(rows.stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow());
-        }
-        browser.fileTable().table.setSelection(indices);
-        browser.fileTable().table.notifyListeners(SWT.Selection, new Event());
+        browser.fileGrid().select(wanted.stream().map(name -> rows.stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow()).toList());
+        browser.fileGrid().notifyListeners(SWT.Selection, new Event());
         browser.focused(false);
     }
 
@@ -157,7 +152,7 @@ class FileOperationsTest {
         browser.rename();
 
         assertThat(browser.actions().renamesStarted()).isEqualTo(1);
-        InlineEditor editor = browser.fileTable().editor();
+        InlineEditor editor = browser.fileGrid().editor();
         // Under Xvfb the field may lose its focus (and commit unchanged) at once; check it as it opened.
         if (editor != null) {
             assertThat(editor.text().getText()).isEqualTo("notes.txt");
@@ -165,7 +160,7 @@ class FileOperationsTest {
             editor.text().setText("todo.txt");
             editor.finish(true);
         } else {
-            browser.fileTable().startRename(browser.getSelectedEntries().getFirst(), name -> { });
+            browser.fileGrid().startRename(browser.getSelectedEntries().getFirst(), name -> { });
         }
         if (editor != null) {
             waitFor(() -> names().contains("todo.txt"));
@@ -180,10 +175,10 @@ class FileOperationsTest {
         select("report.pdf");
         Event f2 = new Event();
         f2.keyCode = SWT.F2;
-        browser.fileTable().table.notifyListeners(SWT.KeyDown, f2);
+        browser.fileGrid().notifyListeners(SWT.KeyDown, f2);
         assertThat(browser.actions().renamesStarted()).isEqualTo(1);
 
-        Menu menu = browser.createContextMenu(browser.fileTable().table, true);
+        Menu menu = browser.createContextMenu(browser.fileGrid(), true);
         itemNamed(menu, "Rename").notifyListeners(SWT.Selection, new Event());
         assertThat(browser.actions().renamesStarted()).isEqualTo(2);
         menu.dispose();
@@ -273,27 +268,52 @@ class FileOperationsTest {
                 new com.zapthemes.swt.widgets.MenuItem(menu, SWT.PUSH).setText("Open terminal here");
             }
         });
-        Menu menu = browser.createContextMenu(browser.fileTable().table, false);
+        org.eclipse.swt.dnd.Clipboard clipboard = new org.eclipse.swt.dnd.Clipboard(display);
+        clipboard.clearContents();
+        clipboard.dispose();
+        Menu menu = browser.createContextMenu(browser.fileGrid(), false);
 
-        assertThat(labels(menu)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Properties", "-",
+        // As Explorer's: Paste only when there is something to paste; icons; no shortcut on Refresh.
+        assertThat(labels(menu)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "New", "-", "Properties", "-",
                 "Open terminal here", "-", "Show more options");
+        for (String label : List.of("View", "Sort by", "Group by", "Refresh", "New", "Properties", "Show more options")) {
+            assertThat(itemNamed(menu, label).getImage()).as(label).isNotNull();
+        }
+        assertThat(itemNamed(menu, "Refresh").getText()).doesNotContain("\t");
+        assertThat(itemNamed(menu, "Show more options").getText()).doesNotContain("\t");
+        assertThat(itemNamed(menu, "Properties").getEnabled()).isTrue();
         Menu view = itemNamed(menu, "View").getMenu();
         assertThat(labels(view)).containsExactly("Extra large icons", "Large icons", "Medium icons", "Small icons", "List", "Details", "Tiles",
-                "Content", "-", "Details pane", "Preview pane", "-", "Show");
+                "Content");
         assertThat(itemNamed(view, "Details").getSelection()).isTrue();
         assertThat(itemNamed(view, "Large icons").getEnabled()).isTrue();
         assertThat(itemNamed(view, "Large icons").getSelection()).isFalse();
         Menu sort = itemNamed(menu, "Sort by").getMenu();
-        assertThat(labels(sort)).startsWith("Name", "Date modified", "Type", "Size", "-", "Ascending", "Descending");
+        assertThat(labels(sort)).startsWith("Name", "Date modified", "Type", "Size", "-", "Ascending", "Descending").doesNotContain("Group by");
         assertThat(itemNamed(sort, "Name").getSelection()).isTrue();
-        assertThat(labels(itemNamed(menu, "New").getMenu())).containsExactly("Folder", "-", "Text document");
+        Menu created = itemNamed(menu, "New").getMenu();
+        assertThat(labels(created)).containsExactly("Folder", "-", "Text document");
+        assertThat(itemNamed(created, "Folder").getImage()).isNotNull();
+        assertThat(itemNamed(created, "Text document").getImage()).isNotNull();
         menu.dispose();
+
+        // Properties without a handler of the application's shows the details pane.
+        browser.setDetailsPaneVisible(false);
+        browser.getCommand(FileActions.PROPERTIES).run(new com.zapthemes.widgets.command.CommandEvent(browser.getCommand(FileActions.PROPERTIES), browser));
+        assertThat(browser.isDetailsPaneVisible()).isTrue();
+
+        select("notes.txt");
+        browser.copy();
+        browser.setSelectedEntries(List.of());
+        Menu withPaste = browser.createContextMenu(browser.fileGrid(), false);
+        assertThat(labels(withPaste)).containsSubsequence("Refresh", "-", "Paste", "-", "New");
+        withPaste.dispose();
     }
 
     @Test
     void theItemMenuActsOnTheSelection() {
         select("notes.txt");
-        Menu menu = browser.createContextMenu(browser.fileTable().table, true);
+        Menu menu = browser.createContextMenu(browser.fileGrid(), true);
 
         assertThat(labels(menu)).containsExactly("Open", "-", "Cut", "Copy", "Rename", "Delete", "-", "Copy as path", "Share", "-", "Properties",
                 "-", "Show more options");
@@ -302,6 +322,8 @@ class FileOperationsTest {
             assertThat(menu.getDefaultItem().getText()).startsWith("&Open");
         }
         assertThat(itemNamed(menu, "Share").getEnabled()).isFalse();
+        assertThat(itemNamed(menu, "Cut").getImage()).isNotNull();
+        assertThat(itemNamed(menu, "Properties").getImage()).isNotNull();
         menu.dispose();
     }
 
@@ -311,7 +333,7 @@ class FileOperationsTest {
         browser.addMenuContributor((menu, kind, selection) -> contributed.add(kind.name()));
         select("projects");
         browser.copy();
-        Menu items = browser.createClassicMenu(browser.fileTable().table, true);
+        Menu items = browser.createClassicMenu(browser.fileGrid(), true);
 
         assertThat(labels(items)).containsExactly("Open", "Pin to Quick access", "-", "Share", "-", "Cut", "Copy", "Paste into folder", "-", "Delete", "Rename", "-",
                 "Copy as path", "Copy name", "-", "Select all", "Invert selection", "-", "Properties");
@@ -321,7 +343,7 @@ class FileOperationsTest {
         clipboard.dispose();
         items.dispose();
 
-        Menu background = browser.createClassicMenu(browser.fileTable().table, false);
+        Menu background = browser.createClassicMenu(browser.fileGrid(), false);
         assertThat(labels(background)).containsExactly("View", "Sort by", "Group by", "Refresh", "-", "Paste", "-", "New", "-", "Select all",
                 "Hidden items", "File name extensions", "-", "Copy folder path", "-", "Properties");
         assertThat(itemNamed(background, "File name extensions").getSelection()).isTrue();
@@ -329,8 +351,8 @@ class FileOperationsTest {
         assertThat(contributed).containsExactly("ITEMS", "NEW", "BACKGROUND");
 
         // In the condensed menu, the last item opens the classic one; disabled without a way to show it.
-        Menu condensed = browser.createContextMenu(browser.fileTable().table, false);
-        assertThat(itemNamed(condensed, "Show more options").getText()).endsWith("\tShift+F10");
+        Menu condensed = browser.createContextMenu(browser.fileGrid(), false);
+        assertThat(itemNamed(condensed, "Show more options").getEnabled()).isFalse();
         condensed.dispose();
     }
 
@@ -344,7 +366,7 @@ class FileOperationsTest {
         sort.dispose();
 
         browser.setShowExtensions(false);
-        assertThat(browser.fileTable().texts(browser.getVisibleEntries().get(1))[0]).isEqualTo("notes");
+        assertThat(browser.fileGrid().texts(browser.getVisibleEntries().get(1))[0]).isEqualTo("notes");
         browser.setShowExtensions(true);
 
         browser.setNavigationPaneVisible(false);
@@ -379,7 +401,7 @@ class FileOperationsTest {
         Event selectAll = new Event();
         selectAll.keyCode = 'a';
         selectAll.stateMask = SWT.MOD1;
-        browser.fileTable().table.notifyListeners(SWT.KeyDown, selectAll);
+        browser.fileGrid().notifyListeners(SWT.KeyDown, selectAll);
 
         assertThat(browser.getSelectedEntries()).hasSize(3);
     }
