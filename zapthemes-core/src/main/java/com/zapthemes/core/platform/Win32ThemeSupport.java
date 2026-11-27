@@ -28,8 +28,9 @@ import com.zapthemes.core.style.ResolvedStyle;
  * <table>
  *   <caption>{@code platform.win32} settings</caption>
  *   <tr><th>Key</th><th>SWT key ({@code org.eclipse.swt.internal.win32.}...)</th></tr>
- *   <tr><td>{@code darkScrollbars} (boolean)</td><td>{@code useDarkModeExplorerTheme}: dark scrollbars,
- *       check/radio and push-button frames, tree arrows</td></tr>
+ *   <tr><td>{@code darkScrollbars} (boolean; when left out, {@code darkThemePreferred})</td>
+ *       <td>{@code useDarkModeExplorerTheme}: dark scrollbars, check/radio and push-button frames,
+ *       tree arrows</td></tr>
  *   <tr><td>{@code darkCombos} (boolean)</td><td>{@code Combo.useDarkTheme}</td></tr>
  *   <tr><td>{@code darkTextIcons} (boolean)</td><td>{@code Text.useDarkThemeIcons} (search/cancel icons)</td></tr>
  *   <tr><td>{@code progressBarColors} (boolean)</td><td>{@code ProgressBar.useColors}: ProgressBar honors
@@ -63,8 +64,10 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
     private static final System.Logger LOG = System.getLogger(Win32ThemeSupport.class.getName());
     private static final String PREFIX = "org.eclipse.swt.internal.win32.";
 
+    public static final String DARK_SCROLLBARS = "darkScrollbars";
+
     private static final Map<String, String> BOOLEANS = Map.of(
-            "darkScrollbars", "useDarkModeExplorerTheme",
+            DARK_SCROLLBARS, "useDarkModeExplorerTheme",
             "darkCombos", "Combo.useDarkTheme",
             "darkTextIcons", "Text.useDarkThemeIcons",
             "progressBarColors", "ProgressBar.useColors");
@@ -93,12 +96,22 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
     @Override
     public void beforeTheme(Display display, ResolvedStyle settings, ThemeResources resources) {
         BOOLEANS.forEach((key, swtKey) -> display.setData(PREFIX + swtKey, settings.bool(key).orElse(false)));
+        display.setData(PREFIX + BOOLEANS.get(DARK_SCROLLBARS), darkScrollbars(settings));
         // A null value makes SWT go back to its default color.
         COLORS.forEach((key, swtKey) -> display.setData(PREFIX + swtKey, settings.color(key).map(resources::color).orElse(null)));
         if (!menuBarColorsReadable(settings.color("menuBarBackground").map(c -> c.rgb))) {
             display.setData(PREFIX + "menuBarBackgroundColor", null);
             display.setData(PREFIX + "menuBarForegroundColor", null);
         }
+    }
+
+    /**
+     * Whether the native scroll bars (and the other parts {@code useDarkModeExplorerTheme} covers)
+     * are dark: {@code darkScrollbars}, or when the theme leaves it out, {@code darkThemePreferred}.
+     * A dark theme that sets only the latter gets dark scroll bars too, not light ones on a dark window.
+     */
+    public static boolean darkScrollbars(ResolvedStyle settings) {
+        return settings.bool(DARK_SCROLLBARS).orElseGet(() -> settings.bool(DARK_THEME_PREFERRED).orElse(false));
     }
 
     /**
@@ -134,7 +147,7 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
             api.theme(control, dark, dark ? "DarkMode_CFD" : "CFD");
             api.themeDropDown(combo, dark);
         } else if (control instanceof Scrollable || control instanceof Button || control instanceof Slider) {
-            boolean dark = settings.bool("darkScrollbars").orElse(false);
+            boolean dark = darkScrollbars(settings);
             api.theme(control, dark, dark ? "DarkMode_Explorer" : "Explorer");
         }
     }
@@ -175,6 +188,8 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
     /** SWT's internal {@code org.eclipse.swt.internal.win32.OS}, looked up reflectively. */
     private static final class Native {
         private final Field handle;
+        /** {@code Control.topHandle()}, or null: the window that holds a Tree's scroll bars may be another. */
+        private final Method topHandle;
         private final Method allowDarkMode;
         private final Method setWindowTheme;
         private final Method redrawWindow;
@@ -215,6 +230,7 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
             callbackConstructor = callback.getConstructor(Object.class, String.class, int.class);
             callbackAddress = callback.getMethod("getAddress");
             handle = Control.class.getField("handle");
+            topHandle = optionalMethod(Control.class, "topHandle");
             allowDarkMode = os.getMethod("AllowDarkModeForWindow", long.class, boolean.class);
             setWindowTheme = os.getMethod("SetWindowTheme", long.class, char[].class, char[].class);
             redrawWindow = os.getMethod("RedrawWindow", long.class, rect, long.class, int.class);
@@ -244,14 +260,39 @@ public final class Win32ThemeSupport extends PlatformThemeSupport {
             }
         }
 
+        private static Method optionalMethod(Class<?> type, String name) {
+            try {
+                Method method = type.getDeclaredMethod(name);
+                method.setAccessible(true);
+                return method;
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                LOG.log(Level.DEBUG, "No " + type.getSimpleName() + "." + name + "(); only the control's own window is themed", e);
+                return null;
+            }
+        }
+
+        /**
+         * Themes the control's window and, when it differs, its top window. A Tree with columns, a
+         * header or {@code SWT.MeasureItem} listeners is put in an {@code hwndParent} window, made
+         * when the first of these comes, that owns its scroll bars. SWT gives that window the dark
+         * mode only when it makes it, so a later switch must reach it too.
+         */
         void theme(Control control, boolean dark, String themeName) {
             try {
                 long hwnd = handle.getLong(control);
-                allowDarkMode.invoke(null, hwnd, dark);
-                setWindowTheme.invoke(null, hwnd, (themeName + "\0").toCharArray(), null);
+                theme(hwnd, dark, themeName);
+                long top = topHandle != null ? (long) topHandle.invoke(control) : hwnd;
+                if (top != hwnd && top != 0) {
+                    theme(top, dark, themeName);
+                }
             } catch (ReflectiveOperationException e) {
                 LOG.log(Level.DEBUG, "Could not switch the window theme of " + control, e);
             }
+        }
+
+        private void theme(long hwnd, boolean dark, String themeName) throws ReflectiveOperationException {
+            allowDarkMode.invoke(null, hwnd, dark);
+            setWindowTheme.invoke(null, hwnd, (themeName + "\0").toCharArray(), null);
         }
 
         /**
