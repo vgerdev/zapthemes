@@ -5,11 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.function.BiFunction;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.GC;
-import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.graphics.ImageData;
-import org.eclipse.swt.graphics.RGB;
-import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -37,7 +32,7 @@ import com.zapthemes.themes.BundledThemes;
 /**
  * Native scroll bars are drawn by Windows: dark in a dark theme (zap-dark, and zap-high-contrast,
  * which only inherits {@code darkScrollbars}), light in a light one, and they follow a switch at
- * runtime. Read from the screen, as {@code Control.print} does not draw the non-client area.
+ * runtime. Read with {@code PrintWindow} ({@link ScrollBarPixels}), which draws the scroll bars.
  */
 class ScrollBarPaintTest {
 
@@ -46,18 +41,13 @@ class ScrollBarPaintTest {
     private final Display display = Display.getDefault();
 
     @BeforeEach
-    void onWindows() throws java.io.IOException {
+    void onWindows() {
         Assumptions.assumeTrue("win32".equals(SWT.getPlatform()), "Windows draws the native scroll bars");
-        screen = ScreenLock.acquire();
     }
 
-    private ScreenLock screen;
 
     @AfterEach
-    void tearDown() throws java.io.IOException {
-        if (screen != null) {
-            screen.close();
-        }
+    void tearDown() {
         for (var shell : display.getShells()) {
             shell.dispose();
         }
@@ -196,49 +186,12 @@ class ScrollBarPaintTest {
         }
     }
 
-    /**
-     * The mean luminance of the lower part of the vertical scroll bar's track, as it is on the
-     * screen: below the thumb (scrolled to the top), above the down arrow.
-     */
+    /** The mean luminance of the lower part of the vertical scroll bar's track, as Windows draws it. */
     private double track(Scrollable scrollable) {
-        Rectangle client = scrollable.getClientArea();
-        int barWidth = scrollable.getVerticalBar().getSize().x;
-        int arrow = barWidth;
-        int top = client.height / 2;
-        int bottom = client.height - arrow - 2;
-        var origin = scrollable.toDisplay(client.x + client.width, client.y);
-        int width = Math.max(1, barWidth - 4);
-        int height = Math.max(1, bottom - top);
-        Image image = new Image(display, width, height);
-        GC gc = new GC(display);
-        gc.copyArea(image, origin.x + 2, origin.y + top);
-        gc.dispose();
-        ImageData data = image.getImageData();
-        image.dispose();
-        double sum = 0;
-        boolean allBlack = true;
-        for (int y = 0; y < data.height; y++) {
-            for (int x = 0; x < data.width; x++) {
-                RGB rgb = data.palette.getRGB(data.getPixel(x, y));
-                allBlack &= rgb.red == 0 && rgb.green == 0 && rgb.blue == 0;
-                sum += luminance(rgb);
-            }
+        try {
+            return ScrollBarPixels.track(scrollable);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
         }
-        double mean = sum / (data.width * data.height);
-        Assumptions.assumeFalse(allBlack && mean == 0 && isLocked(), "the screen cannot be read (locked desktop?)");
-        return mean;
-    }
-
-    private static boolean isLocked() {
-        return ProcessHandle.allProcesses().anyMatch(p -> p.info().command().map(c -> c.toLowerCase().endsWith("logonui.exe")).orElse(false));
-    }
-
-    private static double luminance(RGB rgb) {
-        return 0.2126 * linear(rgb.red) + 0.7152 * linear(rgb.green) + 0.0722 * linear(rgb.blue);
-    }
-
-    private static double linear(int channel) {
-        double c = channel / 255.0;
-        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 }

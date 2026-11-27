@@ -5,11 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.function.BooleanSupplier;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.GC;
-import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.graphics.ImageData;
-import org.eclipse.swt.graphics.RGB;
-import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Scrollable;
@@ -28,9 +23,9 @@ import com.zapthemes.swt.widgets.Shell;
 import com.zapthemes.themes.BundledThemes;
 
 /**
- * The file browser's native scroll bars (the folder tree, the Details table) are dark in the dark
- * bundled themes, zap-high-contrast included, and light in zap-light, on Windows. Read from the
- * screen, as {@code Control.print} does not draw the scroll bars.
+ * The file browser's native scroll bars (the folder tree, the Details view) are dark in the dark
+ * bundled themes, zap-high-contrast included, and light in zap-light, on Windows. Read with
+ * {@code PrintWindow} ({@link ScrollBarPixels}), not from the screen.
  */
 class ScrollBarThemeTest {
 
@@ -47,20 +42,15 @@ class ScrollBarThemeTest {
         BundledThemes.RESOURCES.forEach(r -> registry.loadResource(BundledThemes.class.getClassLoader(), r));
     }
 
-    private ScreenLock screen;
 
     @BeforeEach
-    void setUp() throws java.io.IOException {
+    void setUp() {
         Assumptions.assumeTrue("win32".equals(SWT.getPlatform()), "Windows draws the native scroll bars");
-        screen = ScreenLock.acquire();
         manager = ThemeManager.get(display);
     }
 
     @AfterEach
-    void tearDown() throws java.io.IOException {
-        if (screen != null) {
-            screen.close();
-        }
+    void tearDown() {
         if (shell != null) {
             shell.dispose();
         }
@@ -91,7 +81,7 @@ class ScrollBarThemeTest {
     void darkInADarkTheme(String themeId) {
         open(themeId);
         assertThat(track(tree())).as("the folder tree in %s", themeId).isLessThan(0.1);
-        assertThat(track(table())).as("the Details table in %s", themeId).isLessThan(0.1);
+        assertThat(track(table())).as("the Details view in %s", themeId).isLessThan(0.1);
     }
 
     @ParameterizedTest
@@ -102,11 +92,11 @@ class ScrollBarThemeTest {
         manager.setTheme(registry.resolve(themeId));
         idle();
         assertThat(track(tree())).as("the folder tree in %s", themeId).isLessThan(0.1);
-        assertThat(track(table())).as("the Details table in %s", themeId).isLessThan(0.1);
+        assertThat(track(table())).as("the Details view in %s", themeId).isLessThan(0.1);
         manager.setTheme(registry.resolve("zap-light"));
         idle();
         assertThat(track(tree())).as("the folder tree back in zap-light").isGreaterThan(0.5);
-        assertThat(track(table())).as("the Details table back in zap-light").isGreaterThan(0.5);
+        assertThat(track(table())).as("the Details view back in zap-light").isGreaterThan(0.5);
     }
 
     private Scrollable tree() {
@@ -114,7 +104,7 @@ class ScrollBarThemeTest {
     }
 
     private Scrollable table() {
-        return browser.fileTable().table;
+        return browser.fileGrid();
     }
 
     private void idle() {
@@ -135,44 +125,13 @@ class ScrollBarThemeTest {
         }
     }
 
-    /** The mean luminance of the lower part of the vertical scroll bar's track, from the screen. */
+    /** The mean luminance of the lower part of the vertical scroll bar's track, as Windows draws it. */
     private double track(Scrollable scrollable) {
         assertThat(scrollable.getVerticalBar().getVisible()).as("%s scrolls", scrollable).isTrue();
-        Rectangle client = scrollable.getClientArea();
-        int barWidth = scrollable.getVerticalBar().getSize().x;
-        Rectangle bounds = scrollable.getBounds();
-        int top = client.y + bounds.height / 2;
-        int bottom = bounds.height - 2 * barWidth - 4;
-        var origin = scrollable.toDisplay(client.x + client.width, 0);
-        int width = Math.max(1, barWidth - 4);
-        int height = Math.max(1, bottom - top);
-        Image image = new Image(display, width, height);
-        GC gc = new GC(display);
-        gc.copyArea(image, origin.x + 2, origin.y + top);
-        gc.dispose();
-        ImageData data = image.getImageData();
-        image.dispose();
-        double sum = 0;
-        for (int y = 0; y < data.height; y++) {
-            for (int x = 0; x < data.width; x++) {
-                sum += luminance(data.palette.getRGB(data.getPixel(x, y)));
-            }
+        try {
+            return ScrollBarPixels.track(scrollable);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
         }
-        Assumptions.assumeFalse(sum == 0 && locked(), "the screen cannot be read (locked desktop)");
-        return sum / (data.width * data.height);
-    }
-
-    private static boolean locked() {
-        return ProcessHandle.allProcesses()
-                .anyMatch(p -> p.info().command().map(c -> c.toLowerCase().endsWith("logonui.exe")).orElse(false));
-    }
-
-    private static double luminance(RGB rgb) {
-        return 0.2126 * linear(rgb.red) + 0.7152 * linear(rgb.green) + 0.0722 * linear(rgb.blue);
-    }
-
-    private static double linear(int channel) {
-        double c = channel / 255.0;
-        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 }
