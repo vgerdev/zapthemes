@@ -1,0 +1,89 @@
+diff --git a/org/eclipse/nebula/widgets/grid/Grid.java b/org/eclipse/nebula/widgets/grid/Grid.java
+index f6a42e5..3547c78 100644
+--- a/org/eclipse/nebula/widgets/grid/Grid.java
++++ b/org/eclipse/nebula/widgets/grid/Grid.java
+@@ -2032,11 +2032,16 @@ public class Grid extends Canvas {
+ 	 */
+ 	public void setItemHeight(final int height) {
+ 		checkWidget();
++		setComputedItemHeight(height);
++		userModifiedItemHeight = true;
++	}
++
++	/** ZapThemes: {@link #setItemHeight(int)} for a computed height, which keeps following the font. */
++	private void setComputedItemHeight(final int height) {
+ 		if (height < 1) {
+ 			SWT.error(SWT.ERROR_INVALID_ARGUMENT);
+ 		}
+ 		itemHeight = height;
+-		userModifiedItemHeight = true;
+ 		for (final GridItem item : items) {
+ 			item.setHeight(height);
+ 		}
+@@ -9577,9 +9582,48 @@ public class Grid extends Canvas {
+ 	 */
+ 	@Override
+ 	public void setFont(final Font font) {
++		final Font previous = getFont();
+ 		dataVisualizer.setDefaultFont(font);
+ 		defaultFont = font;
+ 		super.setFont(font);
++		// ZapThemes: heights come from the font, so they follow it (a zoom or a theme font change),
++		// down as well as up.
++		if (!getFont().equals(previous)) {
++			fontChanged();
++		}
++	}
++
++	/**
++	 * ZapThemes: recomputes what was sized from the old font: the header and footer heights, the
++	 * row header width and, unless the application set it, the item height. Items whose height
++	 * differs from the grid's item height (set one by one) keep it.
++	 */
++	private void fontChanged() {
++		estimate(sizingGC -> {
++			computeHeaderHeight(sizingGC);
++			computeFooterHeight(sizingGC);
++		});
++		if (!userModifiedItemHeight) {
++			final int old = itemHeight;
++			itemHeight = items.isEmpty() || columns.isEmpty()
++					? estimateWithResult(sizingGC -> sizingGC.getFontMetrics().getHeight() + 2)
++					: computeItemHeight(items.get(0));
++			if (itemHeight != old) {
++				final boolean differing = hasDifferingHeights;
++				for (final GridItem item : items) {
++					if (item.getHeight() == old) {
++						item.setHeight(itemHeight);
++					}
++				}
++				hasDifferingHeights = differing;
++			}
++		}
++		if (rowHeaderVisible && isAutoWidth()) {
++			computeRowHeaderWidth(0);
++		}
++		bottomIndex = -1;
++		setScrollValuesObsolete();
++		redraw();
+ 	}
+ 
+ 	/**
+@@ -10094,7 +10138,7 @@ public class Grid extends Canvas {
+ 			// FIXME Needs better algorithm
+ 			if (height + 20 > itemHeight) {
+ 				height = computeItemHeight(item);
+-				setItemHeight(height);
++				setComputedItemHeight(height);
+ 			}
+ 		} else {
+ 			if (firstImageSet || userModifiedItemHeight) {
+@@ -10102,7 +10146,7 @@ public class Grid extends Canvas {
+ 			}
+ 
+ 			final int height = computeItemHeight(item);
+-			setItemHeight(height);
++			setComputedItemHeight(height);
+ 
+ 			firstImageSet = true;
+ 		}
