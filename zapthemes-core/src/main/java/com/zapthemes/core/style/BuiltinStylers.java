@@ -3,6 +3,7 @@ package com.zapthemes.core.style;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.List;
@@ -18,7 +19,8 @@ import org.eclipse.swt.widgets.Widget;
  * <table>
  *   <caption>Extra properties by control type</caption>
  *   <tr><th>Type</th><th>Properties</th></tr>
- *   <tr><td>Table, Tree</td><td>{@code headerBackground}, {@code headerForeground}; owner-drawn
+ *   <tr><td>Table, Tree</td><td>{@code headerBackground}, {@code headerForeground} (neither set on a
+ *       dark {@code background}: the rows' colors, see {@link #headerColors}); owner-drawn
  *       {@code selectionBackground}, {@code selectionForeground}, {@code states.hover.background},
  *       {@code alternateRowBackground} (Table), {@code gridLineColor} (see {@link ItemPainter})</td></tr>
  *   <tr><td>CTabFolder</td><td>{@code selectionBackground}, {@code selectionForeground},
@@ -42,14 +44,16 @@ final class BuiltinStylers implements StylerProvider {
     @Override
     public void register(StylerRegistry registry) {
         registry.register("Table", extend((Table table, ResolvedStyle style, ThemeContext context) -> {
-            table.setHeaderBackground(context.color(style, "headerBackground"));
-            table.setHeaderForeground(context.color(style, "headerForeground"));
+            Color[] header = headerColors(style, context);
+            table.setHeaderBackground(header[0]);
+            table.setHeaderForeground(header[1]);
             ItemPainter.install(table);
             ItemPainter.updateLines(table, style);
         }));
         registry.register("Tree", extend((Tree tree, ResolvedStyle style, ThemeContext context) -> {
-            tree.setHeaderBackground(context.color(style, "headerBackground"));
-            tree.setHeaderForeground(context.color(style, "headerForeground"));
+            Color[] header = headerColors(style, context);
+            tree.setHeaderBackground(header[0]);
+            tree.setHeaderForeground(header[1]);
             ItemPainter.install(tree);
             ItemPainter.updateLines(tree, style);
         }));
@@ -85,6 +89,35 @@ final class BuiltinStylers implements StylerProvider {
         }));
         registry.register("Link", extend((Link link, ResolvedStyle style, ThemeContext context) ->
                 link.setLinkForeground(context.color(style, "linkForeground"))));
+    }
+
+    /**
+     * A Table's or Tree's header colors: {@code headerBackground} and {@code headerForeground}, or,
+     * when the theme sets neither and the rows' {@code background} is dark, the rows' colors.
+     * Without colors Windows draws the header itself, light on a dark table; its dark header theme
+     * would draw black text, as Windows leaves the text color to the header's owner. With colors,
+     * SWT paints the header.
+     */
+    static Color[] headerColors(ResolvedStyle style, ThemeContext context) {
+        Color background = context.color(style, "headerBackground");
+        Color foreground = context.color(style, "headerForeground");
+        if (background == null && foreground == null
+                && style.color("background").map(c -> isDark(c.rgb)).orElse(false)) {
+            background = context.color(style, "background");
+            foreground = context.color(style, "foreground");
+        }
+        return new Color[] { background, foreground };
+    }
+
+    /** Whether white text reads better on {@code rgb} than black text does. */
+    static boolean isDark(org.eclipse.swt.graphics.RGB rgb) {
+        double luminance = 0.2126 * linear(rgb.red) + 0.7152 * linear(rgb.green) + 0.0722 * linear(rgb.blue);
+        return 1.05 / (luminance + 0.05) > (luminance + 0.05) / 0.05;
+    }
+
+    private static double linear(int channel) {
+        double c = channel / 255.0;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
     /** Typed extra step run after the {@link DefaultStyler}. */

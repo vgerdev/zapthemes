@@ -400,7 +400,7 @@ For one widget, properties merge in this order, later steps winning:
 | Widgets | Properties |
 |---|---|
 | Every control and item | `background`, `foreground`, `font`; composites also take `backgroundMode` (`none`, `default`, `force`) |
-| Table, Tree | `headerBackground`, `headerForeground`. Owner-drawn: `selectionBackground`, `selectionForeground`, `alternateRowBackground` (Table), `gridLineColor`, `states.hover.background`, and `focusCellBackground` / `focusCellForeground` for the focus cell of JFace's `FocusCellOwnerDrawHighlighter` |
+| Table, Tree | `headerBackground`, `headerForeground`. When a rule sets neither and its `background` is dark, the header takes the rows' `background` and `foreground`: left to Windows it would be light (its dark header theme draws black text). Owner-drawn: `selectionBackground`, `selectionForeground`, `alternateRowBackground` (Table), `gridLineColor`, `states.hover.background`, and `focusCellBackground` / `focusCellForeground` for the focus cell of JFace's `FocusCellOwnerDrawHighlighter` |
 | CTabFolder | `selectionBackground`, `selectionForeground`, `selectionBarThickness`, `highlight`, `tabHeight` |
 | StyledText | `selectionBackground`, `selectionForeground`, `marginColor` |
 | List (also a CCombo's drop-down list) | `selectionBackground`, `selectionForeground`: painted over the selected items on Windows, where the native list box paints its own highlight (white text on white in the explorer dark mode) |
